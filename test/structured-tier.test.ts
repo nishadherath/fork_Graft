@@ -55,7 +55,8 @@ test("structured: the registry claims the five families and nothing a deeper tie
   assert.equal(structuredLangOf("log.jsonl")?.family, "json");
   assert.equal(structuredLangOf(".github/workflows/ci.yml")?.family, "yaml");
   assert.equal(structuredLangOf("pyproject.toml")?.family, "toml");
-  assert.equal(structuredLangOf(".editorconfig")?.family, "ini");
+  assert.equal(structuredLangOf("setup.cfg")?.family, "ini");
+  assert.equal(structuredLangOf("php.INI")?.family, "ini");
   assert.equal(structuredLangOf("src/util.ts"), null);
 
   const seen = new Set<string>();

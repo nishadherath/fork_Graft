@@ -25,6 +25,7 @@ import { loadWasmLanguage } from "../generic.js";
 import type { ExtractResult } from "../extract.js";
 import { extractJson } from "./json.js";
 import { extractMarkdown } from "./markdown.js";
+import { extractYaml } from "./yaml.js";
 import { structuredFileNode } from "./shared.js";
 
 export type StructuredFamily = "markdown" | "json" | "yaml" | "toml" | "ini";
@@ -39,13 +40,15 @@ export interface StructuredLang {
 }
 
 /** The structured registry. Extensions must not collide with another tier's;
- * `test/structured-tier.test.ts` pins that. */
+ * `test/structured-tier.test.ts` pins that. Dot-files and dot-directories
+ * (`.editorconfig`, `.github/workflows/`) are never walked (ingest/fs.ts), so no
+ * extension here can reach them. */
 export const STRUCTURED_LANGS: readonly StructuredLang[] = [
   { name: "markdown", family: "markdown", exts: [".md", ".markdown", ".mdx"] },
   { name: "json", family: "json", exts: [".json", ".jsonc", ".jsonl"], wasm: "json" },
   { name: "yaml", family: "yaml", exts: [".yaml", ".yml"], wasm: "yaml" },
   { name: "toml", family: "toml", exts: [".toml"] },
-  { name: "ini", family: "ini", exts: [".ini", ".cfg", ".editorconfig"], wasm: "ini" },
+  { name: "ini", family: "ini", exts: [".ini", ".cfg"], wasm: "ini" },
 ];
 
 /** Machine-written lockfiles that share a structured extension. Large, noisy and
@@ -75,11 +78,19 @@ export function structuredExtensions(): string[] {
 
 const loaded = new Map<string, unknown>();
 
+/** Grammars a family needs beyond its own: Markdown reads its front matter as YAML. */
+const ALSO_NEEDS: Readonly<Record<string, readonly string[]>> = { markdown: ["yaml"] };
+
 /** Warm the wasm grammars the given structured languages need. Same contract as
  * `warmGenericGrammars`: await once before the synchronous parse loop. An
  * unavailable grammar is skipped, and its files then extract to a file node only. */
 export async function warmStructuredGrammars(langNames: Iterable<string>): Promise<void> {
-  for (const name of new Set(langNames)) {
+  const wanted = new Set<string>();
+  for (const name of langNames) {
+    wanted.add(name);
+    for (const extra of ALSO_NEEDS[name] ?? []) wanted.add(extra);
+  }
+  for (const name of wanted) {
     if (loaded.has(name)) continue;
     const row = STRUCTURED_LANGS.find((l) => l.name === name);
     if (!row?.wasm) continue;
@@ -94,7 +105,9 @@ export async function warmStructuredGrammars(langNames: Iterable<string>): Promi
 export function extractStructured(rel: string, source: string, lang: StructuredLang): ExtractResult {
   switch (lang.family) {
     case "markdown":
-      return extractMarkdown(rel, source);
+      return extractMarkdown(rel, source, loaded.get("yaml"));
+    case "yaml":
+      return extractYaml(rel, source, loaded.get(lang.name));
     case "json":
       return extractJson(rel, source, loaded.get(lang.name), rel.toLowerCase().endsWith(".jsonl"));
     default:

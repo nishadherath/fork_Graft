@@ -23,7 +23,8 @@ import { contentHash } from "../../util/id.js";
 import { extractEmbedded } from "../container.js";
 import { languageOf, mintId, type ExtractResult, type Language, type RawEdge } from "../extract.js";
 import type { NodeV1 } from "../types.js";
-import { MAX_BODY_TEXT_CHARS, spanOf, splitLines, structuredFileNode } from "./shared.js";
+import { MAX_BODY_TEXT_CHARS, emitKeys, spanOf, splitLines, structuredFileNode } from "./shared.js";
+import { yamlKeyDrafts } from "./yaml.js";
 
 /** One heading: its 0-based first line (the paragraph's first line for a setext
  * heading), level 1 to 6, and plain text with inline markup removed. */
@@ -194,9 +195,10 @@ export function scanMarkdown(source: string): MarkdownScan {
   return { lines, headings, fences, frontMatterEnd };
 }
 
-/** Sections for one Markdown document: a file node, a `section` per non-empty
- * heading, and `contains` edges from each section's parent (or the file). */
-export function extractMarkdown(rel: string, source: string): ExtractResult {
+/** Sections for one Markdown document: a file node, a `key` per front matter key
+ * (when the yaml grammar is available), a `section` per non-empty heading, and
+ * `contains` edges from each section's parent (or the file). */
+export function extractMarkdown(rel: string, source: string, yaml?: unknown): ExtractResult {
   const { lines, headings, fences, frontMatterEnd } = scanMarkdown(source);
   const minted = new Set<string>([rel]);
   const nodes: NodeV1[] = [];
@@ -205,6 +207,15 @@ export function extractMarkdown(rel: string, source: string): ExtractResult {
   const firstHeading = headings[0]?.line ?? lines.length;
   const preface = lines.slice(frontMatterEnd, firstHeading).join(" ").replace(/\s+/g, " ").trim();
   nodes.push(structuredFileNode(rel, source, preface ? preface.slice(0, MAX_BODY_TEXT_CHARS) : undefined));
+
+  // Front matter is YAML between the first two `---` lines. Its rows are shifted
+  // by one so a key reports its line in this file, not in the block.
+  if (yaml && frontMatterEnd > 0) {
+    const block = lines.slice(1, frontMatterEnd - 1).join("\n");
+    const front = emitKeys(rel, lines, yamlKeyDrafts(yaml, block, 1));
+    nodes.push(...front.nodes);
+    rawEdges.push(...front.rawEdges);
+  }
 
   const open: Array<{ level: number; id: string }> = [];
   const placed: Array<{ id: string; start: number; end: number }> = []; // 0-based lines

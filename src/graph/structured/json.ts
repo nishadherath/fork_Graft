@@ -18,19 +18,15 @@
 import { parseWasm, type TsNode } from "../generic.js";
 import type { ExtractResult } from "../extract.js";
 import {
+  IDENTIFYING_FIELDS,
   MAX_KEY_DEPTH,
   emitKeys,
   endRowOf,
+  joinKey,
   splitLines,
   structuredFileNode,
   type KeyDraft,
 } from "./shared.js";
-
-/** Element fields that identify an array element to a reader. */
-const IDENTIFYING_FIELDS: ReadonlySet<string> = new Set(["name", "id", "key"]);
-
-/** A name that can follow a dot in a path without quoting. */
-const PLAIN_KEY = /^[A-Za-z_$][\w$-]*$/;
 
 function childrenOf(node: TsNode): TsNode[] {
   const out: TsNode[] = [];
@@ -57,11 +53,6 @@ function scalarOf(node: TsNode | null | undefined): string | undefined {
   if (node.type === "string") return decodeString(node);
   if (node.type === "number" || node.type === "true" || node.type === "false" || node.type === "null") return node.text;
   return undefined;
-}
-
-function joinKey(prefix: string, key: string): string {
-  if (PLAIN_KEY.test(key)) return prefix === "" ? key : `${prefix}.${key}`;
-  return `${prefix}[${JSON.stringify(key)}]`;
 }
 
 /** The value of an element's `name`, `id` or `key` field, when it has one. */

@@ -138,8 +138,10 @@ export interface RawEdge {
  * - `path`: `specifier` is a path a program or command names, whose base the text
  *   does not state: tried beside the file and at the repository root, and kept
  *   only when exactly one of those exists.
+ * - `class`: `name` is a class an HTML element carries; it targets the stylesheet
+ *   rule whose selector is exactly `.<name>`.
  */
-export type StructuredRef = "key" | "link" | "path";
+export type StructuredRef = "key" | "link" | "path" | "class";
 
 export interface ExtractResult {
   nodes: NodeV1[];

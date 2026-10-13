@@ -8,9 +8,12 @@
  * `extractEmbedded`; and the rules of each `<style>` block through the CSS walker.
  * All spans are lines of the host file.
  *
+ * It records what attributes point at: `src` and stylesheet `href` as imports,
+ * other `href`s as references, and each `class` as a reference to its rule. The
+ * resolver decides the targets once every file is extracted.
+ *
  * Deliberately does not: index elements without an identifier (a page's `<div>`s
- * name nothing), run inline event-handler attributes, or follow `src`/`href` to
- * other files (that is a later stage's edge pass). A script that is not
+ * name nothing), or run inline event-handler attributes. A script that is not
  * JavaScript (`type="application/json"`, a `text/template`) is left as text.
  *
  * The one non-obvious thing: an element's tree-sitter node swallows the
@@ -23,7 +26,7 @@ import { extractEmbedded } from "../container.js";
 import type { ExtractResult } from "../extract.js";
 import type { NodeV1 } from "../types.js";
 import { cssUnitDrafts } from "./css.js";
-import { emitUnits, splitLines, structuredFileNode, type UnitDraft } from "./shared.js";
+import { emitUnits, isExternalTarget, splitLines, structuredFileNode, type UnitDraft } from "./shared.js";
 import type { RawEdge } from "../extract.js";
 
 /** Longest signature kept for an element's opening tag. */
@@ -72,6 +75,28 @@ interface Context {
   drafts: UnitDraft[];
   embedded: NodeV1[];
   embeddedEdges: RawEdge[];
+  /** References made by attributes, keyed to the draft that owns them (-1 = file). */
+  refs: Array<{ owner: number; edge: Omit<RawEdge, "source"> }>;
+}
+
+/** A class name as a stylesheet selector could spell it. */
+const CLASS_NAME = /^-?[_a-zA-Z][\w-]*$/;
+
+/** Record what one tag's attributes point at. `src` and a stylesheet `<link href>`
+ * load the file, so they are `imports`; any other `href` is a link, a `references`.
+ * Each class names the rule `.class`. Template expressions (`{x}`, `{{ x }}`),
+ * same-page anchors and external targets name no file here. */
+function attributeRefs(ctx: Context, tag: string, tagNode: TsNode, owner: number): void {
+  const link = (relation: "imports" | "references", target: string | undefined): void => {
+    const t = target?.trim() ?? "";
+    if (t === "" || t.startsWith("#") || t.includes("{") || isExternalTarget(t)) return;
+    ctx.refs.push({ owner, edge: { relation, specifier: t, ref: "link", file: ctx.rel } });
+  };
+  link("imports", attribute(tagNode, "src"));
+  link(tag === "link" ? "imports" : "references", attribute(tagNode, "href"));
+  for (const name of (attribute(tagNode, "class") ?? "").split(/\s+/)) {
+    if (CLASS_NAME.test(name)) ctx.refs.push({ owner, edge: { relation: "references", name, ref: "class", file: ctx.rel } });
+  }
 }
 
 function embed(ctx: Context, body: TsNode, owner: number): void {
@@ -90,6 +115,7 @@ function walk(node: TsNode, parent: number, ctx: Context): void {
       const start = kids(child).find((c) => c.type === "start_tag");
       const body = kids(child).find((c) => c.type === "raw_text");
       const type = start ? attribute(start, "type") : undefined;
+      if (start) attributeRefs(ctx, "script", start, parent);
       if (body && (type === undefined || type === "" || SCRIPT_TYPE.test(type))) embed(ctx, body, parent);
     } else if (child.type === "style_element") {
       const body = kids(child).find((c) => c.type === "raw_text");
@@ -123,6 +149,10 @@ function walk(node: TsNode, parent: number, ctx: Context): void {
           });
         }
       }
+      // A void element written `<link ... />` has a self-closing tag instead.
+      const tagNode = start ?? kids(child).find((c) => c.type === "self_closing_tag");
+      const tagName = tagNode ? kids(tagNode).find((c) => c.type === "tag_name")?.text.toLowerCase() : undefined;
+      if (tagNode && tagName) attributeRefs(ctx, tagName, tagNode, idx);
       walk(child, idx, ctx);
     }
   }
@@ -138,7 +168,7 @@ export function extractHtml(rel: string, source: string, grammar: unknown | unde
   if (!root) return { nodes: [file], rawEdges: [] };
 
   const lines = splitLines(source);
-  const ctx: Context = { rel, lines, css, minted: new Set([rel]), drafts: [], embedded: [], embeddedEdges: [] };
+  const ctx: Context = { rel, lines, css, minted: new Set([rel]), drafts: [], embedded: [], embeddedEdges: [], refs: [] };
   walk(root, -1, ctx);
 
   const units = emitUnits(rel, lines, ctx.drafts);
@@ -149,5 +179,6 @@ export function extractHtml(rel: string, source: string, grammar: unknown | unde
     const m = /^owner:(-?\d+)$/.exec(e.source);
     return m ? { ...e, source: Number(m[1]) >= 0 ? idOfDraft(Number(m[1])) : rel } : e;
   });
-  return { nodes: [file, ...units.nodes, ...ctx.embedded], rawEdges: [...units.rawEdges, ...embeddedEdges] };
+  const refEdges: RawEdge[] = ctx.refs.map((r) => ({ ...r.edge, source: r.owner >= 0 ? idOfDraft(r.owner) : rel }));
+  return { nodes: [file, ...units.nodes, ...ctx.embedded], rawEdges: [...units.rawEdges, ...embeddedEdges, ...refEdges] };
 }

@@ -27,7 +27,7 @@ import { contentHash } from "../../util/id.js";
 import { extractEmbedded } from "../container.js";
 import { languageOf, mintId, type ExtractResult, type Language, type RawEdge } from "../extract.js";
 import type { NodeV1 } from "../types.js";
-import { MAX_BODY_TEXT_CHARS, emitKeys, spanOf, splitLines, structuredFileNode } from "./shared.js";
+import { MAX_BODY_TEXT_CHARS, emitKeys, isExternalTarget, spanOf, splitLines, structuredFileNode } from "./shared.js";
 import { yamlKeyDrafts } from "./yaml.js";
 
 /** One heading: its 0-based first line (the paragraph's first line for a setext
@@ -73,8 +73,6 @@ const LIST_MARKER = /^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]|$)/;
 const INLINE_LINK = /\[(?:[^\]\\]|\\.)*\]\(\s*(<[^>]*>|[^\s)]+)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/g;
 const LINK_DEFINITION = /^ {0,3}\[[^\]]+\]:\s*(<[^>]*>|\S+)/;
 const CODE_SPAN = /(`+)[^`]*?\1/g;
-/** A target with a scheme (`https:`, `mailto:`) or a network path leaves the repository. */
-const EXTERNAL_TARGET = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 
 /** Link targets on one prose line. Code spans are blanked first, so a link shown
  * as code is not read as one; external targets are dropped here. */
@@ -85,7 +83,7 @@ function linksOn(line: string, row: number, out: MarkdownLink[]): void {
   if (definition) targets.push(definition[1]!);
   for (const raw of targets) {
     const target = raw.replace(/^<|>$/g, "").trim();
-    if (target !== "" && !EXTERNAL_TARGET.test(target)) out.push({ line: row, target });
+    if (target !== "" && !isExternalTarget(target)) out.push({ line: row, target });
   }
 }
 

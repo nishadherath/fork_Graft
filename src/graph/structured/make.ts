@@ -5,7 +5,8 @@
  * (tab-indented, or after a `;`) beneath them, one `task` per target name with
  * the rule's span from the target line to its last recipe line. Pattern rules
  * (`%.o: %.c`) are named as written; special targets (`.PHONY`, `.DEFAULT`, ...)
- * and variable assignments, conditionals and includes are not tasks.
+ * and variable assignments, conditionals and includes are not tasks. Recipe lines
+ * also yield the package scripts and script files they run (`commands.ts`).
  *
  * Deliberately a scanner, not the bundled make grammar: recipes depend on a literal
  * tab, and the grammar's recovery on recipe lines is the thing that decides the
@@ -17,7 +18,8 @@
  * next rule is never claimed by this one.
  */
 import type { ExtractResult } from "../extract.js";
-import { emitUnits, splitLines, structuredFileNode, type UnitDraft } from "./shared.js";
+import { emitUnits, ownerAt, splitLines, structuredFileNode, type UnitDraft } from "./shared.js";
+import { commandEdges } from "./commands.js";
 
 const DIRECTIVE = /^(?:-?include|sinclude|ifeq|ifneq|ifdef|ifndef|else|endif|export|unexport|define|endef|override|vpath|undefine)\b/;
 /** `targets: prerequisites`, but not `VAR := x`, `VAR ::= x` or `VAR : = x`. */
@@ -58,5 +60,10 @@ export function extractMake(rel: string, source: string): ExtractResult {
   }
 
   const { nodes, rawEdges } = emitUnits(rel, lines, tasks);
+  // Each recipe line runs in its own shell; `@`, `-` and `+` are make's prefixes.
+  lines.forEach((line, row) => {
+    if (!line.startsWith("\t")) return;
+    rawEdges.push(...commandEdges(rel, line.replace(/^\t[@+-]*/, ""), () => ownerAt(nodes, row, rel)));
+  });
   return { nodes: [file, ...nodes], rawEdges };
 }

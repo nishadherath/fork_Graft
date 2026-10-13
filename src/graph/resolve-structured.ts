@@ -22,6 +22,10 @@ import { posix } from "node:path";
 import type { EdgeV1, NodeV1 } from "./types.js";
 import type { RawEdge } from "./extract.js";
 import { MIN_KEY_REF_SEGMENTS } from "./code-refs.js";
+import { joinKey } from "./structured/shared.js";
+
+/** The manifest whose `scripts` a package manager runs. */
+const PACKAGE_JSON = "package.json";
 
 /** The lookups every structured reference resolves against, built once per build. */
 export interface StructuredIndex {
@@ -31,6 +35,8 @@ export interface StructuredIndex {
   ids: ReadonlySet<string>;
   /** A class name → the selector nodes whose list holds exactly `.<class>`. */
   rulesByClass: Map<string, NodeV1[]>;
+  /** Directories holding a package.json (`.` for the root) → its key nodes by name. */
+  packages: Map<string, Map<string, NodeV1>>;
 }
 
 /** One selector in a list that is a bare class: `.btn`, not `.btn:hover` or `a.btn`. */
@@ -45,7 +51,15 @@ export interface StructuredHit {
 export function indexStructured(nodes: readonly NodeV1[]): StructuredIndex {
   const keysByPath = new Map<string, NodeV1[]>();
   const rulesByClass = new Map<string, NodeV1[]>();
+  const packages = new Map<string, Map<string, NodeV1>>();
   for (const n of nodes) {
+    if (posix.basename(n.path) === PACKAGE_JSON) {
+      const dir = posix.dirname(n.path);
+      const keys = packages.get(dir) ?? new Map<string, NodeV1>();
+      packages.set(dir, keys);
+      // First wins: a repeated name (`~2`) is the same key written twice.
+      if (n.kind === "key" && !keys.has(n.name)) keys.set(n.name, n);
+    }
     if (n.kind === "selector") {
       // A compound selector (`.card .title`, `.btn:hover`) applies under a condition
       // the class alone does not state, so only a bare `.class` in the list counts.
@@ -63,7 +77,7 @@ export function indexStructured(nodes: readonly NodeV1[]): StructuredIndex {
     if (segments.length >= MIN_KEY_REF_SEGMENTS) push(keysByPath, n.name, n);
     if (segments.length - 1 >= MIN_KEY_REF_SEGMENTS) push(keysByPath, segments.slice(1).join("."), n);
   }
-  return { keysByPath, ids: new Set(nodes.map((n) => n.id)), rulesByClass };
+  return { keysByPath, ids: new Set(nodes.map((n) => n.id)), rulesByClass, packages };
 }
 
 /**
@@ -99,6 +113,19 @@ export function resolveStructuredRef(e: RawEdge, index: StructuredIndex): Struct
       const local = rules.filter((r) => r.path === e.file);
       if (local.length > 0) return local.length === 1 ? { id: local[0]!.id, confidence: "extracted" } : null;
       return rules.length === 1 ? { id: rules[0]!.id, confidence: "inferred" } : null;
+    }
+    case "script": {
+      // npm runs the nearest package.json above the working directory, and the
+      // text names no other; so does this, and a missing script there is no edge.
+      if (!e.name) return null;
+      for (let dir = posix.dirname(e.file); ; dir = posix.dirname(dir)) {
+        const keys = index.packages.get(dir);
+        if (keys) {
+          const hit = keys.get(joinKey("scripts", e.name));
+          return hit ? { id: hit.id, confidence: "inferred" } : null;
+        }
+        if (dir === "." || dir === "/" || dir === "") return null;
+      }
     }
     default:
       return null;

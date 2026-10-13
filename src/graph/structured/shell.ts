@@ -6,13 +6,17 @@
  * per PowerShell `function` or `filter`, wherever it is nested, with its exact
  * span, its first line as signature and its text as body_text.
  *
+ * It also records the package scripts and script files the commands run
+ * (`commands.ts`), each hung off the function it is in, else the file.
+ *
  * Deliberately does not: record calls between functions, follow `source` or dot
  * sourcing, or index top-level commands and variables. Scripts are searched for the
  * function that does the work; the rest of a script is read whole.
  */
 import { parseWasm, type TsNode } from "../generic.js";
 import type { ExtractResult } from "../extract.js";
-import { emitUnits, endRowOf, splitLines, structuredFileNode, type UnitDraft } from "./shared.js";
+import { emitUnits, endRowOf, ownerAt, splitLines, structuredFileNode, type UnitDraft } from "./shared.js";
+import { commandEdges } from "./commands.js";
 
 const FUNCTION_TYPES: Readonly<Record<string, string>> = {
   function_definition: "word", // bash
@@ -62,5 +66,7 @@ export function extractShell(rel: string, source: string, language: unknown | un
   };
   if (root) visit(root);
   const { nodes, rawEdges } = emitUnits(rel, lines, drafts);
+  // The whole script runs in one shell, so a `cd` anywhere ends what can be resolved.
+  rawEdges.push(...commandEdges(rel, source, (line) => ownerAt(nodes, line, rel)));
   return { nodes: [file, ...nodes], rawEdges };
 }

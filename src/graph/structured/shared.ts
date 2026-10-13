@@ -67,6 +67,25 @@ export function isExternalTarget(target: string): boolean {
   return EXTERNAL_TARGET.test(target);
 }
 
+/** The innermost of `nodes` whose span holds the 0-based `row`, else `fallback`.
+ * A reference hangs off the tightest unit around the text that makes it, as the
+ * code tiers hang a call off the function it is in. */
+export function ownerAt(nodes: readonly NodeV1[], row: number, fallback: string): string {
+  let owner = fallback;
+  let width = Infinity;
+  for (const n of nodes) {
+    const m = /^L(\d+)-L(\d+)$/.exec(n.span);
+    if (!m || n.kind === "file") continue;
+    const start = Number(m[1]) - 1;
+    const end = Number(m[2]) - 1;
+    if (start <= row && row <= end && end - start <= width) {
+      owner = n.id;
+      width = end - start;
+    }
+  }
+  return owner;
+}
+
 // ---------------------------------------------------------------------------
 // Keys: the unit JSON, YAML, TOML and INI share.
 // ---------------------------------------------------------------------------

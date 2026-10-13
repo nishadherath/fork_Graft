@@ -23,10 +23,12 @@ import {
   emitKeys,
   endRowOf,
   joinKey,
+  ownerAt,
   splitLines,
   structuredFileNode,
   type KeyDraft,
 } from "./shared.js";
+import { commandEdges } from "./commands.js";
 
 function childrenOf(node: TsNode): TsNode[] {
   const out: TsNode[] = [];
@@ -130,5 +132,12 @@ export function extractJson(rel: string, source: string, language: unknown | und
     if (top) walk(top, -1, "", 0, rowBase, drafts);
   }
   const { nodes, rawEdges } = emitKeys(rel, lines, drafts);
+  // A package.json script is a command line: what it runs is a reference from it.
+  if (rel.split("/").pop() === "package.json") {
+    for (const d of drafts) {
+      if (d.depth !== 2 || d.value === undefined || !/^scripts(?:\.|\[)/.test(d.path)) continue;
+      rawEdges.push(...commandEdges(rel, d.value, () => ownerAt(nodes, d.startRow, rel)));
+    }
+  }
   return { nodes: [file, ...nodes], rawEdges };
 }

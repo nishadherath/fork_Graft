@@ -33,11 +33,23 @@ const loaded = new Map<string, Promise<unknown>>();
 
 /** Import `specifier` from `packageName`, once per process. Throws
  * {@link MissingConverterError} when the package is absent; any other failure is
- * re-thrown with the specifier added. */
-export function importOptional(packageName: string, specifier: string): Promise<unknown> {
+ * re-thrown with the specifier added. `noise` matches warnings the module prints
+ * while it loads that say nothing about this use of it; they are dropped, every
+ * other warning passes, and `console.warn` is restored once the import settles. */
+export function importOptional(packageName: string, specifier: string, noise?: RegExp): Promise<unknown> {
   let pending = loaded.get(specifier);
   if (!pending) {
-    pending = import(specifier).catch((err: unknown) => {
+    const warn = console.warn;
+    if (noise) {
+      console.warn = (...args: unknown[]) => {
+        if (typeof args[0] === "string" && noise.test(args[0])) return;
+        warn(...args);
+      };
+    }
+    const settled = import(specifier).finally(() => {
+      if (noise) console.warn = warn;
+    });
+    pending = settled.catch((err: unknown) => {
       loaded.delete(specifier);
       if (isModuleNotFound(err, specifier)) throw new MissingConverterError(packageName);
       throw new Error(`loading ${specifier} failed: ${err instanceof Error ? err.message : String(err)}`);

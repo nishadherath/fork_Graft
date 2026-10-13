@@ -39,6 +39,10 @@ interface PdfJs {
 /** pdfjs's Node build; the default build expects browser globals. */
 const PDFJS_SPECIFIER = "pdfjs-dist/legacy/build/pdf.mjs";
 
+/** What pdfjs warns at import when its own optional canvas package is absent.
+ * Text extraction never draws, so none of these lines applies here. */
+const PDFJS_LOAD_NOISE = /^Warning: Cannot (?:load "@napi-rs\/canvas" package|polyfill `(?:DOMMatrix|ImageData|Path2D)`)/;
+
 /** A baseline shift, as a fraction of the glyph height, that starts a new line. */
 const NEW_LINE_BASELINE_FRACTION = 0.5;
 
@@ -68,7 +72,7 @@ export function pageLines(items: readonly PdfTextItem[]): string[] {
 
 /** Every page of `bytes` as a `page` unit holding one paragraph of its lines. */
 export async function convertPdf(bytes: Uint8Array): Promise<DocumentUnit[]> {
-  const pdfjs = (await importOptional("pdfjs-dist", PDFJS_SPECIFIER)) as PdfJs;
+  const pdfjs = (await importOptional("pdfjs-dist", PDFJS_SPECIFIER, PDFJS_LOAD_NOISE)) as PdfJs;
   // pdfjs takes ownership of the buffer it is given, and refuses a Node Buffer, so
   // it gets a plain Uint8Array copy.
   const doc = await pdfjs.getDocument({

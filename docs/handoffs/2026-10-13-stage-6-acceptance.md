@@ -24,8 +24,8 @@ fixed on its branch or listed for the operator. Nothing pushed.
 ## Decisions already made
 
 - D1 to D7 stand (plan section 6). Do not reopen D1 (opt-in in the first pull request),
-  D2 (hand scanners for Markdown and TOML), D3 (rendering with line spans), D4 as an
-  open question for the operator (see below), D5 (design issue first).
+  D2 (hand scanners for Markdown and TOML), D3 (rendering with line spans), D4 (option A,
+  decided by the operator on 2026-10-13), D5 (design issue first).
 - The branches and their tips are as recorded in
   `docs/handoffs/2026-10-13-stage-5-upstream-texts.md` (audit table). Re-check each tip
   before testing; if a tip has moved, record the new tip and test that one.
@@ -67,10 +67,8 @@ fixed on its branch or listed for the operator. Nothing pushed.
 
 ## Decisions for the operator (do not decide these here)
 
-- **D4, install footprint.** Options A keep `optionalDependencies` (about 79 MB),
-  B optional peers, C drop them. Recommended B. Blast radius: every install under A.
-  Report what the documents text would need under each option; do not change
-  `package.json`.
+- **D4, install footprint: decided, option A.** `optionalDependencies` stay (about 79 MB
+  on Windows). Nothing to report for D4; do not change `package.json` for it.
 - **Rule 3 conflict.** `pr/documents-tier` changes `package.json` and the lockfile,
   which AGENTS.md rule 3 does not allow in a pull-request branch.
 - **README line 415.** Reads "(the default)" for `--no-structured`; the tier is off by
@@ -84,7 +82,7 @@ Nothing yet in Stage 6.
 
 ## Unresolved questions
 
-- Operator: D4, and the rule 3 exception (see above).
+- Operator: the rule 3 exception (see above).
 - Operator: whether the README fix goes in before the core pull request is opened.
 
 ## Exact next action

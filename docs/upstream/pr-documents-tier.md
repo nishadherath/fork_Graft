@@ -4,7 +4,7 @@
 >
 > Three things must be settled before this is opened:
 >
-> 1. **Install footprint (operator decision, open).** The text below describes the branch as it stands: `pdfjs-dist` and `fflate` as `optionalDependencies`, which npm installs by default, about 79 MB on Windows. The options are A keep it, B make them optional peers, or C drop them and let the refusal name the package. The recommendation in the Stage 5 handoff is B. Once decided, rewrite the section headed "Install" and, for B or C, the `package.json` change as well. Changing the declaration is a Sonnet or Opus change, not Haiku work.
+> 1. **Install footprint (decided: option A, 2026-10-13).** `pdfjs-dist` and `fflate` stay as `optionalDependencies`, so npm installs them by default, about 79 MB on Windows. The section headed "Install" below stands as written.
 > 2. **Repository rule conflict.** AGENTS.md rule 3 lets a pull-request branch carry only `src/`, `test/`, `CHANGELOG.md`, `CREDITS.md` and `README.md`. This branch also changes `package.json` and `package-lock.json`, which the converters need. The operator must accept that exception, or the dependency declaration must move out of the branch, before the branch is handed over.
 > 3. **Gate figure.** The tip commit `3aa52c1` records 1,489 tests, 1,484 pass, 0 fail, 5 skipped. The Stage 4 handoff records 1,517 tests and 1,512 pass after the lockfile was regenerated on a newer upstream base, but no commit carries that figure. The text quotes the commit figure. Run the gate on the branch and quote the result before opening.
 
@@ -40,8 +40,6 @@ The converters are loaded only when a document is read. If one is missing, the b
 **Install**
 
 The converters are declared as `optionalDependencies`, so npm installs them by default. On Windows, the measured cost is about 79 MB: `pdfjs-dist` 41 MB, its canvas package 37 MB, and `fflate` 0.8 MB. The `pdfjs-dist` version is pinned to 5.6.205, the last major that supports Node 20.
-
-*[Operator: rewrite this section once the install footprint decision is made.]*
 
 **Limits and flags**
 

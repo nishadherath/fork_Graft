@@ -19,6 +19,10 @@ pushed; no edits to `src/` or `test/`; no branch changed.
 
 - D1 to D7 stand (plan section 6). D5 A: the design issue is opened first, by the
   operator, then the pull requests.
+- D4 (converter installation): option A, chosen by the operator on 2026-10-13. The
+  original approval of A assumed the converters would add nothing to installs; Stage 4
+  measured about 79 MB, so the operator re-decided with that cost known. A keeps
+  `optionalDependencies` as built.
 - Stacking, corrected by the audit: `pr/crux-id-echo` is independent (based on
   `upstream/main`, not in the structured stack). The structured stack is
   `pr/structured-tier-core` (on `upstream/main`), then `pr/structured-tier-markup-build`,
@@ -84,12 +88,9 @@ Audit: `git log upstream/main..<branch> --name-only` (2026-10-13). Base `fe30ead
 
 ## Unresolved questions
 
-- **Operator, decision D4 (install footprint).** Options A keep `optionalDependencies`
-  (about 79 MB on Windows), B optional peer dependencies, C drop them and let the refusal
-  name the package. Recommended: B. Blast radius: every install under A; `--documents`
-  users only under B or C. Until decided, `docs/upstream/pr-documents-tier.md` describes
-  A as it stands. Once decided, the change to `package.json` and the install section
-  are a Sonnet or Opus task.
+- **D4 (install footprint): decided, option A.** `optionalDependencies` stay (about
+  79 MB on Windows, installed by default). `docs/upstream/pr-documents-tier.md` describes
+  A and needs no change for D4. The rule 3 exception below is separate and still open.
 - **Operator.** Accept the `package.json` exception to AGENTS.md rule 3, or move it
   (finding 2).
 - **Operator.** Approve the README fix and the rebase of the stack (finding 1).
@@ -100,7 +101,7 @@ Audit: `git log upstream/main..<branch> --name-only` (2026-10-13). Base `fe30ead
 
 ## Exact next action
 
-Operator decides D4 and findings 1 to 3. Stage 6 can start now on the branch tips,
+Operator decides findings 1 to 3 (D4 is now A). Stage 6 can start now on the branch tips,
 recorded above, and re-checks each tip before testing.
 
 ## Cost projection

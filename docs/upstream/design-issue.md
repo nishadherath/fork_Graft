@@ -1,6 +1,6 @@
 # Design issue: index structured text and opt-in documents
 
-> Operator note (not part of the issue text). Open this before the pull requests (plan decision D5 A). Paste from the line below the rule. Two paragraphs depend on decisions still open: the install footprint (see the "Open questions" item 4) and the default setting (item 1). Re-read both after the operator answers the footprint decision in the Stage 5 handoff.
+> Operator note (not part of the issue text). Open this before the pull requests (plan decision D5 A). Paste from the line below the rule. Open question 1 (the default setting) is still open. The install footprint (open question 4) is decided as option A, so the issue states it as the proposal and still asks maintainers for their view.
 
 ---
 
@@ -31,7 +31,7 @@ Embeddings or a vector index (lexical ranking already finds section text), image
 1. **Default.** We propose opt-in first (`--structured`), with a later release that makes it the default if you agree. The Markdown and configuration units are cheap to index, so the question is about surprise, not cost.
 2. **Parsers.** Hand-written scanners for Markdown and TOML, rather than adding block Markdown and TOML grammars to `tree-sitter-wasm` first. We would switch if acceptance finds heading forms the scanner mis-spans.
 3. **Document locators.** A text rendering with line spans, rather than a locator grammar for pages and slides. The binary's own path stays on the node, so ids, cards and `--only-dir` behave as they do today.
-4. **Converter installation.** The current draft declares `pdfjs-dist` and `fflate` as `optionalDependencies`, which npm installs by default. On Windows that adds about 79 MB (`pdfjs-dist` 41 MB, its canvas package 37 MB, `fflate` 0.8 MB). The alternatives are optional peer dependencies, or no packages with a refusal that names what to install. We have not settled this and would value your view.
+4. **Converter installation.** We propose declaring `pdfjs-dist` and `fflate` as `optionalDependencies`, so npm installs them by default and `--documents` works without a further step. On Windows that adds about 79 MB (`pdfjs-dist` 41 MB, its canvas package 37 MB, `fflate` 0.8 MB). The alternatives are optional peer dependencies, or no packages with a refusal that names what to install. We would value your view on that trade-off.
 
 ### Shape of the pull requests
 

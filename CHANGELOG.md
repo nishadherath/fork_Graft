@@ -26,6 +26,19 @@
   `.key` and similar) and minified assets are never indexed.
 - **Workflow YAML is indexed with `--structured`**: the walker admits `.yml` and
   `.yaml` files under `.github/workflows/`, and nothing else behind a dot.
+- **Edges between the structured tier and code**, at no model cost: a member
+  chain or string literal in TypeScript, JavaScript or Python that spells a key
+  path references the key (`inferred`); Markdown links reference the section or
+  file they name; HTML `src` and stylesheet `href` import the file, other `href`s
+  reference it, and a `class` references the rule `.class`; `npm run x`, `npm test`
+  and `node scripts/x.mjs` in workflows, shell scripts, Dockerfiles, Makefiles and
+  `package.json` scripts reference the nearest package.json's script key or the
+  file. Ambiguous matches produce no edge.
+- **`graft blast` follows those edges**: a changed key or section reports the code
+  and documents that name it or any key or section containing it.
+- **`--deep` over structured files**: the concept pass reads the files the tier
+  claims (never lockfiles), and the per-node summaries cover the first 40 units of
+  each structured file; the rest stay pending.
 
 ### Fixed
 

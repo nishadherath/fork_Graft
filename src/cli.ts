@@ -69,7 +69,7 @@ import { compactWrites, formatNonInteractiveHelp, formatPlan, runPicker } from "
 import { buildGraphWithProgress } from "./claude/build-progress.js";
 import { homedir } from "node:os";
 import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, runUpgrade } from "./cli-meta.js";
-import { patchBuildConfig, readStructured, type BuildConfig } from "./util/state.js";
+import { patchBuildConfig, readDocuments, readStructured, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
 import { latestSession, formatSessionStats, sessionInputRate } from "./claude/session-metrics.js";
 import { setInputRate } from "./context/savings.js";
@@ -158,16 +158,17 @@ const engineFrom = (): Graft => new Graft(cliConfig());
  * no-op — `graft build -e ".vue"` used to accept it, index nothing, and exit 0. The
  * supported set is listed so `-e` also answers "what is actually supported".
  */
-function warnUnsupportedExtensions(exts?: string[], structured = false): void {
+function warnUnsupportedExtensions(exts?: string[], structured = false, documents = false): void {
   if (!exts?.length) return;
-  const bad = unsupportedExtensions(exts, structured);
+  const bad = unsupportedExtensions(exts, structured, documents);
   if (bad.length === 0) return;
   for (const e of bad) {
     const shown = e.trim().startsWith(".") ? e.trim() : `.${e.trim()}`;
     console.error(`⚠ -e "${shown}": no parser registered for this extension — ignoring it.`);
   }
-  console.error(`  supported: ${supportedExtensions(structured).join(" ")}`);
+  console.error(`  supported: ${supportedExtensions(structured, documents).join(" ")}`);
   if (!structured) console.error("  (Markdown, JSON, YAML, TOML and INI need --structured.)");
+  if (!documents) console.error("  (PDF, DOCX, ODT, EPUB, PPTX and ODP need --structured --documents.)");
 }
 
 /** Text for the omitted-`[dir]` case, shared by every query command's help. */
@@ -399,6 +400,18 @@ program
     "--no-structured",
     "stop indexing those documents; persisted for later builds and automatic refreshes (default)",
   )
+  .option(
+    "--documents",
+    "with --structured, also index PDF, DOCX, ODT, EPUB, PPTX and ODP through a cached text rendering in " +
+      "graft/.graph/docs/: a section per heading, page or slide (same as GRAFT_DOCUMENTS=1); persisted. " +
+      "Needs the optional packages pdfjs-dist and fflate; a document over GRAFT_DOCUMENT_MAX_BYTES (25 MB) is skipped",
+  )
+  .option("--no-documents", "stop indexing those documents; persisted (default)")
+  .option(
+    "--deep-documents",
+    "with --deep, also summarise documents' sections, bounded per file like other structured files " +
+      "(same as GRAFT_DEEP_DOCUMENTS=1); not persisted, because each run pays for it",
+  )
   .option("--no-gitignore", "skip writing graft/ into .gitignore (same as GRAFT_NO_GITIGNORE=1)")
   .option("--no-ignore", "skip writing .ignore for ripgrep re-admit (same as GRAFT_NO_IGNORE=1)")
   .action(async (
@@ -415,6 +428,8 @@ program
       followSubmodules?: boolean;
       followNestedRepos?: boolean;
       structured?: boolean;
+      documents?: boolean;
+      deepDocuments?: boolean;
       gitignore?: boolean;
       ignore?: boolean;
     },
@@ -429,10 +444,16 @@ program
       process.exit(1);
     }
     const structuredWasExplicit = command.getOptionValueSource("structured") === "cli";
+    const documentsWasExplicit = command.getOptionValueSource("documents") === "cli";
+    const structuredNow = (structuredWasExplicit ? opts.structured : undefined) ?? readStructured(resolve(dir));
     warnUnsupportedExtensions(
       opts.extensions,
-      (structuredWasExplicit ? opts.structured : undefined) ?? readStructured(resolve(dir)),
+      structuredNow,
+      structuredNow && ((documentsWasExplicit ? opts.documents : undefined) ?? readDocuments(resolve(dir))),
     );
+    if (documentsWasExplicit && opts.documents === true && !structuredNow) {
+      console.error("⚠ --documents needs the structured tier: add --structured (documents are read by its Markdown scanner).");
+    }
     // Persisted BEFORE the build itself runs, so this invocation's walks (and
     // every later no-flag build / hooks refresh) see it identically — the
     // walkDir call sites read it from state, not from a threaded option.
@@ -483,6 +504,13 @@ program
     if (structuredWasExplicit && typeof opts.structured === "boolean") {
       buildConfigPatch.structured = opts.structured;
     }
+    if (documentsWasExplicit && typeof opts.documents === "boolean") {
+      buildConfigPatch.documents = opts.documents;
+    }
+    const deepDocumentsEnv = process.env.GRAFT_DEEP_DOCUMENTS;
+    const deepDocuments =
+      opts.deepDocuments === true ||
+      (deepDocumentsEnv !== undefined && deepDocumentsEnv !== "" && deepDocumentsEnv !== "0" && deepDocumentsEnv !== "false");
     if (Object.keys(buildConfigPatch).length > 0) {
       patchBuildConfig(resolve(dir), buildConfigPatch);
     }
@@ -556,6 +584,7 @@ program
     // Wiring graph — always; LLM meaning only with --deep.
     const g = await engine.graph(dir, {
       llm: deep,
+      deepDocuments,
       concurrency,
       reuse: opts.reuse,
       lsp: opts.lsp,

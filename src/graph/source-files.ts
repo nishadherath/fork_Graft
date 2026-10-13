@@ -22,16 +22,17 @@ import { languageOf, depthExtensions } from "./extract.js";
 import { genericLangOf, genericExtensions } from "./generic.js";
 import { containerLangOf, containerExtensions } from "./container.js";
 import { structuredLangOf, structuredExtensions } from "./structured/index.js";
-import { documentFormatOf } from "./structured/documents/index.js";
+import { documentExtensions, documentFormatOf } from "./structured/documents/index.js";
 
 /** Every extension graft has a parser for (depth + breadth + container, plus the
  * structured tier when it is on), sorted and de-duped: the authoritative answer
  * to "what does `-e` support". The structured extensions are listed only
  * when `structured` is set, or `-e .md` would read as supported while indexing
  * nothing, the silent no-op the warning exists to prevent. */
-export function supportedExtensions(structured = false): string[] {
+export function supportedExtensions(structured = false, documents = false): string[] {
   const all = [...depthExtensions(), ...genericExtensions(), ...containerExtensions()];
   if (structured) all.push(...structuredExtensions());
+  if (structured && documents) all.push(...documentExtensions());
   return [...new Set(all)].sort();
 }
 
@@ -79,8 +80,8 @@ function normExt(e: string): string {
  * `graft build -e ".vue"` used to accept these silently and index nothing; the CLI warns
  * on whatever this returns so an unsupported extension is never a quiet no-op.
  */
-export function unsupportedExtensions(exts: string[], structured = false): string[] {
-  const supported = new Set(supportedExtensions(structured));
+export function unsupportedExtensions(exts: string[], structured = false, documents = false): string[] {
+  const supported = new Set(supportedExtensions(structured, documents));
   return exts.filter((e) => !supported.has(normExt(e)));
 }
 

@@ -23,6 +23,7 @@ import { formatCruxMiss, type CruxMissKind, type CruxSummarizer, type NodeCrux, 
 import { LlmFailureGate } from "../ai/failure.js";
 import type { Crux, NodeV1 } from "./types.js";
 import { structuredLangOf } from "./structured/index.js";
+import { documentFormatOf } from "./structured/documents/index.js";
 
 /** Cap on the stored crux: an over-long pick is trimmed to its leading slice. */
 const MAX_CRUX_LINES = 12;
@@ -52,6 +53,10 @@ export interface EnrichOptions {
    * never interleaves with a node mutation.
    */
   checkpoint?: () => void;
+  /** Also summarise documents (PDF, DOCX, ...), bounded like a structured file
+   * (`--deep-documents`). Off by default: a document's every unit is left
+   * pending and never sent, because a long manual is many calls of little use. */
+  deepDocuments?: boolean;
 }
 
 /** How often the crux pass flushes partial progress to disk. Read at call time (not
@@ -82,17 +87,24 @@ export interface EnrichStats {
 /** Ids of the structured-tier units after the first
  * {@link MAX_DEEP_UNITS_PER_STRUCTURED_FILE} of their file, by start line. Decided
  * over every node of the file, cached or not, so the bound names the same units on
- * every run rather than whichever happen to be dirty. */
-function structuredUnitsBeyondBound(nodes: readonly NodeV1[]): Set<string> {
+ * every run rather than whichever happen to be dirty. A document's nodes, its file
+ * node included, are all beyond the bound unless `deepDocuments` is set. */
+function structuredUnitsBeyondBound(nodes: readonly NodeV1[], deepDocuments: boolean): Set<string> {
   const byPath = new Map<string, Array<{ id: string; line: number; order: number }>>();
+  const excluded = new Set<string>();
   nodes.forEach((n, order) => {
-    if (n.kind === "file" || structuredLangOf(n.path) === null) return;
+    const document = documentFormatOf(n.path) !== null;
+    if (document && !deepDocuments) {
+      excluded.add(n.id);
+      return;
+    }
+    if (n.kind === "file" || (structuredLangOf(n.path) === null && !document)) return;
     const line = Number(/^L(\d+)/.exec(n.span)?.[1] ?? Number.MAX_SAFE_INTEGER);
     const list = byPath.get(n.path) ?? [];
     list.push({ id: n.id, line, order });
     byPath.set(n.path, list);
   });
-  const beyond = new Set<string>();
+  const beyond = excluded;
   for (const list of byPath.values()) {
     list.sort((a, b) => a.line - b.line || a.order - b.order);
     for (const u of list.slice(MAX_DEEP_UNITS_PER_STRUCTURED_FILE)) beyond.add(u.id);
@@ -147,7 +159,7 @@ export async function enrichGraph(
 
   // One LLM call per file: group the dirty nodes by the file they live in. A
   // structured file's units past the bound are never sent, and stay as they were.
-  const beyondBound = structuredUnitsBeyondBound(nodes);
+  const beyondBound = structuredUnitsBeyondBound(nodes, opts.deepDocuments === true);
   const byFile = new Map<string, NodeV1[]>();
   for (const node of dirty) {
     if (!sources.has(node.path)) continue;

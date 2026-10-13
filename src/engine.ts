@@ -41,6 +41,8 @@ export interface CheckRunOptions {
 export interface GraphRunOptions {
   /** Run the Tier-2 LLM meaning pass (summary + crux). Absent → Tier-1 only. */
   llm?: boolean;
+  /** Let the LLM pass summarise documents too (`--deep-documents`). */
+  deepDocuments?: boolean;
   /** Max files summarized in parallel during the LLM pass. */
   concurrency?: number;
   /** Replay unchanged files from the extraction cache (default true). */
@@ -92,6 +94,7 @@ export class Graft {
     return buildGraph(dir, {
       contextDir: this.cfg.contextDir,
       summarizer: opts.llm ? this.cruxSummarizer() : undefined,
+      deepDocuments: opts.deepDocuments,
       concurrency: opts.concurrency,
       reuse: opts.reuse,
       lsp: opts.lsp,

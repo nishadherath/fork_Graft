@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tmpRepo } from "./helpers.js";
+import { runCli, tmpRepo } from "./helpers.js";
 import { pdf, zip } from "./document-fixtures.js";
 import { ask } from "../src/ask/ask.js";
 import { buildGraph, type GraphBuildResult } from "../src/graph/build.js";
@@ -24,7 +24,12 @@ import { prepareDocuments } from "../src/graph/structured/documents/cache.js";
 import { importOptional, MissingConverterError } from "../src/graph/structured/documents/load.js";
 import { readGraph, wiringPath } from "../src/graph/write.js";
 import { grepGraph } from "../src/search/grep.js";
-import { patchBuildConfig } from "../src/util/state.js";
+import { patchBuildConfig, readBuildConfig, readDocuments } from "../src/util/state.js";
+import { listContextFiles } from "../src/context/build.js";
+import { enrichGraph, MAX_DEEP_UNITS_PER_STRUCTURED_FILE } from "../src/graph/enrich.js";
+import { supportedExtensions } from "../src/graph/source-files.js";
+import { relPosix } from "../src/util/paths.js";
+import type { CruxSummarizer, FileCruxInput } from "../src/ai/crux.js";
 import type { GraphV1, NodeV1 } from "../src/graph/types.js";
 
 const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
@@ -424,6 +429,76 @@ test("documents: ask --source prints the rendering's lines, and its pointer and 
   assert.equal(group.symbol?.path, renderingRel(bytes));
   assert.equal(group.symbol?.span, "L4-L6");
   assert.deepEqual(group.hits, [{ line: 6, text: "Rottnest Island counts" }]);
+});
+
+test("documents: --documents is persisted, needs the structured tier, and has an env twin", () => {
+  const root = tmpRepo("documents-cli");
+  writeFileSync(join(root, "a.pdf"), pdf([["Cli page"]]));
+  const saved = { s: process.env.GRAFT_STRUCTURED, d: process.env.GRAFT_DOCUMENTS };
+  try {
+    delete process.env.GRAFT_STRUCTURED;
+    delete process.env.GRAFT_DOCUMENTS;
+    const on = runCli(["build", root, "--structured", "--documents"]);
+    assert.equal(on.status, 0, on.describe());
+    assert.equal(readBuildConfig(root)?.documents, true);
+    assert.ok(readGraph(wiringPath(join(root, "graft")))!.nodes.some((n) => n.id === "a.pdf#section:page-1"));
+    assert.ok(supportedExtensions(true, true).includes(".pdf"));
+    assert.ok(!supportedExtensions(true, false).includes(".pdf"), ".pdf must not read as supported while the tier is off");
+
+    // Without the structured tier the documents tier is off, whatever was chosen.
+    patchBuildConfig(root, { structured: false });
+    assert.equal(readDocuments(root), false);
+    patchBuildConfig(root, { structured: true });
+    process.env.GRAFT_DOCUMENTS = "0";
+    assert.equal(readDocuments(root), false, "GRAFT_DOCUMENTS=0 is an explicit off");
+    delete process.env.GRAFT_DOCUMENTS;
+
+    const off = runCli(["build", root, "--no-documents"]);
+    assert.equal(off.status, 0, off.describe());
+    assert.equal(readBuildConfig(root)?.documents, false);
+    assert.equal(readGraph(wiringPath(join(root, "graft")))!.nodes.some((n) => n.path === "a.pdf"), false);
+
+    const lonely = runCli(["build", root, "--no-structured", "--documents"]);
+    assert.equal(lonely.status, 0, lonely.describe());
+    assert.match(lonely.stderr, /--documents needs the structured tier/);
+  } finally {
+    for (const [key, value] of [["GRAFT_STRUCTURED", saved.s], ["GRAFT_DOCUMENTS", saved.d]] as const) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("documents: --deep sends no document unit unless --deep-documents asks, and then only the first units", async () => {
+  const unit = (id: string, line: number): NodeV1 => ({
+    id, name: id, kind: id.includes("#") ? "section" : "file", path: "manual.pdf", span: `L${line}-L${line}`,
+    signature: id, exported: true, origin: "generic", body_hash: `h-${id}`, summary_state: "pending", summary: null, crux: null,
+  });
+  const nodes = (): NodeV1[] => [
+    unit("manual.pdf", 1),
+    ...Array.from({ length: MAX_DEEP_UNITS_PER_STRUCTURED_FILE + 5 }, (_, i) => unit(`manual.pdf#section:page-${i + 1}`, i + 2)),
+  ];
+  const sent: string[] = [];
+  const summarizer: CruxSummarizer = {
+    async describeFile(input: FileCruxInput) {
+      sent.push(...input.nodes.map((n) => n.id));
+      return input.nodes.map((n) => ({ id: n.id, summary: `about ${n.id}`, crux_start: 0, crux_end: 0 }));
+    },
+  };
+  const sources = new Map([["manual.pdf", "rendering text"]]);
+
+  await enrichGraph(nodes(), new Map(), sources, { summarizer });
+  assert.deepEqual(sent, [], "a document costs nothing by default");
+
+  await enrichGraph(nodes(), new Map(), sources, { summarizer, deepDocuments: true });
+  assert.equal(sent.filter((id) => id.includes("#section:")).length, MAX_DEEP_UNITS_PER_STRUCTURED_FILE);
+
+  // The concept pass never reads a document, even with the tier on.
+  const root = tmpRepo("documents-concepts");
+  writeFileSync(join(root, "manual.pdf"), pdf([["x"]]));
+  writeFileSync(join(root, "a.ts"), "export const a = 1;\n");
+  patchBuildConfig(root, { structured: true, documents: true });
+  assert.deepEqual(listContextFiles(root, join(root, "graft"), undefined).map((f) => relPosix(root, f)), ["a.ts"]);
 });
 
 test("documents: a rebuild replays the rendering, an edit replaces it, and the probe and check stay clean", async () => {

@@ -411,7 +411,7 @@ graft build --no-follow-submodules   # exclude submodules again and persist that
 graft build --follow-nested-repos    # include nested git clones the index doesn't track; persist the choice
 graft build --no-follow-nested-repos # exclude nested clones again and persist that choice (the default)
 graft build --structured             # also index Markdown, JSON, YAML, TOML and INI: a section per heading, a key per path
-graft build --no-structured          # stop indexing those documents and persist that choice (the default)
+graft build --no-structured          # turn that indexing off again and persist the choice (it is off until --structured is run)
 graft build --structured --documents # also index PDF, DOCX, ODT, EPUB, PPTX and ODP through a cached text rendering
 graft build --deep --deep-documents  # let the LLM pass summarise documents too (not persisted)
 

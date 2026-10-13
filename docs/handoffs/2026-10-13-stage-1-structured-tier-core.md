@@ -2,7 +2,7 @@
 stage: "Stage 1: the structured tier, Markdown, JSON, YAML, TOML, INI"
 model: claude-sonnet-5-5
 effort: high
-status: in-progress
+status: done
 created: 2026-10-13
 from: "Fable 5.1 Stage 0 session (fork sync, crux fix, plan), 2026-10-13"
 ---
@@ -83,44 +83,79 @@ item below, each gated and quoted.
 
 ## Verified facts
 
-- Fork `main` at `9665d8b` (v0.21.1 plus the crux fix, the sync script
-  and the docs): `npm run build` exit 0; `npm test` 1,329 tests, 1,324
-  pass, 0 fail, 5 skipped, about 4 minutes (2026-10-13 11:13).
-- `npm ci` fails on `tree-sitter-kotlin` here; `npm ci --ignore-scripts`
-  then copy `node_modules/tree-sitter-kotlin/build/Release` from the
-  global install (protocol section 10). All grammars then load.
-- The global install is a copy of this tree's `dist/` (`sync-global`,
-  4 files changed on 2026-10-13, 607 unchanged).
-- BeWhole has 72 tracked Markdown, JSON and YAML files that graft skips
-  today: 55 `.md`, 16 `.json`, 1 `.yml`
-  (`git ls-files | grep -E "\.(md|json|ya?ml)$"`, 2026-10-13).
+- Final gate on the Stage 1 branch (`npm run build && npm test`, Node 26.7.0,
+  2026-10-13): 1,397 tests, 1,392 pass, 0 fail, 5 skipped, about 6.7 minutes.
+  Baseline on `main` was 1,329 tests; the 68 new ones are in
+  `test/structured-{tier,spans,fences,json,yaml,toml-ini,surfaces}.test.ts`.
+- `node scripts/sync-global.mjs`: 64 files changed, global graft answers 0.21.1.
+- This repository with `GRAFT_STRUCTURED=1 graft build .`: 2,832 nodes including 224
+  `section` and 113 `key`. `graft skeleton AGENTS.md` lists L9, L19, L61, L92, and
+  `sed -n` confirms each is that heading's line. `ask ... --source` prints
+  `ENGINEERING_PERSONA.md:L93-L103` for section 3.2, which is exactly that section.
+- BeWhole with the same: 1,396 nodes including 359 `section` and 347 `key`;
+  `graft ask "upload body limit" --source` returns `package.json:L24-L24`
+  `bewhole.upload.maxBodyBytes`, and line 24 is that key. BeWhole's git status was
+  identical before and after, and both graphs were rebuilt code-only afterwards.
+- Real-data span checks (the key's name, or the heading, is on the span's first
+  line): 603 sections in 78 Markdown files, 440 keys in 19 JSON files, 334 keys in
+  9 YAML files, 3,653 keys in 150 TOML, INI and CFG files, 0 mismatches. No real
+  document had a depth-tier fence, so that path rests on fixtures only.
+- Graft never walks dot-files or dot-directories (`src/ingest/fs.ts`, a documented
+  upstream limit), so `.github/workflows/*.yml` and `.editorconfig` are unreachable.
+  BeWhole's one `.yml` is `.github/workflows/ci.yml`, so it is not indexed.
+- `.jsonc` needs no separate path: the json grammar parses comments and recovers
+  around a trailing comma (the handoff's open question, answered and tested).
 
 ## Work completed
 
-Nothing yet in Stage 1.
+Branch `stage-1/structured-tier-core` on `main`, one commit per item, each gated:
+
+- `8d4395b` tier skeleton, `section`/`key` kinds, `--structured`, `GRAFT_STRUCTURED`
+- `c62c7a8` Markdown sections  `7f284b8` fenced code via `extractEmbedded`
+- `a61aa12` JSON, JSONC, JSONL  `9f1d668` YAML and Markdown front matter
+- `1d6c935` TOML scanner and INI  `715d5bb` surfaces, card collision fix, docs
+
+Deviations from the plan, each with its reason:
+
+- The opt-in persists in `.graft/config.json` (like `--follow-submodules`), not the
+  fingerprint, so a flagless `graft build` from the Stop hook keeps the tier.
+- `extractorStamp` now also hashes `src/graph/structured/`, or a scanner edit would
+  replay stale parses.
+- `writeCards` gives later claimants of a shared stem their extension
+  (`config.yml.md`); before, `config.json` and `config.yml` overwrote one card.
+- Fences keep only `contains` edges; a README sample must not claim an edge into `src/`.
+- Lockfiles (`package-lock.json`, `npm-shrinkwrap.json`, `pnpm-lock.yaml`) are denied
+  by name now, because `.json` is claimed; Stage 2 completes the denylist.
 
 ## Unresolved questions
 
-- Whether `--structured` should also admit `.jsonc` tsconfig files with
-  comments: parse with the `json` grammar's error recovery and see;
-  record the outcome. (this stage)
+- Decision (operator): graft's walk skips dot-directories. Options: A leave it
+  (`.github/workflows` stays unindexed); B allow an `--include-dir` override for
+  dot-directories (all tiers; edit `shouldSkipDir`); C a structured-only allowlist
+  (`.github`). A is free; B changes every repo's file set and is an upstream design
+  call; C is small but special-cases one tier. Blast radius: B and C change what
+  `graft build` indexes in repos that have `.github/`. Recommended: C, narrowly
+  `.github/workflows` for structured YAML, raised in the D5 design issue first.
+- Viewer colour table (`viewer/data.ts`) has no entry for `section` or `key`; they
+  draw in the neutral colour. Cosmetic; Stage 2 or the operator.
 
 ## Exact next action
 
-Set `status: in-progress` here, then write `test/structured-spans.test.ts`
-with a Markdown fixture (ATX and setext headings, a fenced TypeScript
-block, front matter) and a JSON fixture, asserting spans by known line
-numbers, and watch it fail before adding `src/graph/structured/`.
+Operator: review `git log upstream/main..pr/structured-tier-core --stat`, push the
+branch, then open the D5 design issue pointing at it. Stage 2 is specified in
+`docs/handoffs/2026-10-13-stage-2-markup-build.md` (Sonnet 5.5, medium).
 
 ## Cost projection
 
-Sonnet 5.5 at $2.00 in, $10.00 out, $0.20 cache read per million tokens.
-100 turns, average context 100k, 3k fresh input, 1.5k output per turn:
-cache 10M x $0.20 = $2.00; fresh 300k x $2.50 = $0.75; output 150k x $10
-= $1.50. About $4.25; quote $4 to $8 (the gate's output is large).
+Projected $4 to $8 (100 turns, 100k average context). Actual, estimated: about 190
+turns, context rising to 443k (average about 220k), so cache reads 190 x 220k = 41.8M
+x $0.20 = $8.4; fresh input 190 x 3k = 570k x $2.50 = $1.4; output 190 x 2k = 380k
+x $10 = $3.8; about $13.6 at API list price. Higher than the quote because the gate
+runs, seven of them, and the real-data checks kept the context long. Not measured:
+the plan account reports percentages, not tokens.
 
 ## Time projection
 
-90 to 150 minutes of agent time (the gate is about 4 minutes and runs at
-least six times; two `graft build` smoke runs on BeWhole). Operator
-review: about 25 minutes, mostly the scanners and the kind audit.
+Projected 90 to 150 minutes. Actual about 75 minutes wall clock (session
+clock 02:01 to 03:15 UTC), seven gates of about 5 to 7 minutes each. Operator
+review: about 25 minutes, mostly `markdown.ts`, `toml.ts` and the `cards.ts` change.

@@ -18,8 +18,10 @@
  * degrade safely: no fingerprint → "unknown, rebuild"; no parse cache → the
  * rebuild is just cold.
  */
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CACHE_DIR } from "../context/node-file.js";
+import { documentFormatOf } from "./structured/documents/index.js";
 import { contentHash } from "../util/id.js";
 import { readSourceFile } from "../util/source.js";
 import { readJson, writeJsonAtomic } from "../util/state.js";
@@ -163,6 +165,22 @@ export function probeDrift(root: string, outDir: string): Drift | null {
       continue;
     }
     const [size, mtimeMs, hash] = print;
+    if (documentFormatOf(f.rel)) {
+      // A document is hashed as bytes, never decoded. One the last build skipped
+      // for a missing converter (empty hash) stays clean until its bytes move, so
+      // it costs no rebuild per query; an explicit build retries it.
+      if (!hash) {
+        if (size !== f.size || mtimeMs !== f.mtimeMs) drift.changed.push(f.rel);
+        continue;
+      }
+      if (statUnchanged({ size, mtimeMs, hash }, f)) continue;
+      try {
+        if (contentHash(readFileSync(f.abs)) !== hash) drift.changed.push(f.rel);
+      } catch {
+        /* unreadable right now — leave it to the next probe */
+      }
+      continue;
+    }
     if (statUnchanged({ size, mtimeMs, hash }, f)) continue;
     // Suspect: confirm by bytes, so a touch (or a checkout that restores the
     // same content) doesn't cost a rebuild. An entry with an empty hash lands

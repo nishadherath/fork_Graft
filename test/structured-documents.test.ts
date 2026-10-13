@@ -283,6 +283,78 @@ test("documents: an EPUB renders its spine in order, a chapter marker each, head
   assert.equal(nodeById(graph, "book.epub").signature, `book.epub -> ${renderingRel(bytes)} (2 chapters)`);
 });
 
+test("documents: a PPTX renders slides in presentation order, titled by the title placeholder", async () => {
+  const P = 'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ' +
+    'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const shape = (paragraphs: string[], placeholder?: string): string =>
+    `<p:sp><p:nvSpPr><p:cNvPr id="2" name="s"/><p:cNvSpPr/><p:nvPr>${placeholder ? `<p:ph type="${placeholder}"/>` : ""}</p:nvPr></p:nvSpPr>` +
+    `<p:txBody><a:bodyPr/>${paragraphs.map((t) => `<a:p><a:r><a:rPr lang="en-AU"/><a:t>${t}</a:t></a:r></a:p>`).join("")}</p:txBody></p:sp>`;
+  const slide = (shapes: string): string => `<p:sld ${P}><p:cSld><p:spTree>${shapes}</p:spTree></p:cSld></p:sld>`;
+  const table =
+    '<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="t"/></p:nvGraphicFramePr><a:graphic><a:graphicData><a:tbl>' +
+    "<a:tr><a:tc><a:txBody><a:p><a:r><a:t>Cost</a:t></a:r></a:p></a:txBody></a:tc>" +
+    "<a:tc><a:txBody><a:p><a:r><a:t>Low</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>";
+  const bytes = zip({
+    // slide2.xml is listed first, so it is slide 1.
+    "ppt/presentation.xml": `<p:presentation ${P}><p:sldIdLst><p:sldId id="257" r:id="rId3"/><p:sldId id="256" r:id="rId2"/></p:sldIdLst></p:presentation>`,
+    "ppt/_rels/presentation.xml.rels":
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>' +
+      '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide2.xml"/>' +
+      "</Relationships>",
+    "ppt/slides/slide1.xml": slide(shape(["Closing remarks"]) + table),
+    "ppt/slides/slide2.xml": slide(shape(["Agenda"], "title") + shape(["Goals", "Risks"], "body")),
+  });
+  const { graph, rendering, renderingRel } = await build("pptx", { "deck.pptx": bytes });
+
+  const expected = [
+    "<!-- slide 1: Agenda -->", // 1
+    "Goals",                    // 2
+    "Risks",                    // 3
+    "",                         // 4
+    "<!-- slide 2 -->",         // 5
+    "Closing remarks",          // 6
+    "",                         // 7
+    "Cost",                     // 8
+    "Low",                      // 9
+  ];
+  assert.equal(rendering(bytes), text(expected));
+  const first = nodeById(graph, "deck.pptx#section:slide-1");
+  assert.equal(first.name, "slide 1: Agenda");
+  assert.equal(first.signature, `deck.pptx (slide 1) -> ${renderingRel(bytes)}:L1-L3`);
+  assert.equal(nodeById(graph, "deck.pptx#section:slide-2").signature, `deck.pptx (slide 2) -> ${renderingRel(bytes)}:L5-L9`);
+  assert.equal(nodeById(graph, "deck.pptx").signature, `deck.pptx -> ${renderingRel(bytes)} (2 slides)`);
+});
+
+test("documents: an ODP renders a slide per draw:page, titled by its title frame, without speaker notes", async () => {
+  const pages =
+    '<draw:page draw:name="page1">' +
+    '<draw:frame presentation:class="title"><draw:text-box><text:p>Roadmap</text:p></draw:text-box></draw:frame>' +
+    '<draw:frame presentation:class="outline"><draw:text-box><text:list>' +
+    "<text:list-item><text:p>Q1 launch</text:p></text:list-item><text:list-item><text:p>Q2 scale</text:p></text:list-item>" +
+    "</text:list></draw:text-box></draw:frame>" +
+    "<presentation:notes><draw:frame><draw:text-box><text:p>Speaker only</text:p></draw:text-box></draw:frame></presentation:notes>" +
+    "</draw:page>" +
+    '<draw:page draw:name="page2"><draw:frame><draw:text-box><text:p>Thanks</text:p></draw:text-box></draw:frame></draw:page>';
+  const bytes = zip({
+    mimetype: "application/vnd.oasis.opendocument.presentation",
+    "content.xml": `<office:document-content ${ODF_NS}><office:body><office:presentation>${pages}</office:presentation></office:body></office:document-content>`,
+  });
+  const { graph, rendering, renderingRel } = await build("odp", { "talk.odp": bytes });
+
+  assert.equal(rendering(bytes), text([
+    "<!-- slide 1: Roadmap -->", // 1
+    "Q1 launch",                 // 2
+    "Q2 scale",                  // 3
+    "",                          // 4
+    "<!-- slide 2 -->",          // 5
+    "Thanks",                    // 6
+  ]));
+  assert.equal(nodeById(graph, "talk.odp#section:slide-1").signature, `talk.odp (slide 1) -> ${renderingRel(bytes)}:L1-L3`);
+  assert.equal(nodeById(graph, "talk.odp#section:slide-2").signature, `talk.odp (slide 2) -> ${renderingRel(bytes)}:L5-L6`);
+});
+
 test("documents: a rebuild replays the rendering, an edit replaces it, and the probe and check stay clean", async () => {
   const first = pdf([["Version one"]]);
   const second = pdf([["Version two"], ["Appendix"]]);

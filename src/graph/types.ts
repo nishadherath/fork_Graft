@@ -29,7 +29,13 @@ export type Kind =
   // breadth tier's kinds read truthfully in cards/skeleton.
   | "module"
   | "constant"
-  | "variable";
+  | "variable"
+  // The structured tier (graph/structured/) indexes documents and configuration,
+  // not code: a Markdown heading with the text under it is a `section`, a JSON,
+  // YAML, TOML or INI entry is a `key`. Separate kinds rather than reuse of
+  // `module`/`variable` so cards and skeleton read truthfully.
+  | "section"
+  | "key";
 
 /** How confident we are an edge is true, best-first. The hand-written AST
  * resolver assigns `extracted`/`inferred`; the opt-in LSP enrichment pass
@@ -67,7 +73,8 @@ export interface NodeV1 {
   exported: boolean;
   // How the node was extracted. "ast" = a first-class hand-written extractor
   // (TS/JS/Python/Go, full-fidelity). "generic" = the tags.scm breadth tier
-  // (signature-only; symbols + bare edges, no scope-aware binding).
+  // (signature-only; symbols + bare edges, no scope-aware binding), and also the
+  // structured tier (sections and keys; `contains` edges only).
   origin: "ast" | "generic";
   body_hash: string; // sha256 of the definition text; the Tier-2 re-run trigger
   chars?: number; // byte length of the WHOLE file (file nodes only); the baseline

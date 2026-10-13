@@ -102,6 +102,11 @@ export interface BuildConfig {
    * checkout someone parked in the tree. Absent/false keeps the historical
    * boundary. */
   followNestedRepos?: boolean;
+  /** Whether the structured tier (Markdown, JSON, YAML, TOML, INI) is part of
+   * this repo's graph (`graft build --structured`). Persisted so the freshness
+   * probe, `check` and the automatic refresh enumerate the same files as the build
+   * that chose it. Absent/false keeps code-only indexing. */
+  structured?: boolean;
   /** The Trail brain this repo's rules come from: the brain id and the token to
    * read it with. Persisted here — in the git-ignored `.graft/` — rather than in
    * `~/.graft/`, because a brain belongs to one repository and two checkouts on
@@ -161,6 +166,17 @@ export function readIncludeDirs(d: string): Set<string> | undefined {
 /** Missing and explicit false both retain the backwards-compatible default. */
 export function readFollowSubmodules(d: string): boolean {
   return readBuildConfig(d)?.followSubmodules === true;
+}
+
+/** Whether the structured tier is on for repo `d`. `GRAFT_STRUCTURED` (the env
+ * twin of `--structured`) wins in both directions: any value but ""/"0"/"false"
+ * turns it on, "0"/"false" turns it off, and unset or empty defers to the
+ * persisted choice. Missing and explicit false both mean off (decision D1). */
+export function readStructured(d: string): boolean {
+  const env = process.env.GRAFT_STRUCTURED;
+  if (env === '0' || env === 'false') return false;
+  if (env !== undefined && env !== '') return true;
+  return readBuildConfig(d)?.structured === true;
 }
 
 /** Missing and explicit false both retain the backwards-compatible default. */

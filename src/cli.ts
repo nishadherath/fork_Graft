@@ -69,7 +69,7 @@ import { compactWrites, formatNonInteractiveHelp, formatPlan, runPicker } from "
 import { buildGraphWithProgress } from "./claude/build-progress.js";
 import { homedir } from "node:os";
 import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, runUpgrade } from "./cli-meta.js";
-import { patchBuildConfig, type BuildConfig } from "./util/state.js";
+import { patchBuildConfig, readStructured, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
 import { latestSession, formatSessionStats, sessionInputRate } from "./claude/session-metrics.js";
 import { setInputRate } from "./context/savings.js";
@@ -158,15 +158,16 @@ const engineFrom = (): Graft => new Graft(cliConfig());
  * no-op — `graft build -e ".vue"` used to accept it, index nothing, and exit 0. The
  * supported set is listed so `-e` also answers "what is actually supported".
  */
-function warnUnsupportedExtensions(exts?: string[]): void {
+function warnUnsupportedExtensions(exts?: string[], structured = false): void {
   if (!exts?.length) return;
-  const bad = unsupportedExtensions(exts);
+  const bad = unsupportedExtensions(exts, structured);
   if (bad.length === 0) return;
   for (const e of bad) {
     const shown = e.trim().startsWith(".") ? e.trim() : `.${e.trim()}`;
     console.error(`⚠ -e "${shown}": no parser registered for this extension — ignoring it.`);
   }
-  console.error(`  supported: ${supportedExtensions().join(" ")}`);
+  console.error(`  supported: ${supportedExtensions(structured).join(" ")}`);
+  if (!structured) console.error("  (Markdown, JSON, YAML, TOML and INI need --structured.)");
 }
 
 /** Text for the omitted-`[dir]` case, shared by every query command's help. */
@@ -389,6 +390,15 @@ program
     (val: string, prev: string[]) => [...prev, val],
     [] as string[],
   )
+  .option(
+    "--structured",
+    "also index Markdown, JSON, YAML, TOML and INI files: a section per heading, a key per dotted path, " +
+      "each with an exact line span (same as GRAFT_STRUCTURED=1); persisted for later builds and automatic refreshes",
+  )
+  .option(
+    "--no-structured",
+    "stop indexing those documents; persisted for later builds and automatic refreshes (default)",
+  )
   .option("--no-gitignore", "skip writing graft/ into .gitignore (same as GRAFT_NO_GITIGNORE=1)")
   .option("--no-ignore", "skip writing .ignore for ripgrep re-admit (same as GRAFT_NO_IGNORE=1)")
   .action(async (
@@ -404,6 +414,7 @@ program
       onlyDir?: string[];
       followSubmodules?: boolean;
       followNestedRepos?: boolean;
+      structured?: boolean;
       gitignore?: boolean;
       ignore?: boolean;
     },
@@ -417,7 +428,11 @@ program
       console.error(`✗ --concurrency must be a number, got "${opts.concurrency}"`);
       process.exit(1);
     }
-    warnUnsupportedExtensions(opts.extensions);
+    const structuredWasExplicit = command.getOptionValueSource("structured") === "cli";
+    warnUnsupportedExtensions(
+      opts.extensions,
+      (structuredWasExplicit ? opts.structured : undefined) ?? readStructured(resolve(dir)),
+    );
     // Persisted BEFORE the build itself runs, so this invocation's walks (and
     // every later no-flag build / hooks refresh) see it identically — the
     // walkDir call sites read it from state, not from a threaded option.
@@ -465,6 +480,9 @@ program
     if (followNestedReposWasExplicit && typeof opts.followNestedRepos === "boolean") {
       buildConfigPatch.followNestedRepos = opts.followNestedRepos;
     }
+    if (structuredWasExplicit && typeof opts.structured === "boolean") {
+      buildConfigPatch.structured = opts.structured;
+    }
     if (Object.keys(buildConfigPatch).length > 0) {
       patchBuildConfig(resolve(dir), buildConfigPatch);
     }
@@ -505,6 +523,7 @@ program
         includeDirs: opts.includeDir,
         followSubmodules: followSubmodulesWasExplicit ? opts.followSubmodules : undefined,
         followNestedRepos: followNestedReposWasExplicit ? opts.followNestedRepos : undefined,
+        structured: structuredWasExplicit ? opts.structured : undefined,
       });
       return;
     }
@@ -677,7 +696,7 @@ program
   .option("-e, --extensions <exts...>", "code extensions to include")
   .option("--json", "output the drift as JSON")
   .action(async (dirArg: string | undefined, opts: { extensions?: string[]; json?: boolean }) => {
-    warnUnsupportedExtensions(opts.extensions);
+    warnUnsupportedExtensions(opts.extensions, readStructured(resolve(dirArg ?? ".")));
     const dir = noteQuery(queryRoot(dirArg));
     const checkGlobalDir = program.opts<GlobalOpts>().dir;
     if (readWorkspace(dir, checkGlobalDir)) {

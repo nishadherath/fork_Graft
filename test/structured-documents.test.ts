@@ -231,6 +231,58 @@ test("documents: an ODT renders LibreOffice's pages, outline headings, lists and
   assert.equal(nodeById(graph, "spec.odt").signature, `spec.odt -> ${renderingRel(bytes)} (2 pages)`);
 });
 
+test("documents: an EPUB renders its spine in order, a chapter marker each, headings from h1 to h6", async () => {
+  const xhtml = (body: string, head = ""): string =>
+    `<?xml version="1.0" encoding="utf-8"?>\n<html xmlns="http://www.w3.org/1999/xhtml"><head>${head}</head><body>${body}</body></html>`;
+  const bytes = zip({
+    mimetype: "application/epub+zip",
+    "META-INF/container.xml":
+      '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>' +
+      '<rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>',
+    // The manifest lists chapter two first; the spine decides the reading order.
+    "OEBPS/content.opf":
+      '<package xmlns="http://www.idpf.org/2007/opf" version="3.0"><manifest>' +
+      '<item id="ch2" href="text/ch2.xhtml" media-type="application/xhtml+xml"/>' +
+      '<item id="ch1" href="text/ch1.xhtml" media-type="application/xhtml+xml"/>' +
+      '<item id="css" href="style.css" media-type="text/css"/>' +
+      '</manifest><spine><itemref idref="ch1"/><itemref idref="ch2"/></spine></package>',
+    "OEBPS/text/ch1.xhtml": xhtml(
+      "<h1>Chapter One</h1><p>It was a <em>dark</em>\n  night.</p><p>Line<br/>break</p>",
+      "<title>One</title><style>p { margin: 0 }</style>",
+    ),
+    "OEBPS/text/ch2.xhtml": xhtml(
+      "<section><h2>Second &amp; last</h2><ul><li>first item</li><li>second item</li></ul>" +
+        "<pre>code  line 1\ncode line 2</pre></section>",
+    ),
+  });
+  const { graph, rendering, renderingRel } = await build("epub", { "book.epub": bytes });
+
+  const expected = [
+    "<!-- chapter 1 -->",   //  1
+    "# Chapter One",        //  2
+    "",                     //  3
+    "It was a dark night.", //  4
+    "",                     //  5
+    "Line",                 //  6
+    "break",                //  7
+    "",                     //  8
+    "<!-- chapter 2 -->",   //  9
+    "## Second & last",     // 10
+    "",                     // 11
+    "first item",           // 12
+    "",                     // 13
+    "second item",          // 14
+    "",                     // 15
+    "code  line 1",         // 16
+    "code line 2",          // 17
+  ];
+  assert.equal(rendering(bytes), text(expected));
+  // An h2 nests under the h1 before it, as in Markdown, whichever chapter it is in.
+  assert.equal(nodeById(graph, "book.epub#section:chapter-one").signature, `book.epub (chapter 1) -> ${renderingRel(bytes)}:L2-L17`);
+  assert.equal(nodeById(graph, "book.epub#section:second--last").signature, `book.epub (chapter 2) -> ${renderingRel(bytes)}:L10-L17`);
+  assert.equal(nodeById(graph, "book.epub").signature, `book.epub -> ${renderingRel(bytes)} (2 chapters)`);
+});
+
 test("documents: a rebuild replays the rendering, an edit replaces it, and the probe and check stay clean", async () => {
   const first = pdf([["Version one"]]);
   const second = pdf([["Version two"], ["Appendix"]]);

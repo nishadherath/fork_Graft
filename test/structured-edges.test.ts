@@ -16,6 +16,7 @@ import { tmpRepo } from "./helpers.js";
 import { buildGraph } from "../src/graph/build.js";
 import { readGraph, wiringPath } from "../src/graph/write.js";
 import { patchBuildConfig } from "../src/util/state.js";
+import { scanMarkdown } from "../src/graph/structured/markdown.js";
 import type { EdgeV1, GraphV1 } from "../src/graph/types.js";
 
 const PACKAGE = [
@@ -260,6 +261,19 @@ test("markdown links: code spans, fences and missing files yield no edge", () =>
   assert.ok(!all.some((e) => e.target === "docs/setup.md#section:setup"), "a code span is not a link");
   assert.ok(!all.some((e) => e.target === "README.md"), "a fenced link is not a link");
   assert.ok(!all.some((e) => e.target.includes("missing")), "a missing file is not a target");
+});
+
+test("markdown links: a link written inside a raw HTML block is not a Markdown link", () => {
+  const scan = scanMarkdown([
+    "[before](a.md)",                 // 1
+    "",                               // 2
+    "<div>",                          // 3
+    "[inside](b.md)",                 // 4
+    "</div>",                         // 5
+    "",                               // 6
+    "[after](c.md)",                  // 7
+  ].join("\n") + "\n");
+  assert.deepEqual(scan.links.map((l) => [l.line, l.target]), [[0, "a.md"], [6, "c.md"]]);
 });
 
 test("code to anchor: a string naming a Markdown heading references that section", () => {

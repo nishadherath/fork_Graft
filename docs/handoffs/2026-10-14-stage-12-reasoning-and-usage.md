@@ -2,7 +2,7 @@
 stage: "Stage 12: GRAFT_REASONING, deep-pass token usage, .env.example refresh"
 model: claude-opus-5-5
 effort: high
-status: in-progress
+status: done
 created: 2026-10-14
 from: "Stage 11 session; operator decisions 1 and 2 (both yes), run in the same Opus session"
 ---
@@ -44,17 +44,37 @@ layout of the operator's `.env`. Gate green, global install synced, nothing push
 
 - DeepSeek, live, 2026-10-14: usage carries `prompt_tokens_details.cached_tokens` and
   `completion_tokens_details.reasoning_tokens`; `reasoning_effort` accepts none,
-  minimal, low, medium, high, xhigh, ultra, max, and a bogus value gets a 400 naming them.
-- Installed SDK types: openai `ReasoningEffort` none|minimal|low|medium|high|xhigh;
-  Anthropic `OutputConfig.effort` low|medium|high|xhigh|max.
+  minimal, low, medium, high, xhigh, ultra, max; a bogus value is refused with HTTP 422
+  (not 400) naming them, seen through graft's own build.
+- SDK types after `npm ci` on `main` (openai 7.32.0, @anthropic-ai/sdk 0.122.0): openai
+  `ReasoningEffort` none|minimal|low|medium|high|xhigh|max; Anthropic `OutputConfig.effort`
+  low|medium|high|xhigh|max; Anthropic usage has `output_tokens_details.thinking_tokens`.
 - Summaries ask for `maxTokens: 2048`; reasoning tokens spend the same budget.
 
 ## Work completed
 
-Nothing yet in Stage 12.
+- `0743b9a` feat(ai): `GRAFT_REASONING` / `--reasoning` / `EngineConfig.reasoning`;
+  `MeteredChatModel`; `tokens:` line and `deepUsage` in the manifest (single repo and
+  workspace children); refused level terminal in `failure.ts`; namer skips on a bad level.
+  New `test/reasoning-usage.test.ts` (14 tests), each seen failing first; two checked
+  by deliberate breakage (retry condition, reasoning-off clause).
+- `238dc9b` docs(env): `.env.example` mirrors the operator's `.env` field set (verified by a
+  sorted field-name diff). The operator's `.env` (git-ignored) gained the same commented
+  `GRAFT_REASONING` block, the DeepSeek base URL example and the `<repo>/graft` default.
+- Live, DeepSeek `deepseek-flash`, two-file repo, `--no-reuse`, worktree build:
+  default 5 calls, 1,388 input, 2,560 cached, 1,875 output (218 reasoning), 3 calls
+  reasoning off; `--reasoning low` 5 calls, 2,174 output (651 reasoning), 3 off;
+  `--reasoning bogus` exit 1, both passes stopped naming `GRAFT_REASONING`. No file held the key.
+- Gate on the final tree, Node 26.7.0, sequential: `npm run build` exit 0; `npm test`
+  1,552 tests, 1,547 pass, 0 fail, 5 skipped, 349 s. `sync-global`: 43 changed, 0 stale;
+  global `graft --help` lists `--reasoning`. Nothing pushed.
 
 ## Unresolved questions
 
+- Operator: which `GRAFT_REASONING` to use with deepseek-flash. One sample per level
+  (two text calls each) is too small to choose on: `low` produced more reasoning tokens
+  than the default in that run. Left unset (provider default, high).
+- Not live-tested: the Anthropic mapping (no Anthropic key here).
 - Operator: pushing `main`. Not this stage.
 
 ## Exact next action

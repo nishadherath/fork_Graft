@@ -15,6 +15,7 @@
  * whose XML is read by a hand-written scanner. No network, no model.
  */
 import { convertDocx } from "./docx.js";
+import { convertOdt } from "./odf.js";
 import { convertPdf } from "./pdf.js";
 import type { DocumentUnit } from "./render.js";
 
@@ -24,6 +25,7 @@ export type DocumentFormat = "pdf" | "docx" | "odt" | "epub" | "pptx" | "odp";
 const FORMAT_BY_EXTENSION: ReadonlyMap<string, DocumentFormat> = new Map([
   [".pdf", "pdf"],
   [".docx", "docx"],
+  [".odt", "odt"],
 ]);
 
 /** The document format of `path`, or null when the documents tier does not claim it. */
@@ -46,6 +48,8 @@ export async function convertDocument(bytes: Uint8Array, format: DocumentFormat)
       return convertPdf(bytes);
     case "docx":
       return convertDocx(bytes);
+    case "odt":
+      return convertOdt(bytes);
     default:
       throw new Error(`no converter for ${format} documents yet`);
   }

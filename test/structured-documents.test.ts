@@ -177,6 +177,60 @@ test("documents: a DOCX no editor laid out gets no page markers, and its locator
   assert.equal(nodeById(graph, "plain.docx").signature, `plain.docx -> ${renderingRel(bytes)}`);
 });
 
+const ODF_NS =
+  'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" ' +
+  'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" ' +
+  'xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" ' +
+  'xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" ' +
+  'xmlns:presentation="urn:oasis:names:tc:opendocument:xmlns:presentation:1.0"';
+
+test("documents: an ODT renders LibreOffice's pages, outline headings, lists and tables, and no notes", async () => {
+  const body = [
+    "<text:sequence-decls/>",
+    '<text:h text:outline-level="1">Overview</text:h>',
+    '<text:p>First<text:s text:c="2"/>para<text:tab/>tabbed.</text:p>',
+    "<text:list><text:list-item><text:p>Bullet one</text:p></text:list-item></text:list>",
+    // LibreOffice laid page 2 out from the middle of this paragraph.
+    "<text:p>Before break<text:soft-page-break/> after break</text:p>",
+    '<text:h text:outline-level="2">Data</text:h>',
+    "<table:table><table:table-row><table:table-cell><text:p>k</text:p></table:table-cell>" +
+      "<table:table-cell><text:p>v</text:p></table:table-cell></table:table-row></table:table>",
+    "<text:p>Cited<text:note><text:note-citation>1</text:note-citation>" +
+      "<text:note-body><text:p>Footnote</text:p></text:note-body></text:note> text.</text:p>",
+  ].join("");
+  const bytes = zip({
+    mimetype: "application/vnd.oasis.opendocument.text",
+    "content.xml": `<office:document-content ${ODF_NS}><office:body><office:text>${body}</office:text></office:body></office:document-content>`,
+  });
+  const { graph, rendering, renderingRel } = await build("odt", { "spec.odt": bytes });
+
+  const expected = [
+    "<!-- page 1 -->",       //  1
+    "# Overview",            //  2
+    "",                      //  3
+    "First  para\ttabbed.",  //  4
+    "",                      //  5
+    "Bullet one",            //  6
+    "",                      //  7
+    "Before break",          //  8
+    "",                      //  9
+    "<!-- page 2 -->",       // 10
+    "after break",           // 11
+    "",                      // 12
+    "## Data",               // 13
+    "",                      // 14
+    "k | v",                 // 15
+    "",                      // 16
+    "Cited text.",           // 17
+  ];
+  assert.equal(rendering(bytes), text(expected));
+  const overview = nodeById(graph, "spec.odt#section:overview");
+  const data = nodeById(graph, "spec.odt#section:data");
+  assert.equal(overview.signature, `spec.odt (page 1) -> ${renderingRel(bytes)}:L2-L17`);
+  assert.equal(data.signature, `spec.odt (page 2) -> ${renderingRel(bytes)}:L13-L17`);
+  assert.equal(nodeById(graph, "spec.odt").signature, `spec.odt -> ${renderingRel(bytes)} (2 pages)`);
+});
+
 test("documents: a rebuild replays the rendering, an edit replaces it, and the probe and check stay clean", async () => {
   const first = pdf([["Version one"]]);
   const second = pdf([["Version two"], ["Appendix"]]);

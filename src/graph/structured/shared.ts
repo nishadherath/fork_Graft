@@ -88,6 +88,19 @@ export function isSecret(path: string, value: string | undefined): boolean {
   return SECRET_NAME.test(path) || (value !== undefined && OPAQUE_VALUE.test(value));
 }
 
+/** Element fields that identify an array or sequence element to a reader. */
+export const IDENTIFYING_FIELDS: ReadonlySet<string> = new Set(["name", "id", "key"]);
+
+/** A name that can follow a dot in a key path without quoting. */
+const PLAIN_KEY = /^[A-Za-z_$][\w$-]*$/;
+
+/** `prefix.key` for a plain key, `prefix["odd key"]` for one that would make the
+ * path ambiguous (a dot, a space, a slash). The first segment has no leading dot. */
+export function joinKey(prefix: string, key: string): string {
+  if (PLAIN_KEY.test(key)) return prefix === "" ? key : `${prefix}.${key}`;
+  return `${prefix}[${JSON.stringify(key)}]`;
+}
+
 /** A key found by a format extractor, before ids, signatures and the caps are
  * applied. Rows are 0-based and inclusive. `parent` indexes the drafts array
  * (-1 for a top-level key) and always precedes the child. */

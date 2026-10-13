@@ -183,3 +183,54 @@ test("yaml: a workflow goes through a real build and checks as in sync", async (
   const check = await checkGraph(dir, { contextDir: outDir });
   assert.equal(check.ok, true, `check must be clean, got ${JSON.stringify(check)}`);
 });
+
+test("yaml: a mapping's span stops at its last line, not at the comment that introduces the next key", () => {
+  const source = doc([
+    "name: demo",           //  1
+    "a: 1",                 //  2
+    "",                     //  3
+    "# about b",            //  4
+    "b:",                   //  5
+    "  x: 1",               //  6
+    "  y:",                 //  7
+    "    z: 2",             //  8
+    "",                     //  9
+    "# gap comment",        // 10
+    "c: 3",                 // 11
+    "# trailing comment",   // 12
+  ]);
+  const nodes = keys(source, "probe.yaml");
+  const spans = Object.fromEntries(nodes.map((n) => [n.name, n.span]));
+  assert.equal(spans["b"], "L5-L8", "b ends at z, not at the comment line before c");
+  assert.equal(spans["b.y"], "L7-L8");
+  assert.equal(spans["c"], "L11-L11", "a last key does not claim a trailing comment");
+});
+
+test("yaml: a comment-like line inside a block scalar stays inside the span", () => {
+  const source = doc([
+    "script: |",            // 1
+    "  echo one",           // 2
+    "  # not a comment",    // 3
+    "",                     // 4
+    "# real comment",       // 5
+    "next: 1",              // 6
+  ]);
+  const spans = Object.fromEntries(keys(source, "probe.yaml").map((n) => [n.name, n.span]));
+  assert.equal(spans["script"], "L1-L3", "the # line is scalar text and the span includes it");
+  assert.equal(spans["next"], "L6-L6");
+});
+
+test("yaml: a sequence item with a name stops before the comment that follows it", () => {
+  const source = doc([
+    "steps:",               // 1
+    "  - name: one",        // 2
+    "    run: a",           // 3
+    "",                     // 4
+    "  # second step",      // 5
+    "  - name: two",        // 6
+    "    run: b",           // 7
+  ]);
+  const spans = Object.fromEntries(keys(source, "probe.yaml").map((n) => [n.name, n.span]));
+  assert.equal(spans["steps[0]"], "L2-L3");
+  assert.equal(spans["steps"], "L1-L7");
+});

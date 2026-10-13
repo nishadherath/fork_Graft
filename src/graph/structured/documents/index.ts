@@ -14,13 +14,17 @@
  * (decision D4 A): `pdfjs-dist` for PDF, `fflate` for the zip-based formats,
  * whose XML is read by a hand-written scanner. No network, no model.
  */
+import { convertDocx } from "./docx.js";
 import { convertPdf } from "./pdf.js";
 import type { DocumentUnit } from "./render.js";
 
 export type DocumentFormat = "pdf" | "docx" | "odt" | "epub" | "pptx" | "odp";
 
 /** Extension to format. Matched case-insensitively on the path's end. */
-const FORMAT_BY_EXTENSION: ReadonlyMap<string, DocumentFormat> = new Map([[".pdf", "pdf"]]);
+const FORMAT_BY_EXTENSION: ReadonlyMap<string, DocumentFormat> = new Map([
+  [".pdf", "pdf"],
+  [".docx", "docx"],
+]);
 
 /** The document format of `path`, or null when the documents tier does not claim it. */
 export function documentFormatOf(path: string): DocumentFormat | null {
@@ -40,6 +44,8 @@ export async function convertDocument(bytes: Uint8Array, format: DocumentFormat)
   switch (format) {
     case "pdf":
       return convertPdf(bytes);
+    case "docx":
+      return convertDocx(bytes);
     default:
       throw new Error(`no converter for ${format} documents yet`);
   }

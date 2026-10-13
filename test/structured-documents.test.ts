@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpRepo } from "./helpers.js";
-import { pdf } from "./document-fixtures.js";
+import { pdf, zip } from "./document-fixtures.js";
 import { buildGraph } from "../src/graph/build.js";
 import { checkGraph } from "../src/graph/check.js";
 import { probeDrift } from "../src/graph/fingerprint.js";
@@ -90,6 +90,91 @@ test("documents: a two-page PDF renders one marker per page and a section per pa
   assert.equal(file.kind, "file");
   assert.equal(file.span, "L1-L6");
   assert.equal(file.signature, `report.pdf -> ${renderingRel(bytes)} (2 pages)`);
+});
+
+const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+const para = (inner: string, style?: string): string =>
+  `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ""}${inner}</w:p>`;
+const run = (t: string): string => `<w:r><w:t xml:space="preserve">${t}</w:t></w:r>`;
+const cell = (t: string): string => `<w:tc><w:tcPr/>${para(run(t))}</w:tc>`;
+
+test("documents: a DOCX renders Word's pages, heading styles, tables, and no deleted text", async () => {
+  const styles =
+    `<w:styles ${W}>` +
+    `<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style>` +
+    `<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/></w:style>` +
+    `<w:style w:type="paragraph" w:styleId="Sub"><w:name w:val="Subsection"/><w:basedOn w:val="Heading2"/></w:style>` +
+    `<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/></w:style>` +
+    `</w:styles>`;
+  const body = [
+    para(run("Field notes"), "Title"),
+    para(run("Introduction"), "Heading1"),
+    para(run("Intro text &amp; more.")),
+    // Word laid page 2 out from the middle of this paragraph.
+    para(run("Start of a long paragraph") + `<w:r><w:lastRenderedPageBreak/><w:t xml:space="preserve"> that ends on page two.</w:t></w:r>`),
+    para(run("Details"), "Sub"),
+    `<w:tbl><w:tblPr/><w:tr>${cell("Name")}${cell("Value")}</w:tr><w:tr>${cell("alpha")}${cell("1")}</w:tr></w:tbl>`,
+    para(run("Kept ") + `<w:del w:id="1"><w:r><w:delText>gone</w:delText></w:r></w:del><w:ins w:id="2">${run("added")}</w:ins>`),
+    para(run("# not a heading")),
+    para(`<w:r><w:lastRenderedPageBreak/><w:t>Results</w:t></w:r>`, "Heading1"),
+    para(`${run("Final")}<w:r><w:tab/><w:t>words</w:t></w:r>`),
+  ].join("");
+  const bytes = zip({
+    "word/document.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document ${W}><w:body>${body}<w:sectPr/></w:body></w:document>`,
+    "word/styles.xml": styles,
+  });
+  const { graph, rendering, renderingRel } = await build("docx", { "notes.docx": bytes });
+
+  const expected = [
+    "<!-- page 1 -->",            //  1
+    "Field notes",                //  2
+    "",                           //  3
+    "# Introduction",             //  4
+    "",                           //  5
+    "Intro text & more.",         //  6
+    "",                           //  7
+    "Start of a long paragraph",  //  8
+    "",                           //  9
+    "<!-- page 2 -->",            // 10
+    "that ends on page two.",     // 11
+    "",                           // 12
+    "## Details",                 // 13
+    "",                           // 14
+    "Name | Value",               // 15
+    "alpha | 1",                  // 16
+    "",                           // 17
+    "Kept added",                 // 18
+    "",                           // 19
+    "\\# not a heading",          // 20
+    "",                           // 21
+    "<!-- page 3 -->",            // 22
+    "# Results",                  // 23
+    "",                           // 24
+    "Final\twords",               // 25
+  ];
+  assert.equal(rendering(bytes), text(expected));
+
+  const at = (id: string, span: string, page: number): void => {
+    const n = nodeById(graph, id);
+    assert.equal(n.span, span, id);
+    assert.equal(n.signature, `notes.docx (page ${page}) -> ${renderingRel(bytes)}:${span}`);
+  };
+  // A section stops before the marker of the page its successor opens.
+  at("notes.docx#section:introduction", "L4-L20", 1);
+  at("notes.docx#section:details", "L13-L20", 2);
+  at("notes.docx#section:results", "L23-L25", 3);
+  assert.equal(graph.nodes.filter((n) => n.kind === "section").length, 3);
+  assert.equal(nodeById(graph, "notes.docx").signature, `notes.docx -> ${renderingRel(bytes)} (3 pages)`);
+});
+
+test("documents: a DOCX no editor laid out gets no page markers, and its locator names no page", async () => {
+  const bytes = zip({
+    "word/document.xml": `<w:document ${W}><w:body>${para(run("Only"), "Heading1")}${para(run("Body"))}</w:body></w:document>`,
+  });
+  const { graph, rendering, renderingRel } = await build("docx-unpaged", { "plain.docx": bytes });
+  assert.equal(rendering(bytes), text(["# Only", "", "Body"]));
+  assert.equal(nodeById(graph, "plain.docx#section:only").signature, `plain.docx -> ${renderingRel(bytes)}:L1-L3`);
+  assert.equal(nodeById(graph, "plain.docx").signature, `plain.docx -> ${renderingRel(bytes)}`);
 });
 
 test("documents: a rebuild replays the rendering, an edit replaces it, and the probe and check stay clean", async () => {

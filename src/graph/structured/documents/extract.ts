@@ -61,7 +61,20 @@ export function extractDocument(rel: string, rendering: string, renderingRel: st
     const preface = plain(lines.slice(0, firstHeading));
     if (preface) file.body_text = preface;
     else delete file.body_text;
-    for (const n of nodes) if (n.kind === "section" && n.body_text) n.body_text = plain([n.body_text]);
+    for (const n of nodes) {
+      if (n.kind !== "section") continue;
+      if (n.body_text) n.body_text = plain([n.body_text]);
+      // A section ends before the blank lines and the marker of the page its
+      // successor opens: that marker locates the next heading, not this one.
+      const start = startRow(n.span);
+      const last = endRow(n.span);
+      let end = last;
+      while (end > start && (lines[end]!.trim() === "" || parseMarker(lines[end]!))) end--;
+      if (end !== last) {
+        n.span = spanOf(start + 1, end + 1);
+        n.body_hash = contentHash(lines.slice(start, end + 1).join("\n"));
+      }
+    }
   } else {
     delete file.body_text;
     nodes = [file];
@@ -113,4 +126,9 @@ export function extractDocument(rel: string, rendering: string, renderingRel: st
 /** 0-based first row of an `L<a>-L<b>` span. */
 function startRow(span: string): number {
   return Number(/^L(\d+)/.exec(span)![1]) - 1;
+}
+
+/** 0-based last row of an `L<a>-L<b>` span. */
+function endRow(span: string): number {
+  return Number(/-L(\d+)$/.exec(span)![1]) - 1;
 }

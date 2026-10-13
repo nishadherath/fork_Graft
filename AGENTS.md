@@ -78,13 +78,16 @@ that every session applies without being asked:
    to pick, since a chip cannot set them and a session cannot re-price
    itself. A session that takes over a handoff checks its own model
    and effort first and stops on a mismatch.
-4. **Projections are arithmetic, not adjectives.** Cost at API list
+4. **Every stage report ends with the next stage's model, effort and exact kickoff
+   prompt**, as a labelled line and a fenced block, so the operator can set the
+   model menu and paste without hunting. Standing instruction, 2026-10-13.
+5. **Projections are arithmetic, not adjectives.** Cost at API list
    price with the assumptions stated; time as wall clock plus review
    time. Method in the protocol, section 6 and 7.
-5. **Decisions the operator must make** are presented as decision,
+6. **Decisions the operator must make** are presented as decision,
    options, pros and cons, blast radius, recommendation with reasoning.
    Everything not depending on the decision is finished first.
-6. **Prose conventions hold in every file written here:** Australian
+7. **Prose conventions hold in every file written here:** Australian
    English, no em-dashes, none of the persona's banned vocabulary.
    Upstream's own prose (README, comments) is left as it is unless the
    change touches the line.

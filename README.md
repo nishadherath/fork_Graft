@@ -243,6 +243,16 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   off again. Dot-files and dot-directories are not walked, with one exception:
   with this tier on, YAML under `.github/workflows/` is.
 
+  The tier also wires these units to code, deterministically: a member chain or
+  string in TypeScript, JavaScript or Python that spells a key path
+  (`config.upload.maxBodyBytes`) references that key; a Markdown link references
+  the section or file it names; an HTML `src` or stylesheet `href` imports the file
+  and a `class` references its rule; and `npm run x` or `node scripts/x.mjs` in a
+  workflow, shell script, Dockerfile, Makefile or `package.json` script references
+  the script key or the file. A name that matches more than one unit gets no edge.
+  So `graft blast` on a changed config line reports the code that reads it, and
+  `--deep` summarises the first 40 units of each structured file.
+
 - **Compiler-grade edges (opt-in)** — `graft build --lsp` adds precise
   `lsp_resolved` call edges (member calls the static pass can't type) when a
   language server is on your `PATH`: **rust-analyzer** (Rust), **clangd** (C/C++),

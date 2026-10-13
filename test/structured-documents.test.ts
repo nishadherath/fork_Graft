@@ -525,6 +525,23 @@ test("documents: --deep sends no document unit unless --deep-documents asks, and
   assert.deepEqual(listContextFiles(root, join(root, "graft"), undefined).map((f) => relPosix(root, f)), ["a.ts"]);
 });
 
+test("documents: a converter's load-time noise is dropped, and nothing else is", async () => {
+  // pdfjs warns at import time when its own optional canvas package is absent,
+  // though text extraction never draws; graft drops exactly those lines.
+  const module = "data:text/javascript,console.warn('Warning: Cannot polyfill `DOMMatrix`, rendering may be broken.');console.warn('a real warning');export default 1;";
+  const original = console.warn;
+  const seen: unknown[] = [];
+  const capture = (...args: unknown[]): void => void seen.push(args[0]);
+  console.warn = capture;
+  try {
+    await importOptional("noise-test", module, /^Warning: Cannot polyfill/);
+    assert.equal(console.warn, capture, "console.warn is restored after the import");
+  } finally {
+    console.warn = original;
+  }
+  assert.deepEqual(seen, ["a real warning"]);
+});
+
 test("documents: a rebuild replays the rendering, an edit replaces it, and the probe and check stay clean", async () => {
   const first = pdf([["Version one"]]);
   const second = pdf([["Version two"], ["Appendix"]]);

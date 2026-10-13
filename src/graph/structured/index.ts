@@ -23,6 +23,7 @@
 import { basename } from "node:path";
 import { loadWasmLanguage } from "../generic.js";
 import type { ExtractResult } from "../extract.js";
+import { extractMarkdown } from "./markdown.js";
 import { structuredFileNode } from "./shared.js";
 
 export type StructuredFamily = "markdown" | "json" | "yaml" | "toml" | "ini";
@@ -90,6 +91,10 @@ export async function warmStructuredGrammars(langNames: Iterable<string>): Promi
  * grammar pre-warmed. Never throws on malformed input: an unparseable document
  * yields a file node and whatever units were recoverable. */
 export function extractStructured(rel: string, source: string, lang: StructuredLang): ExtractResult {
-  void lang;
-  return { nodes: [structuredFileNode(rel, source)], rawEdges: [] };
+  switch (lang.family) {
+    case "markdown":
+      return extractMarkdown(rel, source);
+    default:
+      return { nodes: [structuredFileNode(rel, source)], rawEdges: [] };
+  }
 }

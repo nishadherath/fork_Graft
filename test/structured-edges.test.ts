@@ -64,6 +64,9 @@ const LIMITS_TS = [
   "  // config.app.limits.maxBody is documented in the README",            // 27
   "  return 0;",                                                           // 28
   "}",                                                                     // 29
+  "export function graphId(): string {",                                   // 30
+  '  return "package.json#key:app.limits.maxBody";',                       // 31
+  "}",                                                                     // 32
 ];
 
 const LIMITS_PY = [
@@ -144,6 +147,8 @@ test("code to key: one segment, a suffix two below the root, and a comment yield
   assert.deepEqual(targetsOf("src/limits.ts#port"), []);
   assert.deepEqual(targetsOf("src/limits.ts#tooDeep"), []);
   assert.deepEqual(targetsOf("src/limits.ts#commentOnly"), []);
+  // After `#` or `:` a dotted token is part of an id or a label, not a key read.
+  assert.deepEqual(targetsOf("src/limits.ts#graphId"), []);
 });
 
 test("code to key: no reference edge ever targets a non-key node or carries a value", () => {
@@ -201,6 +206,9 @@ const HELP_TS = [
   "export function missingLink(): string {",   // 4
   '  return "docs/missing.md#install-steps";', // 5
   "}",                                          // 6
+  "export function staleAnchor(): string {",   // 7
+  '  return "docs/setup.md#no-such-heading";', // 8
+  "}",                                          // 9
 ];
 
 before(async () => {
@@ -257,6 +265,9 @@ test("markdown links: code spans, fences and missing files yield no edge", () =>
 test("code to anchor: a string naming a Markdown heading references that section", () => {
   assert.deepEqual(linkTargets("src/help.ts#helpLink"), [["docs/setup.md#section:install-steps", "inferred"]]);
   assert.deepEqual(linkTargets("src/help.ts#missingLink"), []);
+  // A string names a section; when no section has that anchor it names nothing,
+  // unlike a Markdown link, which states its file whatever the anchor.
+  assert.deepEqual(linkTargets("src/help.ts#staleAnchor"), []);
 });
 
 // ---------------------------------------------------------------------------

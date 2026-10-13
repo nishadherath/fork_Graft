@@ -104,7 +104,11 @@ export function resolveStructuredRef(e: RawEdge, index: StructuredIndex): Struct
       const { path, anchor } = splitTarget(e.specifier);
       if (path === "") return null;
       const file = uniqueFile(path, e.file, index);
-      return file === null ? null : { id: sectionOrFile(file, anchor, index), confidence: "inferred" };
+      if (file === null) return null;
+      // Unlike a link, a base-less path with an anchor states no file on its own:
+      // only the section it names makes it a reference.
+      const id = sectionOrFile(file, anchor, index);
+      return anchor !== "" && id === file ? null : { id, confidence: "inferred" };
     }
     case "class": {
       // The page's own <style> first, where the rule certainly applies; else the one

@@ -50,9 +50,10 @@ const ROOT_TYPES: ReadonlySet<string> = new Set(["identifier", "this"]);
 const TRANSPARENT_TYPES: ReadonlySet<string> = new Set(["non_null_expression"]);
 
 /** A dotted token inside a string: identifier-like segments joined by dots, not
- * preceded by a path or dot character (so `src/config.json` yields nothing) and not
- * followed by more of a path or identifier. */
-const DOTTED_TOKEN = /(?<![\w$./\\-])[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)+(?![\w$/\\-]|\.[\w$])/g;
+ * preceded by a path or dot character (so `src/config.json` yields nothing), nor
+ * glued to a `#` or `:` (so the id `pkg.json#key:a.b` is not a read of `a.b`),
+ * and not followed by more of a path or identifier. */
+const DOTTED_TOKEN = /(?<![\w$./\\#:-])[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)+(?![\w$/\\-]|\.[\w$])/g;
 
 /** A whole string that names a heading in a Markdown file: `docs/setup.md#install`. */
 const DOC_ANCHOR = /^(?:\.{1,2}\/)?(?:[\w.-]+\/)*[\w.-]+\.(?:md|mdx|markdown)#[\w-]+$/i;

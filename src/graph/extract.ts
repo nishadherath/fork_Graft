@@ -137,7 +137,8 @@ export interface RawEdge {
  *   else the file.
  * - `path`: `specifier` is a path a program or command names, whose base the text
  *   does not state: tried beside the file and at the repository root, and kept
- *   only when exactly one of those exists.
+ *   only when exactly one of those exists. With an anchor it targets that section
+ *   or nothing.
  * - `class`: `name` is a class an HTML element carries; it targets the stylesheet
  *   rule whose selector is exactly `.<name>`.
  * - `script`: `name` is a package script a command runs (`npm run build`); it

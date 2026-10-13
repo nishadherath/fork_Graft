@@ -23,8 +23,10 @@
 import { basename } from "node:path";
 import { loadWasmLanguage } from "../generic.js";
 import type { ExtractResult } from "../extract.js";
+import { extractIni } from "./ini.js";
 import { extractJson } from "./json.js";
 import { extractMarkdown } from "./markdown.js";
+import { extractToml } from "./toml.js";
 import { extractYaml } from "./yaml.js";
 import { structuredFileNode } from "./shared.js";
 
@@ -108,6 +110,10 @@ export function extractStructured(rel: string, source: string, lang: StructuredL
       return extractMarkdown(rel, source, loaded.get("yaml"));
     case "yaml":
       return extractYaml(rel, source, loaded.get(lang.name));
+    case "toml":
+      return extractToml(rel, source);
+    case "ini":
+      return extractIni(rel, source, loaded.get(lang.name));
     case "json":
       return extractJson(rel, source, loaded.get(lang.name), rel.toLowerCase().endsWith(".jsonl"));
     default:

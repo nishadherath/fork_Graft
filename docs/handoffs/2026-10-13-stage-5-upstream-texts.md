@@ -47,6 +47,8 @@ committed on `main`.
   `README.md`, `CHANGELOG.md`, `package.json` and `package-lock.json` (Stage 4
   session, 2026-10-13).
 - Final gate on `stage-4/documents`: 1,489 tests, 1,484 pass, 0 fail, 5 skipped.
+  Gate on `pr/documents-tier` itself (newer upstream base, lockfile regenerated
+  with `npm install --package-lock-only`): 1,517 tests, 1,512 pass, 0 fail, 5 skipped.
 - npm installs optionalDependencies by default: pdfjs-dist 41 MB, its
   @napi-rs/canvas 37 MB, fflate 0.8 MB (measured on Windows).
 

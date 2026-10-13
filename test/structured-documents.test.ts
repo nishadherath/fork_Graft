@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "
 import { join } from "node:path";
 import { tmpRepo } from "./helpers.js";
 import { pdf, zip } from "./document-fixtures.js";
+import { ask } from "../src/ask/ask.js";
 import { buildGraph, type GraphBuildResult } from "../src/graph/build.js";
 import { checkGraph } from "../src/graph/check.js";
 import { emptyExtractCache } from "../src/graph/extract-cache.js";
@@ -22,6 +23,7 @@ import { probeDrift } from "../src/graph/fingerprint.js";
 import { prepareDocuments } from "../src/graph/structured/documents/cache.js";
 import { importOptional, MissingConverterError } from "../src/graph/structured/documents/load.js";
 import { readGraph, wiringPath } from "../src/graph/write.js";
+import { grepGraph } from "../src/search/grep.js";
 import { patchBuildConfig } from "../src/util/state.js";
 import type { GraphV1, NodeV1 } from "../src/graph/types.js";
 
@@ -400,6 +402,28 @@ test("documents: a converter package that is not installed is refused by name, a
   };
   const prepared = await prepareDocuments(root, join(root, "graft"), [{ abs: join(root, "a.pdf"), rel: "a.pdf" }], emptyExtractCache(), missing);
   assert.deepEqual(prepared.get("a.pdf"), { status: "missing", format: "pdf", packageName: "pdfjs-dist" });
+});
+
+test("documents: ask --source prints the rendering's lines, and its pointer and grep's name the rendering", async () => {
+  const bytes = pdf([["Alpha first page"], ["Quokka habitat survey", "Rottnest Island counts"]]);
+  const { root, graph, renderingRel } = await build("ask", { "docs/survey.pdf": bytes });
+
+  const result = ask(root, "quokka habitat survey", { source: true });
+  const hit = result.hits.find((h) => h.title === "page 2 · section");
+  assert.ok(hit, `no page 2 hit (got: ${result.hits.map((h) => h.title).join(", ")})`);
+  // The pointer opens with any tool; the snippet names the binary and its page.
+  assert.equal(hit.pointer, `${renderingRel(bytes)}:L4-L6`);
+  assert.equal(hit.snippet, `survey.pdf (page 2) -> ${renderingRel(bytes)}:L4-L6`);
+  assert.equal(hit.code, ["<!-- page 2 -->", "Quokka habitat survey", "Rottnest Island counts"].join("\n"));
+
+  const found = grepGraph(graph, root, "Rottnest");
+  assert.equal(found.totalHits, 1);
+  const group = found.groups[0]!;
+  assert.equal(group.path, renderingRel(bytes));
+  assert.equal(group.symbol?.id, "docs/survey.pdf#section:page-2");
+  assert.equal(group.symbol?.path, renderingRel(bytes));
+  assert.equal(group.symbol?.span, "L4-L6");
+  assert.deepEqual(group.hits, [{ line: 6, text: "Rottnest Island counts" }]);
 });
 
 test("documents: a rebuild replays the rendering, an edit replaces it, and the probe and check stay clean", async () => {

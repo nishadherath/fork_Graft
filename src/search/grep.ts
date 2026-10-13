@@ -16,6 +16,7 @@ import { assertPrefixIndexed, pathUnderPrefix } from "../graph/scopes.js";
 import { normalizePathPrefix } from "../util/paths.js";
 import { savingsFor, type Savings } from "../context/savings.js";
 import { readSourceFile } from "../util/source.js";
+import { renderingOf } from "../graph/structured/documents/extract.js";
 
 export interface GrepHit {
   line: number;
@@ -132,9 +133,10 @@ function computeInDegree(graph: GraphV1): Map<string, number> {
   return deg;
 }
 
-function toSymbolRef(n: NodeV1): GrepSymbolRef {
+/** `path` is where the hit lines are: the file, or a document's rendering. */
+function toSymbolRef(n: NodeV1, path: string): GrepSymbolRef {
   const hash = n.id.indexOf("#");
-  return { id: n.id, name: hash >= 0 ? n.id.slice(hash + 1) : n.name, kind: n.kind, path: n.path, span: n.span };
+  return { id: n.id, name: hash >= 0 ? n.id.slice(hash + 1) : n.name, kind: n.kind, path, span: n.span };
 }
 
 export function grepGraph(graph: GraphV1, repoRoot: string, pattern: string, opts: GrepOptions = {}): GrepResult {
@@ -158,9 +160,12 @@ export function grepGraph(graph: GraphV1, repoRoot: string, pattern: string, opt
   let truncatedFiles = 0;
 
   for (const file of fileNodes) {
+    // A document is searched in its rendering, and its hits are reported there,
+    // so every line number printed is a line of the file named beside it.
+    const shown = renderingOf(file) ?? file.path;
     let text: string;
     try {
-      const decoded = readSourceFile(join(repoRoot, file.path));
+      const decoded = readSourceFile(join(repoRoot, shown));
       if (decoded === null) {
         truncatedFiles++; // unsupported encoding (e.g. UTF-16BE) — same posture as unreadable
         continue;
@@ -190,8 +195,8 @@ export function grepGraph(graph: GraphV1, repoRoot: string, pattern: string, opt
       let group = groups.get(key);
       if (!group) {
         group = {
-          symbol: sym ? toSymbolRef(sym) : null,
-          path: file.path,
+          symbol: sym ? toSymbolRef(sym, shown) : null,
+          path: shown,
           inDegree: sym ? (inDegree.get(sym.id) ?? 0) : 0,
           hits: [],
         };

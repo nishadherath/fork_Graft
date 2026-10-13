@@ -21,6 +21,7 @@ import { mintId, type ExtractResult, type RawEdge } from "../../extract.js";
 import type { NodeV1 } from "../../types.js";
 import { extractMarkdown, slugOf } from "../markdown.js";
 import { MAX_BODY_TEXT_CHARS, MAX_UNITS_PER_FILE, spanOf, splitLines } from "../shared.js";
+import { documentFormatOf } from "./index.js";
 import { parseMarker, unitCount, type UnitKind } from "./render.js";
 
 interface Marker {
@@ -119,6 +120,22 @@ export function extractDocument(rel: string, rendering: string, renderingRel: st
   const tally = [...counts].map(([kind, c]) => unitCount(kind, c)).join(", ");
   file.signature = `${name} -> ${renderingRel}${tally ? ` (${tally})` : ""}`;
   return { nodes, rawEdges };
+}
+
+/** The repository-relative rendering a document node's lines are in, read back
+ * from the locator its signature carries (written above); null for any node that
+ * is not a document's. */
+export function renderingOf(n: Pick<NodeV1, "path" | "signature">): string | null {
+  if (!n.signature || documentFormatOf(n.path) === null) return null;
+  const at = n.signature.lastIndexOf(" -> ");
+  if (at < 0) return null;
+  return n.signature.slice(at + 4).replace(/:L\d+-L\d+$/, "").replace(/ \([^)]*\)$/, "");
+}
+
+/** The `path:span` an agent can open for `n`: the rendering's lines for a
+ * document node, the file's own lines for every other node. */
+export function pointerOf(n: Pick<NodeV1, "path" | "span" | "signature">): string {
+  return `${renderingOf(n) ?? n.path}:${n.span}`;
 }
 
 /** 0-based first row of an `L<a>-L<b>` span. */

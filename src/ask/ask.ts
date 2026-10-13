@@ -47,6 +47,7 @@ import {
   preparePageRankPartitions,
 } from "./graphrank.js";
 import { readSourceFile } from "../util/source.js";
+import { pointerOf, renderingOf } from "../graph/structured/documents/extract.js";
 import { counts, tokenize, type AskIndex, type AskIndexDoc } from "./index-file.js";
 import { rulesForPointers, formatRules, type AppliedRule } from "../brain/attach.js";
 import { readLink, readRulesCache } from "../brain/link.js";
@@ -378,7 +379,7 @@ function structural(query: string, graph: GraphV1, limit: number, inPrefix?: str
     hits.push({
       kind: outgoing ? "callee" : "caller",
       title: node ? node.name : other, // unresolved import target → raw module string
-      pointer: node ? `${node.path}:${node.span}` : other,
+      pointer: node ? pointerOf(node) : other,
       snippet: node?.summary?.split("\n")[0].trim() ?? node?.signature ?? "",
       relation: e.relation,
       score: 1,
@@ -650,7 +651,7 @@ function lexical(
     const hit: AskHit = {
       kind: "symbol",
       title: `${n.name} · ${n.kind}`,
-      pointer: n.kind === "file" ? n.path : `${n.path}:${n.span}`,
+      pointer: n.kind === "file" ? renderingOf(n) ?? n.path : pointerOf(n),
       snippet: n.summary?.split("\n")[0].trim() ?? n.signature ?? "",
       score: hitScore,
       ...(scope === undefined ? {} : { scope }),
@@ -1276,7 +1277,7 @@ function inlineSource(root: string, hits: AskHit[], graph: GraphV1 | null, full:
   const cruxByPointer = new Map<string, string>();
   if (!full && graph) {
     for (const n of graph.nodes)
-      if (n.crux?.code) cruxByPointer.set(`${n.path}:${n.span}`, n.crux.code);
+      if (n.crux?.code) cruxByPointer.set(pointerOf(n), n.crux.code);
   }
   for (const h of hits) {
     const s = parseSpan(h.pointer);

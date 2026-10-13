@@ -31,12 +31,13 @@ import { extractJson } from "./json.js";
 import { extractMake } from "./make.js";
 import { extractMarkdown } from "./markdown.js";
 import { extractToml } from "./toml.js";
+import { extractShell } from "./shell.js";
 import { extractCmake, extractDockerfile } from "./targets.js";
 import { extractXml } from "./xml.js";
 import { extractYaml } from "./yaml.js";
 import { structuredFileNode } from "./shared.js";
 
-export type StructuredFamily = "markdown" | "json" | "yaml" | "toml" | "ini" | "css" | "html" | "xml" | "gradle" | "make" | "dockerfile" | "cmake";
+export type StructuredFamily = "markdown" | "json" | "yaml" | "toml" | "ini" | "css" | "html" | "xml" | "gradle" | "make" | "dockerfile" | "cmake" | "shell";
 
 /** A structured-tier language: graft name, family (which extractor), the file
  * extensions it claims, and the wasm basename when a bundled grammar parses it. */
@@ -67,6 +68,8 @@ export const STRUCTURED_LANGS: readonly StructuredLang[] = [
   { name: "make", family: "make", exts: ["makefile", ".mk"] },
   // Matched as path suffixes, so "Dockerfile", "api.dockerfile" and "CMakeLists.txt" all land.
   { name: "dockerfile", family: "dockerfile", exts: ["dockerfile"], wasm: "dockerfile" },
+  { name: "bash", family: "shell", exts: [".sh", ".bash"], wasm: "bash" },
+  { name: "powershell", family: "shell", exts: [".ps1", ".psm1"], wasm: "powershell" },
   { name: "cmake", family: "cmake", exts: ["cmakelists.txt", ".cmake"], wasm: "cmake" },
   { name: "xml", family: "xml", exts: [".xml", ".plist", ".storyboard", ".xib", ".entitlements"] },
 ];
@@ -144,6 +147,8 @@ export function extractStructured(rel: string, source: string, lang: StructuredL
       return extractGradle(rel, source);
     case "make":
       return extractMake(rel, source);
+    case "shell":
+      return extractShell(rel, source, loaded.get(lang.name));
     case "dockerfile":
       return extractDockerfile(rel, source, loaded.get(lang.name));
     case "cmake":

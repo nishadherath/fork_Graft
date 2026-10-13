@@ -22,6 +22,7 @@ import { emptyExtractCache } from "../src/graph/extract-cache.js";
 import { probeDrift } from "../src/graph/fingerprint.js";
 import { prepareDocuments } from "../src/graph/structured/documents/cache.js";
 import { importOptional, MissingConverterError } from "../src/graph/structured/documents/load.js";
+import { pdfjsLoadFailure } from "../src/graph/structured/documents/pdf.js";
 import { readGraph, wiringPath } from "../src/graph/write.js";
 import { grepGraph } from "../src/search/grep.js";
 import { patchBuildConfig, readBuildConfig, readDocuments } from "../src/util/state.js";
@@ -540,6 +541,16 @@ test("documents: a converter's load-time noise is dropped, and nothing else is",
     console.warn = original;
   }
   assert.deepEqual(seen, ["a real warning"]);
+});
+
+test("documents: pdfjs failing to load for want of its canvas package is refused by that package's name", () => {
+  // pdfjs-dist builds a DOMMatrix at module level, so in Node it cannot load
+  // without its own optional dependency @napi-rs/canvas.
+  const refused = pdfjsLoadFailure(new Error("loading pdfjs-dist/legacy/build/pdf.mjs failed: DOMMatrix is not defined"));
+  assert.ok(refused instanceof MissingConverterError);
+  assert.equal(refused.packageName, "@napi-rs/canvas");
+  const other = new Error("loading pdfjs-dist/legacy/build/pdf.mjs failed: out of memory");
+  assert.equal(pdfjsLoadFailure(other), other);
 });
 
 test("documents: a rebuild replays the rendering, an edit replaces it, and the probe and check stay clean", async () => {

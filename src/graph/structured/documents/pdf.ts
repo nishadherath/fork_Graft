@@ -13,7 +13,7 @@
  * change of baseline larger than half the glyph height also ends a line; a
  * superscript shifts the baseline by less and stays on its line.
  */
-import { importOptional } from "./load.js";
+import { importOptional, MissingConverterError } from "./load.js";
 import type { DocumentUnit } from "./render.js";
 
 /** The members of pdfjs-dist this converter calls, narrowed here and nowhere else. */
@@ -39,12 +39,25 @@ interface PdfJs {
 /** pdfjs's Node build; the default build expects browser globals. */
 const PDFJS_SPECIFIER = "pdfjs-dist/legacy/build/pdf.mjs";
 
-/** What pdfjs warns at import when its own optional canvas package is absent.
- * Text extraction never draws, so none of these lines applies here. */
+/** What pdfjs warns at import when its own optional canvas package is absent. The
+ * import then fails, and {@link pdfjsLoadFailure} names the package once, so
+ * these lines would only say the same thing less clearly. */
 const PDFJS_LOAD_NOISE = /^Warning: Cannot (?:load "@napi-rs\/canvas" package|polyfill `(?:DOMMatrix|ImageData|Path2D)`)/;
 
 /** A baseline shift, as a fraction of the glyph height, that starts a new line. */
 const NEW_LINE_BASELINE_FRACTION = 0.5;
+
+/** pdfjs's own optional dependency: in Node it supplies the DOMMatrix the module
+ * constructs while it loads, so pdfjs cannot load without it. */
+const PDFJS_CANVAS_PACKAGE = "@napi-rs/canvas";
+
+/** The error to report when loading pdfjs failed: a refusal naming
+ * {@link PDFJS_CANVAS_PACKAGE} when its absence is the cause, else `err` as is. */
+export function pdfjsLoadFailure(err: unknown): unknown {
+  return err instanceof Error && /\bDOMMatrix is not defined\b/.test(err.message)
+    ? new MissingConverterError(PDFJS_CANVAS_PACKAGE)
+    : err;
+}
 
 /** The text lines of one page's items. */
 export function pageLines(items: readonly PdfTextItem[]): string[] {
@@ -72,7 +85,12 @@ export function pageLines(items: readonly PdfTextItem[]): string[] {
 
 /** Every page of `bytes` as a `page` unit holding one paragraph of its lines. */
 export async function convertPdf(bytes: Uint8Array): Promise<DocumentUnit[]> {
-  const pdfjs = (await importOptional("pdfjs-dist", PDFJS_SPECIFIER, PDFJS_LOAD_NOISE)) as PdfJs;
+  let pdfjs: PdfJs;
+  try {
+    pdfjs = (await importOptional("pdfjs-dist", PDFJS_SPECIFIER, PDFJS_LOAD_NOISE)) as PdfJs;
+  } catch (err) {
+    throw pdfjsLoadFailure(err);
+  }
   // pdfjs takes ownership of the buffer it is given, and refuses a Node Buffer, so
   // it gets a plain Uint8Array copy.
   const doc = await pdfjs.getDocument({

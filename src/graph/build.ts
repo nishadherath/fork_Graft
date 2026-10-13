@@ -21,6 +21,10 @@ import { extractFile, languageLabelOf, languageOf, type RawEdge } from "./extrac
 import { extractGeneric, genericLangOf, warmGenericGrammars } from "./generic.js";
 import { containerLangOf, extractContainer, warmContainerGrammars } from "./container.js";
 import { extractStructured, structuredLangOf, warmStructuredGrammars } from "./structured/index.js";
+import { prepareDocuments, pruneRenderings } from "./structured/documents/cache.js";
+import { extractDocument } from "./structured/documents/extract.js";
+import { documentFormatOf } from "./structured/documents/index.js";
+import { MissingConverterError } from "./structured/documents/load.js";
 import { contentHash } from "../util/id.js";
 import { relPosix } from "../util/paths.js";
 import { readSourceFile } from "../util/source.js";
@@ -210,9 +214,53 @@ export async function buildGraph(
     new Set(files.map((f) => structuredLangOf(f.abs)?.name).filter((n): n is string => !!n)),
   );
 
+  // Documents tier (opt-in): converting a binary is asynchronous, so every document
+  // is rendered (or its cached rendering read) here, before the synchronous loop.
+  // `files` holds documents only when the repo enabled the tier.
+  const documents = await prepareDocuments(
+    root,
+    outDir,
+    files.filter((f) => documentFormatOf(f.rel) !== null),
+    priorExtract,
+  );
+  const missingConverters = new Map<string, number>();
+
   files.forEach((f, i) => {
     const rel = f.rel;
     opts.onProgress?.({ phase: "parse", index: i, total: files.length, file: rel });
+
+    // A document is extracted from its rendering, never read as text. Its cache
+    // key is the binary's hash, which also names the rendering.
+    const doc = documents.get(rel);
+    if (doc) {
+      if (doc.status === "missing") {
+        // Not cached under a hash, so the next build tries again once installed.
+        missingConverters.set(doc.packageName, (missingConverters.get(doc.packageName) ?? 0) + 1);
+        entries[rel] = { size: f.size, mtimeMs: f.mtimeMs, hash: "", nodes: [], rawEdges: [] };
+        return;
+      }
+      if (doc.status === "failed") {
+        errors.push(doc.error);
+        entries[rel] = { size: f.size, mtimeMs: f.mtimeMs, hash: doc.hash, nodes: [], rawEdges: [], error: doc.error };
+        return;
+      }
+      const cached = priorExtract.files[rel];
+      sources.set(rel, doc.text);
+      langs.add(doc.format);
+      if (cached && !cached.error && cached.hash === doc.hash) {
+        entries[rel] = { ...cached, size: f.size, mtimeMs: f.mtimeMs };
+        nodes.push(...cached.nodes);
+        rawEdges.push(...cached.rawEdges);
+        reused++;
+        return;
+      }
+      parsed++;
+      const extracted = extractDocument(rel, doc.text, doc.renderingRel);
+      nodes.push(...extracted.nodes);
+      rawEdges.push(...extracted.rawEdges);
+      entries[rel] = { size: f.size, mtimeMs: f.mtimeMs, hash: doc.hash, nodes: extracted.nodes, rawEdges: extracted.rawEdges };
+      return;
+    }
     // Depth tier (hand-written, native grammar) if a language claims the file;
     // otherwise the breadth tier (generic tags.scm over a WASM grammar).
     const lang = languageOf(f.abs);
@@ -298,6 +346,16 @@ export async function buildGraph(
     ...emptyExtractCache(),
     files: entries,
   });
+
+  // One refusal per missing converter package, naming it, rather than one per file.
+  for (const [packageName, count] of missingConverters) {
+    errors.push(`${count} document${count === 1 ? "" : "s"} skipped: ${new MissingConverterError(packageName).message}`);
+  }
+  // A rendering no current document hashes to is stale; with the tier off, all are.
+  pruneRenderings(
+    outDir,
+    new Set([...documents.values()].flatMap((d) => (d.status === "ready" ? [d.hash] : []))),
+  );
 
   const edges = resolveEdges(nodes, rawEdges, { goModules: readGoModules(root, repoFiles) });
 

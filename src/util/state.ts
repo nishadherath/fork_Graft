@@ -107,6 +107,11 @@ export interface BuildConfig {
    * probe, `check` and the automatic refresh enumerate the same files as the build
    * that chose it. Absent/false keeps code-only indexing. */
   structured?: boolean;
+  /** Whether PDF, DOCX, ODT, EPUB, PPTX and ODP files are indexed through a cached
+   * text rendering (`graft build --documents`). Only takes effect with the
+   * structured tier on, whose Markdown scanner reads the rendering. Absent/false
+   * keeps them out. */
+  documents?: boolean;
   /** The Trail brain this repo's rules come from: the brain id and the token to
    * read it with. Persisted here — in the git-ignored `.graft/` — rather than in
    * `~/.graft/`, because a brain belongs to one repository and two checkouts on
@@ -177,6 +182,17 @@ export function readStructured(d: string): boolean {
   if (env === '0' || env === 'false') return false;
   if (env !== undefined && env !== '') return true;
   return readBuildConfig(d)?.structured === true;
+}
+
+/** Whether the documents tier is on for repo `d`: the structured tier must be on,
+ * and then `GRAFT_DOCUMENTS` (the env twin of `--documents`) decides exactly as
+ * `GRAFT_STRUCTURED` does, falling back to the persisted choice. */
+export function readDocuments(d: string): boolean {
+  if (!readStructured(d)) return false;
+  const env = process.env.GRAFT_DOCUMENTS;
+  if (env === '0' || env === 'false') return false;
+  if (env !== undefined && env !== '') return true;
+  return readBuildConfig(d)?.documents === true;
 }
 
 /** Missing and explicit false both retain the backwards-compatible default. */

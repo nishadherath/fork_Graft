@@ -101,5 +101,9 @@
     "tree-sitter-swift": {
       "tree-sitter": "$tree-sitter"
     }
+  },
+  "optionalDependencies": {
+    "fflate": "0.8.3",
+    "pdfjs-dist": "5.6.205"
   }
 }

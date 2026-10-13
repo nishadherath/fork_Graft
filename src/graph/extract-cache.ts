@@ -160,9 +160,10 @@ function computeStamp(): string | null {
 }
 
 /** Subdirectories of `graph/` whose modules also decide what a parse produces.
- * `structured/` holds the document scanners; `lsp/` and `queries/` do not feed the
+ * `structured/` holds the document scanners and `structured/documents/` the
+ * converters whose renderings they read; `lsp/` and `queries/` do not feed the
  * memoized extraction, so they stay out and editing them costs no cold rebuild. */
-const STAMPED_SUBDIRS = ["structured"];
+const STAMPED_SUBDIRS = ["structured", "structured/documents"];
 
 /**
  * Hash every `ext` file in `dir`, plus `version`. Null when the directory holds no

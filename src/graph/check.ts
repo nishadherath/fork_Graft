@@ -24,6 +24,9 @@ import { extractFile, languageOf } from "./extract.js";
 import { extractGeneric, genericLangOf, warmGenericGrammars } from "./generic.js";
 import { containerLangOf, extractContainer, warmContainerGrammars } from "./container.js";
 import { extractStructured, structuredLangOf, warmStructuredGrammars } from "./structured/index.js";
+import { readRendering, renderingPath } from "./structured/documents/cache.js";
+import { extractDocument } from "./structured/documents/extract.js";
+import { documentFormatOf } from "./structured/documents/index.js";
 import { listSourceFiles } from "./build.js";
 import { readGraph, wiringPath } from "./write.js";
 import { readFingerprint } from "./fingerprint.js";
@@ -111,6 +114,15 @@ export async function checkGraph(
     const container = lang ? null : containerLangOf(file);
     const generic = lang || container ? null : genericLangOf(file);
     const structured = lang || container || generic ? null : structuredLangOf(file);
+    if (documentFormatOf(file)) {
+      // A document is checked through its rendering for the bytes on disk now. No
+      // rendering means the binary changed since the build: its nodes go `removed`.
+      const rendering = readRendering(outDir, file);
+      if (!rendering) continue;
+      const renderingRel = relPosix(root, renderingPath(outDir, rendering.hash));
+      for (const n of extractDocument(relPosix(root, file), rendering.text, renderingRel).nodes) current.set(n.id, n.body_hash);
+      continue;
+    }
     let source: string | null;
     try {
       source = readSourceFile(file);

@@ -10,11 +10,12 @@ import { statSync } from "node:fs";
 import { resolve } from "node:path";
 import { STRUCTURED_DOT_PATHS, walkDir } from "../ingest/fs.js";
 import { relPosix } from "../util/paths.js";
-import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs, readStructured } from "../util/state.js";
+import { readDocuments, readFollowNestedRepos, readFollowSubmodules, readIncludeDirs, readStructured } from "../util/state.js";
 import { languageOf, depthExtensions } from "./extract.js";
 import { genericLangOf, genericExtensions } from "./generic.js";
 import { containerLangOf, containerExtensions } from "./container.js";
 import { structuredLangOf, structuredExtensions } from "./structured/index.js";
+import { documentFormatOf } from "./structured/documents/index.js";
 
 /** Every extension graft has a parser for (depth + breadth + container, plus the
  * structured tier when it is on), sorted and de-duped: the authoritative answer
@@ -95,6 +96,7 @@ export function listSourceFiles(
   // and `check` would enumerate different sets. The opt-in is read from state, like
   // the other walk choices, so the probe and the refresh path see it too.
   const structured = readStructured(resolve(root));
+  const documents = readDocuments(resolve(root));
   return filterByOnlyDirs(
     repoFiles.filter(
       (f) =>
@@ -103,7 +105,8 @@ export function listSourceFiles(
         (languageOf(f) !== null ||
           genericLangOf(f) !== null ||
           containerLangOf(f) !== null ||
-          (structured && structuredLangOf(f) !== null)),
+          (structured && structuredLangOf(f) !== null) ||
+          (documents && documentFormatOf(f) !== null)),
     ),
     root,
     onlyDirs,

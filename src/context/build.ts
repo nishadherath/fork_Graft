@@ -19,7 +19,8 @@ import { readFingerprint } from "../graph/fingerprint.js";
 import { contentHash } from "../util/id.js";
 import { relPosix } from "../util/paths.js";
 import { readSourceFile } from "../util/source.js";
-import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs } from "../util/state.js";
+import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs, readStructured } from "../util/state.js";
+import { structuredLangOf } from "../graph/structured/index.js";
 import type { Summarizer } from "../ai/summarize.js";
 import { LlmFailureGate } from "../ai/failure.js";
 import type { FileSummary, SynthNode, Synthesizer } from "../ai/synthesize.js";
@@ -60,7 +61,8 @@ export interface BuildProgress {
 export interface BuildOptions {
   /** Override the output dir (default: `<root>/.context`). */
   contextDir?: string;
-  /** Extensions to treat as code. Default: {@link CODE_EXTENSIONS}. */
+  /** Extensions to treat as code. Default: {@link CODE_EXTENSIONS}, plus the
+   * structured tier's files when the repository enabled it. */
   extensions?: string[];
   /** Repo-relative directory prefixes to limit the concept pass (`--only-dir`).
    * Same prefix semantics as the wiring walk. When omitted, falls back to the
@@ -109,14 +111,21 @@ function resolveOnlyDirs(outDir: string, explicit?: readonly string[]): Set<stri
 export function listContextFiles(
   root: string,
   outDir: string,
-  exts: readonly string[],
+  exts: readonly string[] | undefined,
   explicitOnlyDirs?: readonly string[],
 ): string[] {
+  // Default: code, plus (when the repository enabled the structured tier) every
+  // file that tier claims, asked of the tier itself so its lockfile and minified
+  // denylist holds here too. An explicit list means exactly that list.
+  const structured = exts === undefined && readStructured(root);
+  const codeExts = exts ?? CODE_EXTENSIONS;
+  const wanted = (f: string): boolean =>
+    codeExts.some((e) => f.toLowerCase().endsWith(e)) || (structured && structuredLangOf(f) !== null);
   const walked = walkDir(root, readIncludeDirs(root), {
     followSubmodules: readFollowSubmodules(root),
     followNestedRepos: readFollowNestedRepos(root),
   })
-    .filter((f) => exts.some((e) => f.toLowerCase().endsWith(e)))
+    .filter(wanted)
     .filter((f) => !f.startsWith(outDir));
   return filterByOnlyDirs(walked, root, resolveOnlyDirs(outDir, explicitOnlyDirs));
 }
@@ -146,12 +155,11 @@ interface NodeDraft {
 export async function buildContext(dir: string, opts: BuildOptions): Promise<BuildResult> {
   const root = resolve(dir);
   const outDir = contextDirFor(root, opts.contextDir);
-  const exts = opts.extensions ?? CODE_EXTENSIONS;
   // Read the same persisted walk choices as the Tier-1 wiring graph, so the
   // Tier-2 concept pipeline sees exactly the same directories and submodules.
   // `--only-dir` is applied with the same prefix match as wiring (CLI/API, else
   // the fingerprint) so out-of-scope files are never summarized or synthesized.
-  const files = listContextFiles(root, outDir, exts, opts.onlyDirs);
+  const files = listContextFiles(root, outDir, opts.extensions, opts.onlyDirs);
 
   const cache = loadCache(outDir);
   // Flush the summary cache to disk during phase 1 so a build interrupted

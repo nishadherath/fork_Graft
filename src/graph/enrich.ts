@@ -22,9 +22,17 @@
 import { formatCruxMiss, type CruxMissKind, type CruxSummarizer, type NodeCrux, type NodeRef } from "../ai/crux.js";
 import { LlmFailureGate } from "../ai/failure.js";
 import type { Crux, NodeV1 } from "./types.js";
+import { structuredLangOf } from "./structured/index.js";
 
 /** Cap on the stored crux: an over-long pick is trimmed to its leading slice. */
 const MAX_CRUX_LINES = 12;
+
+/** Units of one structured file (its sections, keys, elements, rules or tasks, in
+ * line order) that `--deep` may summarise; the rest stay `pending`. A structured
+ * file is one call like any other, but a 500-key config would put 500 units into
+ * that call, and a summary of the 400th key of a generated file buys nothing. Forty
+ * covers every heading of a long design document and a config file's top level. */
+export const MAX_DEEP_UNITS_PER_STRUCTURED_FILE = 40;
 
 /** Files summarized at once. Each is an independent LLM call; order is preserved. */
 const DEFAULT_CONCURRENCY = 5;
@@ -69,6 +77,27 @@ export interface EnrichStats {
    * provider failures. Content-quality misses (#235) count in `failedFiles` but
    * do not set this. The reason is what `graft build --deep` exits non-zero with. */
   fatal?: string;
+}
+
+/** Ids of the structured-tier units after the first
+ * {@link MAX_DEEP_UNITS_PER_STRUCTURED_FILE} of their file, by start line. Decided
+ * over every node of the file, cached or not, so the bound names the same units on
+ * every run rather than whichever happen to be dirty. */
+function structuredUnitsBeyondBound(nodes: readonly NodeV1[]): Set<string> {
+  const byPath = new Map<string, Array<{ id: string; line: number; order: number }>>();
+  nodes.forEach((n, order) => {
+    if (n.kind === "file" || structuredLangOf(n.path) === null) return;
+    const line = Number(/^L(\d+)/.exec(n.span)?.[1] ?? Number.MAX_SAFE_INTEGER);
+    const list = byPath.get(n.path) ?? [];
+    list.push({ id: n.id, line, order });
+    byPath.set(n.path, list);
+  });
+  const beyond = new Set<string>();
+  for (const list of byPath.values()) {
+    list.sort((a, b) => a.line - b.line || a.order - b.order);
+    for (const u of list.slice(MAX_DEEP_UNITS_PER_STRUCTURED_FILE)) beyond.add(u.id);
+  }
+  return beyond;
 }
 
 export async function enrichGraph(
@@ -116,10 +145,17 @@ export async function enrichGraph(
     return stats;
   }
 
-  // One LLM call per file: group the dirty nodes by the file they live in.
+  // One LLM call per file: group the dirty nodes by the file they live in. A
+  // structured file's units past the bound are never sent, and stay as they were.
+  const beyondBound = structuredUnitsBeyondBound(nodes);
   const byFile = new Map<string, NodeV1[]>();
   for (const node of dirty) {
     if (!sources.has(node.path)) continue;
+    if (beyondBound.has(node.id)) {
+      if (node.summary_state === "stale") stats.stale++;
+      else stats.pending++;
+      continue;
+    }
     const arr = byFile.get(node.path);
     if (arr) arr.push(node);
     else byFile.set(node.path, [node]);

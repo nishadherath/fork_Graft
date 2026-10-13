@@ -142,7 +142,12 @@ function parseResults(obj: { symbols?: unknown } | undefined): NodeCrux[] {
     .map((s) => s as Record<string, unknown>)
     .filter((s) => typeof s.id === "string")
     .map((s) => ({
-      id: s.id as string,
+      // Some models echo the whole TARGETS descriptor line as the id
+      // ("path#sym | kind | lines L1-L3 | sig"), most often when the file node
+      // itself is a target. The strict id lookup downstream then matches nothing
+      // and the pass reports a misleading empty-parsed miss for a fine reply.
+      // Real ids never contain " | ", so cutting at the first one is lossless.
+      id: (s.id as string).split(" | ")[0]!.trim(),
       summary: typeof s.summary === "string" ? s.summary.trim() : "",
       crux_start: num(s.crux_start),
       crux_end: num(s.crux_end),

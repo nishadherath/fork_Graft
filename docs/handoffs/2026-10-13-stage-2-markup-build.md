@@ -2,7 +2,7 @@
 stage: "Stage 2: markup and build families, HTML, CSS, XML, Groovy, shell, Dockerfile, Make, CMake, and the denylist"
 model: claude-sonnet-5-5
 effort: medium
-status: in-progress
+status: done
 created: 2026-10-13
 from: "Sonnet 5.5 Stage 1 session (structured tier core), 2026-10-13"
 ---
@@ -71,40 +71,70 @@ merged; say which).
 
 ## Verified facts
 
-- Stage 1 gate: 1,397 tests, 1,392 pass, 0 fail, 5 skipped (2026-10-13).
-- A registry match is a path suffix, so `Dockerfile` and `Makefile` (no extension)
-  need basename rows; `structuredLangOf` currently matches `endsWith(ext)`.
-- Dot-files and dot-directories are never walked (`src/ingest/fs.ts`).
-- Python edits on this Windows machine write CRLF unless `newline=""` is passed to
-  `open`; check with `git ls-files --eol -m` before committing.
+- Final gate on the Stage 2 branch (`npm run build && npm test`, Node 26.7.0,
+  2026-10-13): 1,446 tests, 1,441 pass, 0 fail, 5 skipped. Stage 1 ended at 1,397, so
+  49 new tests, in `test/structured-{dotpaths,css,html,xml,build-scripts,targets,shell,denylist}.test.ts`.
+- `node scripts/sync-global.mjs`: 51 files changed, global graft answers 0.21.1.
+- This repository with `GRAFT_STRUCTURED=1 graft build .`: 3,373 nodes including 320 `key`,
+  244 `section`, 195 `selector`, 20 `element`, 2 `task`; `.github/workflows/*.yml` keys appear
+  (D7). BeWhole: 1,720 nodes including 402 `key`, 230 `selector`, 6 `element`;
+  `graft ask "upload body limit" --source` still returns `package.json:L24-L24`, and
+  `.github/workflows/ci.yml:L32-L32` is reachable. BeWhole's git status was identical before and
+  after; both graphs were rebuilt code-only afterwards.
+- Real-data span checks (the unit's id, name or first token is on its span): 120 CSS and SCSS
+  files with 9,339 rules; 150 HTML, Svelte and Astro files with 6,883 units; 162 XML-family
+  files with 202 units; 33 Gradle and Make files with 340 units; 31 Docker and CMake files with
+  391 units; 150 shell scripts with 166 functions; 0 mismatches. My first checker versions gave
+  false mismatches (tokenising `a[name=L1]`, `appcompat:appcompat"]`); each was the checker's
+  fault and was fixed there, not in the extractor.
+- The bundled XML grammar crashes on every input here ("memory access out of bounds", two-element
+  document, Node 26.7.0). The other eleven planned grammars load and parse.
+- The Groovy grammar parses `task hello { }` as a call plus a detached closure; the Make grammar
+  decides recipe spans by recovery. Both are scanners now.
+- `git ls-files --eol -m` was clean (all LF) at each commit; no control characters in `src/`.
 
 ## Work completed
 
-Nothing yet in Stage 2.
+Branch `stage-2/markup-build` on `main`, one commit per item, each gated:
+
+- `341a793` D7: `.github/workflows` YAML admitted by the walker (`STRUCTURED_DOT_PATHS`)
+- `dfddca7` CSS and SCSS, kinds `element`/`selector`/`task`, the shared unit emitter
+- `dc3a015` HTML, Svelte, Astro  `b1ff78e` XML scanner  `ecb7d0e` Gradle and Make scanners
+- `45651fb` Dockerfile and CMake  `8aa8fde` Bash and PowerShell  `01ace3a` denylist, README, CHANGELOG
+
+Deviations from the handoff, each with its reason:
+
+- XML, Gradle and Make are hand-written scanners instead of wasm walks (evidence above); D2 allows it.
+- CSS landed before HTML because HTML's `<style>` reuses the CSS walker.
+- The denylist is key-material extensions for every tier (a pinned no-op today) and minified
+  css/json/html/svg for the structured tier only; `.min.js` stays with the depth tier so the
+  tier-off file set is unchanged.
+- A first HTML gate failed two MCP tests because a new file appeared in `structured/` mid-run and
+  moved the extractor stamp; I reran on a stable tree and noted it in that commit.
 
 ## Unresolved questions
 
-- Whether `.properties` and `.conf` belong in the INI family; the grammar reads `=`
-  only. Probe first and record the outcome.
+- Viewer colours for `section`, `key`, `element`, `selector`, `task` (neutral today). Cosmetic.
+- `.properties` and `.conf` in the INI family: not probed; the ini grammar reads `=` only. Operator.
+- Whether XML should return to the grammar if a later `tree-sitter-wasm` fixes the crash
+  (one `wasm` field and deleting `xml.ts`'s tree builder). A later release can answer it.
 
 ## Exact next action
 
-Set `status: in-progress` here, then write `test/structured-dotpaths.test.ts` (D7):
-a temp repo with `.github/workflows/ci.yml`, `.github/dependabot.yml` and `.editorconfig`;
-with the tier on, `listSourceFiles` returns only the workflow, with it off it returns
-none of them; build, `probeDrift` and `checkGraph` agree. Watch it fail before touching
-`src/ingest/fs.ts`. Commit D7 with its gate, then start HTML with
-`test/structured-markup.test.ts` (an element with an `id`, an inline `<script>`
-defining a function, a `<style>` rule, true line numbers written in the fixture).
+Operator: review `git log upstream/main..pr/structured-tier-markup-build --stat`, push the
+branch after `pr/structured-tier-core`, then start Stage 3 from
+`docs/handoffs/2026-10-13-stage-3-edges.md` (Opus 5.5 at high).
 
 ## Cost projection
 
-Sonnet 5.5 at $2.00 in, $10.00 out, $0.20 cache read per million tokens, 60 turns,
-average context 100k, 3k fresh input, 1.5k output: cache 6M x $0.20 = $1.20; fresh
-180k x $2.50 = $0.45; output 90k x $10 = $0.90; about $2.55. The Stage 1 actual ran
-about three times its quote, so quote $4 to $8 including D7.
+Projected $4 to $8 (60 turns, 100k context). Actual, estimated: this stage ran inside the
+Stage 1 session, so its context started near 450k and ended at 623k: about 110 turns x 530k
+average = 58M cache reads x $0.20 = $11.7, fresh input 330k x $2.50 = $0.8, output 220k x $10 =
+$2.2, about $14.7 at API list price. A fresh session would have cost roughly a third of that;
+the handoff exists for exactly this reason. Not measured: the plan account reports percentages.
 
 ## Time projection
 
-75 to 115 minutes of agent time (D7 adds about 15) (the gate is about 6 minutes and runs once per
-family at least). Operator review: about 25 minutes.
+Projected 75 to 115 minutes. Actual about 95 minutes wall clock (04:02 to 05:37 UTC), nine gates
+of 5 to 7 minutes each. Operator review: about 30 minutes, mostly `xml.ts`, `gradle.ts`, `make.ts`
+and the `fs.ts` change.

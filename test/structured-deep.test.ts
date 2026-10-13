@@ -77,3 +77,21 @@ test("deep: the concept pass reads structured files only when the tier is on, ne
   // An explicit extension list still means exactly that list.
   assert.deepEqual(listContextFiles(root, outDir, [".md"]).map((f) => relPosix(root, f)), ["docs/guide.md"]);
 });
+
+test("deep: the concept pass admits workflow YAML under .github/workflows, as the build does", () => {
+  const root = tmpRepo("structured-deep-workflows");
+  mkdirSync(join(root, ".github", "workflows"), { recursive: true });
+  writeFileSync(join(root, ".github", "workflows", "ci.yml"), "name: ci\n");
+  writeFileSync(join(root, ".github", "dependabot.yml"), "version: 2\n");
+  writeFileSync(join(root, "settings.yml"), "a: 1\n");
+  const outDir = join(root, "graft");
+  const listed = (): string[] => listContextFiles(root, outDir, undefined).map((f) => relPosix(root, f)).sort();
+
+  assert.deepEqual(listed(), [], "tier off: no structured file, and nothing behind a dot");
+  patchBuildConfig(root, { structured: true });
+  assert.deepEqual(
+    listed(),
+    [".github/workflows/ci.yml", "settings.yml"],
+    "the workflow is admitted, the rest of .github is still not walked",
+  );
+});

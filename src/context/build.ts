@@ -13,7 +13,7 @@
  */
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { walkDir } from "../ingest/fs.js";
+import { STRUCTURED_DOT_PATHS, walkDir } from "../ingest/fs.js";
 import { filterByOnlyDirs } from "../graph/source-files.js";
 import { readFingerprint } from "../graph/fingerprint.js";
 import { contentHash } from "../util/id.js";
@@ -124,6 +124,9 @@ export function listContextFiles(
   const walked = walkDir(root, readIncludeDirs(root), {
     followSubmodules: readFollowSubmodules(root),
     followNestedRepos: readFollowNestedRepos(root),
+    // The same dot-path admit as the graph build, or a workflow would be indexed
+    // there and never summarised here.
+    admitDotPaths: readStructured(root) ? STRUCTURED_DOT_PATHS : undefined,
   })
     .filter(wanted)
     .filter((f) => !f.startsWith(outDir));

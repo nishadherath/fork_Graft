@@ -199,6 +199,20 @@ export function readDocuments(d: string): boolean {
   return readBuildConfig(d)?.documents === true;
 }
 
+/** The documents tier's size cap in bytes: `GRAFT_DOCUMENT_MAX_BYTES` when it is a
+ * positive whole number, else `fallback`. `problem` names a value that was set
+ * but ignored, so the build can say so instead of silently using the default. */
+export function readDocumentMaxBytes(fallback: number): { maxBytes: number; problem?: string } {
+  const raw = process.env.GRAFT_DOCUMENT_MAX_BYTES;
+  if (raw === undefined || raw.trim() === '') return { maxBytes: fallback };
+  const n = Number(raw);
+  if (Number.isSafeInteger(n) && n > 0) return { maxBytes: n };
+  return {
+    maxBytes: fallback,
+    problem: `GRAFT_DOCUMENT_MAX_BYTES="${raw}" ignored: expected a positive whole number of bytes, using ${fallback}`,
+  };
+}
+
 /** Missing and explicit false both retain the backwards-compatible default. */
 export function readFollowNestedRepos(d: string): boolean {
   return readBuildConfig(d)?.followNestedRepos === true;

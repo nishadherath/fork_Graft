@@ -72,6 +72,28 @@ export function parseMarker(line: string): { kind: UnitKind; n: number; title?: 
   return { kind: m[1] as UnitKind, n: Number(m[2]), ...(m[3] ? { title: m[3] } : {}) };
 }
 
+const PLURAL: Readonly<Record<UnitKind, string>> = { page: "pages", slide: "slides", chapter: "chapters" };
+
+/** `"1 page"`, `"3 slides"`. */
+export function unitCount(kind: UnitKind, count: number): string {
+  return `${count} ${count === 1 ? kind : PLURAL[kind]}`;
+}
+
+/** When a rendering has markers and no text at all (a scanned PDF), the kind of
+ * its units and a count for a message, `"2 pages"`; otherwise null. */
+export function textlessUnits(rendering: string): { kind: UnitKind; label: string } | null {
+  let kind: UnitKind | null = null;
+  let count = 0;
+  for (const line of rendering.split("\n")) {
+    const marker = parseMarker(line);
+    if (marker) {
+      kind = marker.kind;
+      count++;
+    } else if (line.trim() !== "") return null;
+  }
+  return kind ? { kind, label: unitCount(kind, count) } : null;
+}
+
 /** The rendering's text. Units of each kind are numbered from 1 in order; empty
  * blocks are dropped, an empty unit keeps its marker so later numbers stay true.
  * Ends with a newline. */

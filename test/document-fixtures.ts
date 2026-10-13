@@ -9,8 +9,10 @@
 import { strToU8, zipSync } from "fflate";
 
 /** A PDF with one page per entry, each line drawn as its own text object 20
- * points below the last. Only printable ASCII without `(`, `)` or `\`. */
-export function pdf(pages: readonly (readonly string[])[]): Uint8Array {
+ * points below the last. Only printable ASCII without `(`, `)` or `\`.
+ * `padBytes` adds a comment of that many bytes after the header, to make a file
+ * of a given size without changing its text. */
+export function pdf(pages: readonly (readonly string[])[], padBytes = 0): Uint8Array {
   const objects: string[] = [];
   objects.push("<< /Type /Catalog /Pages 2 0 R >>");
   const kids = pages.map((_, i) => `${3 + i * 2} 0 R`).join(" ");
@@ -28,6 +30,7 @@ export function pdf(pages: readonly (readonly string[])[]): Uint8Array {
   // The second line is the binary marker real producers write: bytes that are not
   // valid UTF-8, so a reader that decodes a PDF as text cannot pass by accident.
   let out = "%PDF-1.4\n%âãÏÓ\n";
+  if (padBytes > 0) out += `%${"x".repeat(padBytes)}\n`;
   const offsets: number[] = [];
   objects.forEach((o, i) => {
     offsets.push(out.length);

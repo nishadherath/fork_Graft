@@ -21,7 +21,7 @@ import { mintId, type ExtractResult, type RawEdge } from "../../extract.js";
 import type { NodeV1 } from "../../types.js";
 import { extractMarkdown, slugOf } from "../markdown.js";
 import { MAX_BODY_TEXT_CHARS, MAX_UNITS_PER_FILE, spanOf, splitLines } from "../shared.js";
-import { parseMarker, type UnitKind } from "./render.js";
+import { parseMarker, unitCount, type UnitKind } from "./render.js";
 
 interface Marker {
   row: number;
@@ -36,8 +36,6 @@ const MARKER_TEXT = /<!-- (?:page|slide|chapter) \d+(?:: .*?)? -->/g;
 function plain(lines: readonly string[]): string {
   return lines.join(" ").replace(MARKER_TEXT, " ").replace(/\s+/g, " ").trim().slice(0, MAX_BODY_TEXT_CHARS);
 }
-
-const PLURAL: Readonly<Record<UnitKind, string>> = { page: "pages", slide: "slides", chapter: "chapters" };
 
 /** Nodes for the document at `rel` whose rendering is `rendering`, stored at the
  * repository-relative `renderingRel`. */
@@ -118,7 +116,7 @@ export function extractDocument(rel: string, rendering: string, renderingRel: st
   }
   const counts = new Map<UnitKind, number>();
   for (const m of markers) counts.set(m.kind, (counts.get(m.kind) ?? 0) + 1);
-  const tally = [...counts].map(([kind, c]) => `${c} ${c === 1 ? kind : PLURAL[kind]}`).join(", ");
+  const tally = [...counts].map(([kind, c]) => unitCount(kind, c)).join(", ");
   file.signature = `${name} -> ${renderingRel}${tally ? ` (${tally})` : ""}`;
   return { nodes, rawEdges };
 }

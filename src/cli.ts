@@ -603,6 +603,7 @@ program
       { repo: buildRoot },
     );
     for (const e of g.errors) console.error(`✗ ${e}`);
+    for (const w of g.warnings) console.error(`⚠ ${w}`);
 
     const rel = relative(process.cwd(), g.contextDir) || "graft";
     if (process.env.GRAFT_NO_GITIGNORE) {

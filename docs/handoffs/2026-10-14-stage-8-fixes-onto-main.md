@@ -2,7 +2,7 @@
 stage: "Stage 8: carry the Stage 7 fixes onto main, gate, sync the global install"
 model: claude-sonnet-5-5
 effort: medium
-status: ready
+status: done
 created: 2026-10-14
 from: "Sonnet 5.5 Stage 7 session (acceptance fixes and stack rebase), 2026-10-14"
 ---
@@ -53,7 +53,7 @@ repository's `graft` command has the fixes. Nothing pushed.
 
 ## Work completed
 
-Nothing yet in Stage 8.
+The six fixes are on `main` (fast-forwarded from `stage-8/fixes-onto-main`, tip `04f9c44`). Two conflicts resolved toward the fix: `src/graph/structured/markdown.ts` (HTML-block check runs before link recording, as on `pr/structured-edges`) and `README.md` (the `--no-structured` wording kept beside main's two documents lines). Gate on the worktree, Node 26.7.0, PowerShell, sequential: `npm run build` exit 0; `npm test` 1,509 tests, 1,504 pass, 0 fail, 5 skipped, 446 s. `node scripts/sync-global.mjs` ran: 13 changed, 8 stale removed, global `graft --version` 0.21.1. Nothing pushed.
 
 ## Unresolved questions
 

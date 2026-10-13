@@ -23,6 +23,7 @@
 import { basename } from "node:path";
 import { loadWasmLanguage } from "../generic.js";
 import type { ExtractResult } from "../extract.js";
+import { extractJson } from "./json.js";
 import { extractMarkdown } from "./markdown.js";
 import { structuredFileNode } from "./shared.js";
 
@@ -94,6 +95,8 @@ export function extractStructured(rel: string, source: string, lang: StructuredL
   switch (lang.family) {
     case "markdown":
       return extractMarkdown(rel, source);
+    case "json":
+      return extractJson(rel, source, loaded.get(lang.name), rel.toLowerCase().endsWith(".jsonl"));
     default:
       return { nodes: [structuredFileNode(rel, source)], rawEdges: [] };
   }

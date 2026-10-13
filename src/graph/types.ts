@@ -35,7 +35,13 @@ export type Kind =
   // YAML, TOML or INI entry is a `key`. Separate kinds rather than reuse of
   // `module`/`variable` so cards and skeleton read truthfully.
   | "section"
-  | "key";
+  | "key"
+  // Markup and build files: an `element` is an HTML or XML element worth finding
+  // by its id or name, a `selector` a stylesheet rule, custom property or at-rule,
+  // a `task` a build target, stage or task block.
+  | "element"
+  | "selector"
+  | "task";
 
 /** How confident we are an edge is true, best-first. The hand-written AST
  * resolver assigns `extracted`/`inferred`; the opt-in LSP enrichment pass

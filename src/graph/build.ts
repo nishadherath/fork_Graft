@@ -93,6 +93,8 @@ export interface GraphBuildOptions {
   lsp?: boolean;
   /** Run the Tier-2 LLM meaning pass. Absent → Tier-1 only (cache is still preserved). */
   summarizer?: CruxSummarizer;
+  /** Let the Tier-2 pass summarise documents too (`--deep-documents`). */
+  deepDocuments?: boolean;
   /** Max files summarized in parallel during the Tier-2 pass. Default is set in enrich. */
   concurrency?: number;
   /** Repo-relative directory prefixes to limit the build to (`--only-dir`). When
@@ -406,6 +408,7 @@ export async function buildGraph(
   const meaning = await enrichGraph(nodes, priorById, sources, {
     summarizer: opts.summarizer,
     concurrency: opts.concurrency,
+    deepDocuments: opts.deepDocuments,
     onProgress: ({ index, total, node }) =>
       opts.onProgress?.({ phase: "enrich", index, total, file: node }),
     // Periodic durability flush of partial crux; the next run folds it back in by

@@ -24,16 +24,18 @@ import { basename } from "node:path";
 import { loadWasmLanguage } from "../generic.js";
 import type { ExtractResult } from "../extract.js";
 import { extractCss } from "./css.js";
+import { extractGradle } from "./gradle.js";
 import { extractHtml } from "./html.js";
 import { extractIni } from "./ini.js";
 import { extractJson } from "./json.js";
+import { extractMake } from "./make.js";
 import { extractMarkdown } from "./markdown.js";
 import { extractToml } from "./toml.js";
 import { extractXml } from "./xml.js";
 import { extractYaml } from "./yaml.js";
 import { structuredFileNode } from "./shared.js";
 
-export type StructuredFamily = "markdown" | "json" | "yaml" | "toml" | "ini" | "css" | "html" | "xml";
+export type StructuredFamily = "markdown" | "json" | "yaml" | "toml" | "ini" | "css" | "html" | "xml" | "gradle" | "make";
 
 /** A structured-tier language: graft name, family (which extractor), the file
  * extensions it claims, and the wasm basename when a bundled grammar parses it. */
@@ -60,6 +62,8 @@ export const STRUCTURED_LANGS: readonly StructuredLang[] = [
   { name: "svelte", family: "html", exts: [".svelte"], wasm: "svelte" },
   { name: "astro", family: "html", exts: [".astro"], wasm: "astro" },
   // No wasm: the bundled xml grammar crashes on every input here, see xml.ts.
+  { name: "gradle", family: "gradle", exts: [".gradle"] },
+  { name: "make", family: "make", exts: ["makefile", ".mk"] },
   { name: "xml", family: "xml", exts: [".xml", ".plist", ".storyboard", ".xib", ".entitlements"] },
 ];
 
@@ -132,6 +136,10 @@ export function extractStructured(rel: string, source: string, lang: StructuredL
       return extractIni(rel, source, loaded.get(lang.name));
     case "css":
       return extractCss(rel, source, loaded.get(lang.name));
+    case "gradle":
+      return extractGradle(rel, source);
+    case "make":
+      return extractMake(rel, source);
     case "xml":
       return extractXml(rel, source);
     case "html":

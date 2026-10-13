@@ -27,6 +27,13 @@ export const SKIP_DIRS = new Set([
 /** Files above this size are generated/vendored in practice, not hand-written code. */
 export const MAX_FILE_BYTES = 1_000_000;
 
+/** The dot-directories the structured tier may read. Narrow on purpose (operator
+ * decision D7): workflows are configuration agents ask about, while the rest of
+ * `.github/` and every other dot-path stay out as before. */
+export const STRUCTURED_DOT_PATHS: readonly string[] = [".github/workflows"];
+
+const ADMITTED_EXTENSION = /\.ya?ml$/i;
+
 /**
  * Whether a directory named `name` should be skipped when walking a repo tree:
  * any dot-prefixed directory (`.git`, `.github`, `.vscode`, ...) or one of
@@ -80,6 +87,11 @@ export function shouldSkipDir(name: string, includes?: ReadonlySet<string>): boo
  * them, so there is nothing to follow).
  */
 export interface WalkOptions {
+  /** Repo-relative posix directory prefixes whose YAML files are admitted despite
+   * the dot-directory rule (the structured tier passes {@link STRUCTURED_DOT_PATHS}).
+   * Only `.yml` and `.yaml` files under a prefix are admitted; every other skip
+   * rule, Git's ignore rules and the size cap still apply. Default none. */
+  admitDotPaths?: readonly string[];
   /** Include initialized Git submodules (gitlinks) recursively. Default false. */
   followSubmodules?: boolean;
   /** Include nested Git clones the parent index does not track. Default false. */
@@ -158,7 +170,7 @@ export function walkDir(
 ): string[] {
   const requested = resolve(dir);
   const root = canonicalWalkRoot(requested);
-  const files = gitVisibleFiles(root, includes, opts) ?? walkFilesystem(root, includes);
+  const files = gitVisibleFiles(root, includes, opts) ?? walkFilesystem(root, includes, opts.admitDotPaths);
   return remapWalkPaths(requested, root, files);
 }
 
@@ -176,7 +188,7 @@ function gitVisibleFiles(
   // only when at least one boundary-crossing opt-in is on. With both off the
   // walk is byte-for-byte the historical one.
   if (opts.followSubmodules !== true && opts.followNestedRepos !== true) {
-    return gitVisibleFilesShallow(root, includes);
+    return gitVisibleFilesShallow(root, includes, opts.admitDotPaths);
   }
 
   const state = traversal ?? { topRoot: root, activeRoots: new Set<string>() };
@@ -244,7 +256,7 @@ function gitVisibleFiles(
     // Filter against the original superproject path. Otherwise a submodule
     // mounted at vendor/ or build/ would bypass the parent's skip policy when
     // recursion resets its relative root.
-    if (skippedPath(relative(state.topRoot, abs), includes)) continue;
+    if (skippedPath(relative(state.topRoot, abs), includes, opts.admitDotPaths)) continue;
 
     const followChild =
       (entry.gitlink && opts.followSubmodules === true) ||
@@ -265,7 +277,7 @@ function gitVisibleFiles(
         // top-level Git command fails and walkDir uses its filesystem fallback.
         // Let an unreadable filesystem fallback surface rather than claiming a
         // healthy graph that silently omitted the child again.
-        childFiles = walkFilesystem(abs, includes);
+        childFiles = walkFilesystem(abs, includes, opts.admitDotPaths);
       }
       for (const file of childFiles) out.add(file);
       continue;
@@ -289,7 +301,11 @@ function gitVisibleFiles(
 /** The historical, non-recursive Git path. Kept separate so the default does
  * exactly the same command, filtering, ordering, and duplicate handling as it
  * did before submodule support existed. */
-function gitVisibleFilesShallow(root: string, includes?: ReadonlySet<string>): string[] | null {
+function gitVisibleFilesShallow(
+  root: string,
+  includes?: ReadonlySet<string>,
+  admit?: readonly string[],
+): string[] | null {
   const result = spawnSync(
     "git",
     ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--"],
@@ -304,7 +320,7 @@ function gitVisibleFilesShallow(root: string, includes?: ReadonlySet<string>): s
 
   const out: string[] = [];
   for (const rel of result.stdout.split("\0")) {
-    if (!rel || skippedPath(rel, includes)) continue;
+    if (!rel || skippedPath(rel, includes, admit)) continue;
     const abs = resolve(root, rel);
     try {
       const stat = lstatSync(abs);
@@ -322,19 +338,44 @@ function gitVisibleFilesShallow(root: string, includes?: ReadonlySet<string>): s
 /** A path (git-relative, either separator) is skipped when any of its
  * segments is a skippable directory name — the final segment doubles as the
  * dot-FILE check (`.eslintrc.js` and friends are not source either). */
-function skippedPath(path: string, includes?: ReadonlySet<string>): boolean {
-  return path.replace(/\\/g, "/").split("/").some((segment) => shouldSkipDir(segment, includes));
+function skippedPath(path: string, includes?: ReadonlySet<string>, admit?: readonly string[]): boolean {
+  const posix = path.replace(/\\/g, "/");
+  // An admitted YAML file is judged on the segments below its prefix only.
+  const prefix = admit?.find((p) => posix.startsWith(`${p}/`));
+  if (prefix && ADMITTED_EXTENSION.test(posix)) {
+    return posix.slice(prefix.length + 1).split("/").some((segment) => shouldSkipDir(segment, includes));
+  }
+  return posix.split("/").some((segment) => shouldSkipDir(segment, includes));
 }
 
-function walkFilesystem(dir: string, includes?: ReadonlySet<string>): string[] {
+function walkFilesystem(
+  dir: string,
+  includes?: ReadonlySet<string>,
+  admit?: readonly string[],
+  base = dir,
+): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
+    const rel = relative(base, full).split(sep).join("/");
+    // Below a dot-directory we only got into to reach an admitted prefix, nothing
+    // is source unless it is on the way to, or inside, that prefix.
+    const dotAncestor = rel.split("/").slice(0, -1).some((seg) => seg.startsWith("."));
+    const insidePrefix = admit?.some((p) => rel.startsWith(`${p}/`)) === true;
     if (entry.isDirectory()) {
-      if (shouldSkipDir(entry.name, includes)) continue;
-      out.push(...walkFilesystem(full, includes));
+      // A dot-directory that is, or lies on the way to, an admitted prefix is
+      // entered; anything below the prefix is judged by the ordinary rules.
+      const onTheWay = admit?.some((p) => p === rel || p.startsWith(`${rel}/`)) === true;
+      if (dotAncestor && !onTheWay && !insidePrefix) continue;
+      if (shouldSkipDir(entry.name, includes) && !(onTheWay && entry.name.startsWith("."))) continue;
+      out.push(...walkFilesystem(full, includes, admit, base));
     } else if (entry.isFile()) {
-      if (entry.name.startsWith(".")) continue; // dot-files are not source either
+      if (dotAncestor && !insidePrefix) continue;
+      if (insidePrefix) {
+        if (!ADMITTED_EXTENSION.test(entry.name) || entry.name.startsWith(".")) continue;
+      } else if (entry.name.startsWith(".")) {
+        continue; // dot-files are not source either
+      }
       try {
         if (statSync(full).size > MAX_FILE_BYTES) continue;
       } catch {

@@ -16,6 +16,9 @@
   text; lockfiles are never indexed. The choice persists in `.graft/config.json`
   and `--no-structured` turns it off.
 
+- **Workflow YAML is indexed with `--structured`**: the walker admits `.yml` and
+  `.yaml` files under `.github/workflows/`, and nothing else behind a dot.
+
 ### Fixed
 
 - **Cards for files that share a stem no longer overwrite each other**

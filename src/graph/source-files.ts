@@ -8,7 +8,7 @@
  */
 import { statSync } from "node:fs";
 import { resolve } from "node:path";
-import { walkDir } from "../ingest/fs.js";
+import { STRUCTURED_DOT_PATHS, walkDir } from "../ingest/fs.js";
 import { relPosix } from "../util/paths.js";
 import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs, readStructured } from "../util/state.js";
 import { languageOf, depthExtensions } from "./extract.js";
@@ -73,6 +73,7 @@ export function listSourceFiles(
   repoFiles: string[] = walkDir(root, readIncludeDirs(resolve(root)), {
     followSubmodules: readFollowSubmodules(resolve(root)),
     followNestedRepos: readFollowNestedRepos(resolve(root)),
+    admitDotPaths: readStructured(resolve(root)) ? STRUCTURED_DOT_PATHS : undefined,
   }),
   onlyDirs?: ReadonlySet<string>,
 ): string[] {

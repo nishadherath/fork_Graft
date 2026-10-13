@@ -24,6 +24,7 @@ import { basename } from "node:path";
 import { loadWasmLanguage } from "../generic.js";
 import type { ExtractResult } from "../extract.js";
 import { extractCss } from "./css.js";
+import { extractHtml } from "./html.js";
 import { extractIni } from "./ini.js";
 import { extractJson } from "./json.js";
 import { extractMarkdown } from "./markdown.js";
@@ -31,7 +32,7 @@ import { extractToml } from "./toml.js";
 import { extractYaml } from "./yaml.js";
 import { structuredFileNode } from "./shared.js";
 
-export type StructuredFamily = "markdown" | "json" | "yaml" | "toml" | "ini" | "css";
+export type StructuredFamily = "markdown" | "json" | "yaml" | "toml" | "ini" | "css" | "html";
 
 /** A structured-tier language: graft name, family (which extractor), the file
  * extensions it claims, and the wasm basename when a bundled grammar parses it. */
@@ -54,6 +55,9 @@ export const STRUCTURED_LANGS: readonly StructuredLang[] = [
   { name: "ini", family: "ini", exts: [".ini", ".cfg"], wasm: "ini" },
   { name: "css", family: "css", exts: [".css"], wasm: "css" },
   { name: "scss", family: "css", exts: [".scss"], wasm: "scss" },
+  { name: "html", family: "html", exts: [".html", ".htm"], wasm: "html" },
+  { name: "svelte", family: "html", exts: [".svelte"], wasm: "svelte" },
+  { name: "astro", family: "html", exts: [".astro"], wasm: "astro" },
 ];
 
 /** Machine-written lockfiles that share a structured extension. Large, noisy and
@@ -83,8 +87,14 @@ export function structuredExtensions(): string[] {
 
 const loaded = new Map<string, unknown>();
 
-/** Grammars a family needs beyond its own: Markdown reads its front matter as YAML. */
-const ALSO_NEEDS: Readonly<Record<string, readonly string[]>> = { markdown: ["yaml"] };
+/** Grammars a language needs beyond its own: Markdown reads its front matter as
+ * YAML, and a page reads its <style> blocks as CSS. */
+const ALSO_NEEDS: Readonly<Record<string, readonly string[]>> = {
+  markdown: ["yaml"],
+  html: ["css"],
+  svelte: ["css"],
+  astro: ["css"],
+};
 
 /** Warm the wasm grammars the given structured languages need. Same contract as
  * `warmGenericGrammars`: await once before the synchronous parse loop. An
@@ -119,6 +129,8 @@ export function extractStructured(rel: string, source: string, lang: StructuredL
       return extractIni(rel, source, loaded.get(lang.name));
     case "css":
       return extractCss(rel, source, loaded.get(lang.name));
+    case "html":
+      return extractHtml(rel, source, loaded.get(lang.name), loaded.get("css"));
     case "json":
       return extractJson(rel, source, loaded.get(lang.name), rel.toLowerCase().endsWith(".jsonl"));
     default:

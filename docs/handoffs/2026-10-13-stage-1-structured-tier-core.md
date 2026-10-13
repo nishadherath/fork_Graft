@@ -129,13 +129,8 @@ Deviations from the plan, each with its reason:
 
 ## Unresolved questions
 
-- Decision (operator): graft's walk skips dot-directories. Options: A leave it
-  (`.github/workflows` stays unindexed); B allow an `--include-dir` override for
-  dot-directories (all tiers; edit `shouldSkipDir`); C a structured-only allowlist
-  (`.github`). A is free; B changes every repo's file set and is an upstream design
-  call; C is small but special-cases one tier. Blast radius: B and C change what
-  `graft build` indexes in repos that have `.github/`. Recommended: C, narrowly
-  `.github/workflows` for structured YAML, raised in the D5 design issue first.
+- Decided 2026-10-13 by the operator: option C, a structured-only admit-list for
+  `.github/workflows` (Stage 2 handoff, D7). Not yet implemented.
 - Viewer colour table (`viewer/data.ts`) has no entry for `section` or `key`; they
   draw in the neutral colour. Cosmetic; Stage 2 or the operator.
 

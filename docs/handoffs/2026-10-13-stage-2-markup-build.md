@@ -22,6 +22,7 @@ Extend the structured tier to the plan's "second" rows: HTML, Svelte and Astro
 `@mixin`), XML (Android manifest and layouts by `android:id`, pom, plist keys as
 `key`), Groovy `build.gradle` (a `task` per block), Bash and PowerShell (functions
 in the existing kind), Dockerfile, Make and CMake (a `task` per target or stage).
+Plus first, the operator's decided dot-directory item (Decision D7 below).
 Done: each family has a failing-first span test in the fixture style, the README
 table has its rows, CHANGELOG has an entry, the denylist (`.pem`, `.key`, minified
 bundles; lockfiles exist already) is pinned by a test, the gate is green with
@@ -42,6 +43,18 @@ merged; say which).
   need their own small emitter that applies a size cap with a named constant.
 - Spans are host-file lines. Embedded `<script>` and `<style>` use
   `extractEmbedded` from `container.ts` and keep only `contains` edges.
+- D7 C, decided 2026-10-13 by the operator: with the structured tier on, the walker
+  admits files under `.github/workflows/` (YAML only, by the registry) despite its
+  dot-directory rule. Nothing else changes: `.editorconfig`, `.github/` outside
+  `workflows/`, every other dot-path, `SKIP_DIRS` and Git's ignore rules behave as
+  today, and with the tier off the file set is byte-identical to today. Shape: a
+  named constant for the admitted prefixes beside `shouldSkipDir` in
+  `src/ingest/fs.ts`, a `WalkOptions` field callers pass when `readStructured(root)`
+  is true, wired into the callers of `walkDir` that enumerate source files
+  (`graph/build.ts`, `graph/source-files.ts`; check `graph/scopes.ts` and
+  `context/build.ts` and say why each does or does not need it). Build, probe and
+  `check` must agree, as in `test/structured-tier.test.ts`. Raise it in the D5
+  design issue when the operator opens it; do not wait for that.
 - The structured tier's choice persists in `.graft/config.json`
   (`readStructured`); do not add a second switch.
 - Prose conventions: Australian English, no em-dashes, no banned words.
@@ -71,27 +84,27 @@ Nothing yet in Stage 2.
 
 ## Unresolved questions
 
-- Operator decision carried from Stage 1: whether `.github/workflows` should be
-  walkable (Stage 1 handoff, "Unresolved questions"). Do not start on it; it changes
-  every tier's file set.
 - Whether `.properties` and `.conf` belong in the INI family; the grammar reads `=`
   only. Probe first and record the outcome.
 
 ## Exact next action
 
-Set `status: in-progress` here, then write `test/structured-markup.test.ts` with an
-HTML fixture (an element with an `id`, an inline `<script>` defining a function, a
-`<style>` rule) whose true line numbers are in the fixture, and watch it fail before
-adding the HTML extractor.
+Set `status: in-progress` here, then write `test/structured-dotpaths.test.ts` (D7):
+a temp repo with `.github/workflows/ci.yml`, `.github/dependabot.yml` and `.editorconfig`;
+with the tier on, `listSourceFiles` returns only the workflow, with it off it returns
+none of them; build, `probeDrift` and `checkGraph` agree. Watch it fail before touching
+`src/ingest/fs.ts`. Commit D7 with its gate, then start HTML with
+`test/structured-markup.test.ts` (an element with an `id`, an inline `<script>`
+defining a function, a `<style>` rule, true line numbers written in the fixture).
 
 ## Cost projection
 
 Sonnet 5.5 at $2.00 in, $10.00 out, $0.20 cache read per million tokens, 60 turns,
 average context 100k, 3k fresh input, 1.5k output: cache 6M x $0.20 = $1.20; fresh
 180k x $2.50 = $0.45; output 90k x $10 = $0.90; about $2.55. The Stage 1 actual ran
-about three times its quote, so quote $3 to $7.
+about three times its quote, so quote $4 to $8 including D7.
 
 ## Time projection
 
-60 to 100 minutes of agent time (the gate is about 6 minutes and runs once per
+75 to 115 minutes of agent time (D7 adds about 15) (the gate is about 6 minutes and runs once per
 family at least). Operator review: about 25 minutes.

@@ -120,6 +120,64 @@ function containerFileNode(rel: string, source: string, residual: string): NodeV
   };
 }
 
+/** One embedded block after the depth-tier extractor has run over it and its
+ * symbols have been put back on the host file. */
+export interface EmbeddedBlock {
+  /** The block's own module-level residual (code outside any symbol). */
+  residual: string;
+  /** Symbol nodes only (the block's own file node is dropped), ids minted into the
+   * caller's set, spans shifted into host-file lines. */
+  nodes: NodeV1[];
+  rawEdges: RawEdge[];
+}
+
+/**
+ * Run the depth-tier extractor over `script`, a block of `inner`-language source
+ * embedded in the file `rel`, and return its symbols placed on the host file's
+ * lines. `shiftLines` is the number of host lines BEFORE the block's line 1, so
+ * block line N lands on host line `shiftLines + N`.
+ *
+ * Shared by the `.vue` container and by fenced code in Markdown
+ * (`structured/markdown.ts`): the span shift is the whole risk in both, so there
+ * is one implementation of it. Ids are minted into `minted` so two blocks that
+ * both define `setup` become `path#setup` and `path#setup~2`, and the rename is
+ * applied to that block's edges too so nothing points at an id that no longer
+ * exists. Returns null when the extractor chokes: one bad block, not a bad build.
+ */
+export function extractEmbedded(
+  rel: string,
+  script: string,
+  inner: Language,
+  shiftLines: number,
+  minted: Set<string>,
+): EmbeddedBlock | null {
+  let extracted: ExtractResult;
+  try {
+    extracted = extractFile(rel, script, inner);
+  } catch {
+    return null;
+  }
+
+  // nodes[0] is the block's own file node: it describes the block, not the host
+  // file, so it is dropped and its residual handed back for the caller to fold in.
+  const [blockFile, ...symbols] = extracted.nodes;
+  const renamed = new Map<string, string>();
+  const nodes: NodeV1[] = [];
+  for (const node of symbols) {
+    const id = mintId(node.id, minted);
+    if (id !== node.id) renamed.set(node.id, id);
+    nodes.push({ ...node, id, span: shiftSpan(node.span, shiftLines) });
+  }
+
+  const rawEdges: RawEdge[] = [];
+  for (const edge of extracted.rawEdges) {
+    const source = renamed.get(edge.source) ?? edge.source;
+    const targetId = edge.targetId === undefined ? undefined : (renamed.get(edge.targetId) ?? edge.targetId);
+    rawEdges.push({ ...edge, source, ...(targetId === undefined ? {} : { targetId }) });
+  }
+  return { residual: blockFile?.body_text ?? "", nodes, rawEdges };
+}
+
 /** Every embedded block in document order, as [bodyNode] — an SFC may legally
  * carry two (`<script>` for options/exports plus `<script setup>`), and each
  * needs its own offset. */
@@ -157,47 +215,25 @@ export function extractContainer(rel: string, source: string, lang: ContainerLan
   const root = language ? parseWasm(language, source) : null;
 
   if (root) {
-    // Ids are minted per file by the inner extractor, so two script blocks that
-    // both define `setup` would collide. Threading one set across the blocks
-    // makes the second one `path#setup~2`, and the rename is applied to that
-    // block's edges too so nothing points at an id that no longer exists.
+    // One id set across the blocks (see extractEmbedded).
     const minted = new Set<string>([rel]);
 
     for (const body of blocks(root, lang)) {
       const script = source.slice(body.startIndex, body.endIndex);
 
-      let inner: ExtractResult;
-      try {
-        inner = extractFile(rel, script, lang.inner);
-      } catch {
-        continue; // one bad block, not a bad build
-      }
-
       // `raw_text` starts immediately after the `>` of the opening tag, so its
       // row IS the tag's row and the slice begins with that line's newline.
       // Script line 1 is therefore the tail of the tag line, and script line N
-      // lands on `.vue` line row + N — which is exactly "add the start row to a
+      // lands on `.vue` line row + N, which is exactly "add the start row to a
       // 1-based span". Taking the row from the tag node instead would look
       // equivalent and be right only when the tag has no attributes.
-      const shift = body.startPosition.row;
+      const embedded = extractEmbedded(rel, script, lang.inner, body.startPosition.row, minted);
+      if (!embedded) continue; // one bad block, not a bad build
 
-      // nodes[0] is the script's own file node: it describes the block, not the
-      // file, so it is dropped and its residual folded into the .vue file node.
-      const [scriptFile, ...symbols] = inner.nodes;
-      if (scriptFile?.body_text) residuals.push(scriptFile.body_text);
-
-      const renamed = new Map<string, string>();
-      for (const node of symbols) {
-        const id = mintId(node.id, minted);
-        if (id !== node.id) renamed.set(node.id, id);
-        nodes.push({ ...node, id, span: shiftSpan(node.span, shift) });
-      }
-
-      for (const edge of inner.rawEdges) {
-        const source_ = renamed.get(edge.source) ?? edge.source;
-        const targetId = edge.targetId === undefined ? undefined : (renamed.get(edge.targetId) ?? edge.targetId);
-        rawEdges.push({ ...edge, source: source_, ...(targetId === undefined ? {} : { targetId }) });
-      }
+      // The block's own file node is dropped; its residual folds into the .vue file node.
+      if (embedded.residual) residuals.push(embedded.residual);
+      nodes.push(...embedded.nodes);
+      rawEdges.push(...embedded.rawEdges);
     }
   }
 

@@ -20,7 +20,8 @@
  * would rank for every query about its subtree.
  */
 import { contentHash } from "../../util/id.js";
-import { mintId, type ExtractResult, type RawEdge } from "../extract.js";
+import { extractEmbedded } from "../container.js";
+import { languageOf, mintId, type ExtractResult, type Language, type RawEdge } from "../extract.js";
 import type { NodeV1 } from "../types.js";
 import { MAX_BODY_TEXT_CHARS, spanOf, structuredFileNode } from "./shared.js";
 
@@ -63,6 +64,22 @@ function isPlainParagraphLine(line: string): boolean {
   if (/^(?: {4}|\t)/.test(line)) return false;
   if (/^\s{0,3}>/.test(line) || LIST_MARKER.test(line)) return false;
   return !/^\s{0,3}[|<]/.test(line);
+}
+
+/** Info-string spellings that are not a file extension, mapped to the extension
+ * the depth tier is keyed by. Anything else is tried as an extension (`ts`, `py`,
+ * `go`, `kt`, `jsx`), so a tag the depth tier does not parse stays plain text. */
+const FENCE_TAG_EXTENSIONS: Readonly<Record<string, string>> = {
+  typescript: "ts",
+  javascript: "js",
+  python: "py",
+  golang: "go",
+  kotlin: "kt",
+};
+
+function fenceLanguage(tag: string): Language | null {
+  const t = tag.toLowerCase();
+  return languageOf(`x.${FENCE_TAG_EXTENSIONS[t] ?? t}`);
 }
 
 /** Heading text as a reader sees it: links, images, code spans, emphasis, HTML
@@ -188,7 +205,7 @@ export function scanMarkdown(source: string): MarkdownScan {
 /** Sections for one Markdown document: a file node, a `section` per non-empty
  * heading, and `contains` edges from each section's parent (or the file). */
 export function extractMarkdown(rel: string, source: string): ExtractResult {
-  const { lines, headings, frontMatterEnd } = scanMarkdown(source);
+  const { lines, headings, fences, frontMatterEnd } = scanMarkdown(source);
   const minted = new Set<string>([rel]);
   const nodes: NodeV1[] = [];
   const rawEdges: RawEdge[] = [];
@@ -198,6 +215,7 @@ export function extractMarkdown(rel: string, source: string): ExtractResult {
   nodes.push(structuredFileNode(rel, source, preface ? preface.slice(0, MAX_BODY_TEXT_CHARS) : undefined));
 
   const open: Array<{ level: number; id: string }> = [];
+  const placed: Array<{ id: string; start: number; end: number }> = []; // 0-based lines
   headings.forEach((h, k) => {
     // A section ends before the next heading of equal or higher level. Empty
     // headings still count as boundaries; they just get no node.
@@ -231,6 +249,26 @@ export function extractMarkdown(rel: string, source: string): ExtractResult {
     });
     rawEdges.push({ source: open.length > 0 ? open[open.length - 1]!.id : rel, relation: "contains", targetId: id, file: rel });
     open.push({ level: h.level, id });
+    placed.push({ id, start: h.line, end });
   });
+
+  // Tagged fences the depth tier can parse. Only `contains` edges are kept: a
+  // documentation sample that calls `greet()` or imports a module is not a
+  // dependency of the real code, and an edge from README into src/ would claim
+  // one. Top-level symbols hang off the innermost section containing the fence.
+  for (const fence of fences) {
+    const inner = fenceLanguage(fence.lang);
+    if (!inner) continue;
+    const script = lines.slice(fence.firstLine, fence.endLine).join("\n");
+    const embedded = extractEmbedded(rel, script, inner, fence.firstLine, minted);
+    if (!embedded) continue;
+    let owner = rel;
+    for (const s of placed) if (s.start <= fence.firstLine && fence.firstLine <= s.end) owner = s.id;
+    nodes.push(...embedded.nodes);
+    for (const e of embedded.rawEdges) {
+      if (e.relation !== "contains") continue;
+      rawEdges.push(e.source === rel ? { ...e, source: owner } : e);
+    }
+  }
   return { nodes, rawEdges };
 }

@@ -75,6 +75,30 @@ function scalarOf(node: TsNode | null | undefined): string | undefined {
   return undefined;
 }
 
+/** Last row that holds content: the end of the deepest last non-comment descendant.
+ * A block scalar's own lines (a `#` line inside `|` text) are content, so this is
+ * the floor below which `trimmedEndRow` must never cut. */
+function lastContentRow(node: TsNode): number {
+  const kids = namedChildren(node);
+  const last = kids[kids.length - 1];
+  return last ? lastContentRow(last) : endRowOf(node);
+}
+
+/** End row of a block node without the blank and comment lines that trail it. The
+ * grammar attaches a comment line between two keys to the key above it, so the
+ * span would otherwise end on a line that introduces the NEXT key and `--source`
+ * would print it (the TOML scanner avoids the same thing). */
+function trimmedEndRow(node: TsNode, lines: readonly string[]): number {
+  const floor = Math.max(lastContentRow(node), node.startPosition.row);
+  let row = endRowOf(node);
+  while (row > floor) {
+    const text = (lines[row] ?? "").trim();
+    if (text !== "" && !text.startsWith("#")) break;
+    row--;
+  }
+  return row;
+}
+
 /** The mapping inside a sequence item or a value, looking through the wrapper nodes. */
 function mappingOf(node: TsNode): TsNode | null {
   if (node.type === "block_mapping" || node.type === "flow_mapping") return node;
@@ -99,7 +123,15 @@ function identityOf(mapping: TsNode): string | undefined {
   return undefined;
 }
 
-function descend(node: TsNode, parent: number, prefix: string, depth: number, rowBase: number, out: KeyDraft[]): void {
+function descend(
+  node: TsNode,
+  parent: number,
+  prefix: string,
+  depth: number,
+  rowBase: number,
+  lines: readonly string[],
+  out: KeyDraft[],
+): void {
   switch (node.type) {
     case "block_mapping":
     case "flow_mapping":
@@ -116,10 +148,10 @@ function descend(node: TsNode, parent: number, prefix: string, depth: number, ro
           parent,
           depth: depth + 1,
           startRow: pair.startPosition.row + rowBase,
-          endRow: endRowOf(pair) + rowBase,
+          endRow: trimmedEndRow(pair, lines) + rowBase,
           value: scalarOf(value),
         });
-        if (value) descend(value, idx, path, depth + 1, rowBase, out);
+        if (value) descend(value, idx, path, depth + 1, rowBase, lines, out);
       }
       break;
     case "block_sequence":
@@ -135,16 +167,16 @@ function descend(node: TsNode, parent: number, prefix: string, depth: number, ro
           parent,
           depth,
           startRow: item.startPosition.row + rowBase,
-          endRow: endRowOf(item) + rowBase,
+          endRow: trimmedEndRow(item, lines) + rowBase,
           label,
         });
-        descend(mapping, idx, path, depth, rowBase, out);
+        descend(mapping, idx, path, depth, rowBase, lines, out);
       });
       break;
     case "block_node":
     case "flow_node":
     case "document":
-      for (const c of namedChildren(node)) descend(c, parent, prefix, depth, rowBase, out);
+      for (const c of namedChildren(node)) descend(c, parent, prefix, depth, rowBase, lines, out);
       break;
     default:
       break;
@@ -154,14 +186,16 @@ function descend(node: TsNode, parent: number, prefix: string, depth: number, ro
 /** Key drafts for a YAML text. `rowBase` is the number of host rows above its first
  * line, so a Markdown front matter block reports rows in the Markdown file. */
 export function yamlKeyDrafts(language: unknown, text: string, rowBase = 0): KeyDraft[] {
-  const root = parseWasm(language, text.replace(/^﻿/, ""));
+  const body = text.replace(/^﻿/, "");
+  const root = parseWasm(language, body);
   const drafts: KeyDraft[] = [];
   if (!root) return drafts;
+  const lines = splitLines(body);
   let docNumber = 0;
   for (const doc of namedChildren(root)) {
     if (doc.type !== "document") continue;
     docNumber++;
-    descend(doc, -1, docNumber === 1 ? "" : `doc${docNumber}`, 0, rowBase, drafts);
+    descend(doc, -1, docNumber === 1 ? "" : `doc${docNumber}`, 0, rowBase, lines, drafts);
   }
   return drafts;
 }

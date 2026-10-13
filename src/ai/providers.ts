@@ -26,6 +26,9 @@ export interface EngineConfig {
   model?: string;
   /** Base URL for OpenAI-compatible endpoints. Env: GRAFT_BASE_URL. */
   baseUrl?: string;
+  /** Reasoning effort sent on every LLM call, in the provider's own words
+   * (`low`, `high`, `none`, …). Env: GRAFT_REASONING. Default: none sent. */
+  reasoning?: string;
 
   // --- advanced: bring your own components ---
   /** Override the whole transport (skips provider/apiKey/baseUrl). */
@@ -46,6 +49,9 @@ export interface ResolvedConfig {
   model: string;
   baseUrl?: string;
   headers?: Record<string, string>;
+  /** Trimmed and lower-cased; undefined when unset or blank. Shape-checked where
+   * the transport is built, so a bad value never breaks a keyless command. */
+  reasoning?: string;
   /** True when the key came from the deprecated OPENROUTER_* fallback. */
   usedLegacyEnv: boolean;
   chatModel?: ChatModel;
@@ -101,6 +107,8 @@ export function resolveConfig(config: EngineConfig = {}): ResolvedConfig {
       ? { "X-Title": "graft" }
       : undefined;
 
+  const reasoning = (config.reasoning ?? env.GRAFT_REASONING ?? "").trim().toLowerCase() || undefined;
+
   return {
     contextDir: config.contextDir ?? env.GRAFT_DIR,
     provider,
@@ -108,6 +116,7 @@ export function resolveConfig(config: EngineConfig = {}): ResolvedConfig {
     model,
     baseUrl,
     headers,
+    reasoning,
     usedLegacyEnv,
     chatModel: config.chatModel,
     synthesizer: config.synthesizer,

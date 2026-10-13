@@ -6,7 +6,8 @@
  * this file only renders them and wires the child builds through the engine.
  */
 import { Graft } from "../engine.js";
-import { contextDirFor, ensureGitignored } from "../context/node-file.js";
+import { contextDirFor, ensureGitignored, recordDeepUsage } from "../context/node-file.js";
+import { formatUsageLine } from "../ai/llm/metered.js";
 import { patchBuildConfig, type BuildConfig } from "../util/state.js";
 import type { EngineConfig } from "../ai/providers.js";
 import { formatAsk } from "../ask/ask.js";
@@ -71,6 +72,11 @@ export async function runWorkspaceBuild(root: string, opts: WorkspaceBuildOption
     if (opts.deep) await engine.init(childDir, { extensions: opts.extensions });
     const g = await engine.graph(childDir, { llm: opts.deep, concurrency: opts.concurrency });
     console.log(`✓ ${childName}/: ${g.nodes} nodes, ${g.edges} edges, ${g.cards} cards [${g.languages.join(", ")}]`);
+    if (opts.deep) {
+      const usage = engine.usage();
+      console.log(formatUsageLine(usage));
+      recordDeepUsage(g.contextDir, usage);
+    }
     for (const e of g.errors) console.error(`✗ ${childName}/: ${e}`);
   };
 

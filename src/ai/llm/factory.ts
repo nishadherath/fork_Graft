@@ -14,7 +14,7 @@
  * gateway's routing, failover, and guardrails behind a named provider instead
  * of a bare custom base URL.
  */
-import type { ChatModel } from "./types.js";
+import { checkReasoningLevel, type ChatModel } from "./types.js";
 import { OpenAIChatModel } from "./openai.js";
 import { AnthropicChatModel } from "./anthropic.js";
 import { LiteLLMChatModel } from "./litellm.js";
@@ -29,18 +29,23 @@ export interface ChatModelConfig {
   baseUrl?: string;
   /** Extra default headers for OpenAI-compatible endpoints (e.g. OpenRouter `X-Title`). */
   headers?: Record<string, string>;
+  /** Reasoning level sent on every call (`GRAFT_REASONING`); absent sends none. */
+  reasoning?: string;
 }
 
+/** Build the transport; throws when `reasoning` cannot be a level (see {@link checkReasoningLevel}). */
 export function createChatModel(cfg: ChatModelConfig): ChatModel {
+  const reasoning = checkReasoningLevel(cfg.reasoning);
   switch (cfg.provider) {
     case "anthropic":
-      return new AnthropicChatModel({ apiKey: cfg.apiKey, model: cfg.model, baseUrl: cfg.baseUrl });
+      return new AnthropicChatModel({ apiKey: cfg.apiKey, model: cfg.model, baseUrl: cfg.baseUrl, reasoning });
     case "openai":
       return new OpenAIChatModel({
         apiKey: cfg.apiKey,
         model: cfg.model,
         baseUrl: cfg.baseUrl,
         headers: cfg.headers,
+        reasoning,
       });
     case "litellm":
       return new LiteLLMChatModel({
@@ -48,6 +53,7 @@ export function createChatModel(cfg: ChatModelConfig): ChatModel {
         model: cfg.model,
         baseUrl: cfg.baseUrl,
         headers: cfg.headers,
+        reasoning,
       });
     case "orcarouter":
       return new OrcaRouterChatModel({
@@ -55,6 +61,7 @@ export function createChatModel(cfg: ChatModelConfig): ChatModel {
         model: cfg.model,
         baseUrl: cfg.baseUrl,
         headers: cfg.headers,
+        reasoning,
       });
     default: {
       const _exhaustive: never = cfg.provider;

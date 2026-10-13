@@ -4,6 +4,18 @@
 
 ### Added
 
+- **`GRAFT_REASONING` and `--reasoning <level>` set the reasoning effort** of every
+  LLM call, in the provider's own words (`low`, `high`, `none`, ...): sent as
+  `reasoning_effort` on the OpenAI-compatible wire formats and as
+  `output_config.effort` on the native Anthropic one, where `none` disables
+  thinking. Unset sends nothing, as before. A forced tool call the provider
+  refuses in thinking mode still goes through with reasoning off, and is counted.
+  A value the provider refuses stops the deep pass at once, naming the variable.
+- **`graft build --deep` reports its token usage**: one `tokens:` line after the
+  deep pass (calls, uncached and cached input, output with the reasoning share,
+  the model and the reasoning level, and how many calls ran with reasoning off),
+  recorded as `deepUsage` in `graft/manifest.json`. Tokens only, no prices.
+
 - **Documents and configuration are indexed behind `graft build --structured`**
   (also `GRAFT_STRUCTURED=1`): a new structured tier turns Markdown into a
   `section` per heading and JSON, JSONC, JSONL, YAML, TOML and INI into a `key`

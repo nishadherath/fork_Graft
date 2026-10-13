@@ -15,7 +15,8 @@ import { ChatSynthesizer, type Synthesizer } from "./ai/synthesize.js";
 import { ChatSummarizer, type Summarizer } from "./ai/summarize.js";
 import { ChatCruxSummarizer, type CruxSummarizer } from "./ai/crux.js";
 import { createChatModel } from "./ai/llm/factory.js";
-import type { ChatModel } from "./ai/llm/types.js";
+import { MeteredChatModel, emptyUsageTotals } from "./ai/llm/metered.js";
+import type { ChatModel, DeepUsage } from "./ai/llm/types.js";
 import { buildContext, CODE_EXTENSIONS, type BuildProgress, type BuildResult } from "./context/build.js";
 import { checkContext, type CheckResult } from "./context/check.js";
 import { buildGraph, type GraphBuildOptions, type GraphBuildResult } from "./graph/build.js";
@@ -119,25 +120,41 @@ export class Graft {
     });
   }
 
-  private _chatModel?: ChatModel;
+  private _chatModel?: MeteredChatModel;
 
-  /** The configured transport, or a clear error telling the user how to set a key. */
+  /**
+   * Token usage of every LLM call this engine has made, with the model and the
+   * reasoning level, for `build --deep` to print and record. Zero calls when no
+   * LLM pass ran or a custom summarizer bypassed the transport.
+   */
+  usage(): DeepUsage {
+    return {
+      model: this.modelLabel(),
+      reasoningEffort: this.cfg.reasoning ?? null,
+      ...(this._chatModel?.totals() ?? emptyUsageTotals()),
+    };
+  }
+
+  /** The configured transport, metered, or a clear error telling the user how to set a key. */
   private chatModel(): ChatModel {
-    if (this.cfg.chatModel) return this.cfg.chatModel;
     if (this._chatModel) return this._chatModel;
+    if (this.cfg.chatModel) return (this._chatModel = new MeteredChatModel(this.cfg.chatModel));
     if (!this.cfg.apiKey) {
       throw new Error(
         "No API key. Set GRAFT_API_KEY (and GRAFT_PROVIDER / GRAFT_BASE_URL / GRAFT_MODEL " +
           "for your provider) to build or summarize the graph.",
       );
     }
-    this._chatModel = createChatModel({
-      provider: this.cfg.provider,
-      apiKey: this.cfg.apiKey,
-      model: this.cfg.model,
-      baseUrl: this.cfg.baseUrl,
-      headers: this.cfg.headers,
-    });
+    this._chatModel = new MeteredChatModel(
+      createChatModel({
+        provider: this.cfg.provider,
+        apiKey: this.cfg.apiKey,
+        model: this.cfg.model,
+        baseUrl: this.cfg.baseUrl,
+        headers: this.cfg.headers,
+        reasoning: this.cfg.reasoning,
+      }),
+    );
     return this._chatModel;
   }
 

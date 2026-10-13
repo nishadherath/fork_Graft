@@ -29,6 +29,9 @@ export interface AnthropicChatModelOptions {
   label?: string;
   /** Inject a pre-built client (tests pass a stub; production omits it). */
   client?: Anthropic;
+  /** `GRAFT_REASONING`: sent as `output_config.effort`, except `none`, which
+   * disables thinking. Absent sends neither. */
+  reasoning?: string;
 }
 
 type CacheControl = { cache_control: { type: "ephemeral" } } | Record<string, never>;
@@ -38,9 +41,11 @@ export class AnthropicChatModel implements ChatModel {
   readonly label: string;
   private client: Anthropic;
   private model: string;
+  private reasoning?: string;
 
   constructor(opts: AnthropicChatModelOptions) {
     this.model = opts.model;
+    this.reasoning = opts.reasoning;
     this.label = opts.label ?? `${PROVIDER}:${opts.model}`;
     this.client =
       opts.client ??
@@ -83,6 +88,11 @@ export class AnthropicChatModel implements ChatModel {
       ...(system.length ? { system } : {}),
     };
     // temperature is intentionally NOT forwarded — current models reject it.
+    if (this.reasoning === "none") params.thinking = { type: "disabled" };
+    else if (this.reasoning !== undefined) {
+      // The server checks the word; the SDK's union is only today's vocabulary.
+      params.output_config = { effort: this.reasoning as Anthropic.OutputConfig["effort"] };
+    }
 
     const fmt = req.responseFormat ?? { kind: "text" };
     if (fmt.kind === "json") {
@@ -149,10 +159,12 @@ function toAnthropicTool(t: ToolSpec): Anthropic.Tool {
 
 /** Anthropic reports uncached input in `input_tokens` and cache tokens separately. */
 function normalizeUsage(u: Anthropic.Usage): Usage {
+  const thinking = u.output_tokens_details?.thinking_tokens;
   return {
     input: u.input_tokens ?? 0,
     output: u.output_tokens ?? 0,
     cacheRead: u.cache_read_input_tokens ?? 0,
     cacheCreate: u.cache_creation_input_tokens ?? 0,
+    ...(typeof thinking === "number" ? { reasoning: thinking } : {}),
   };
 }

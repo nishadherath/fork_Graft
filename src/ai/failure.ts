@@ -36,6 +36,10 @@ export function terminalReason(message: string): string | null {
   if (/\b401\b|\b403\b|unauthorized|invalid api key|invalid_api_key|authentication/.test(m)) {
     return "the provider rejected the API key";
   }
+  // Every later call would carry the same refused level (see llm/openai.ts).
+  if (/graft_reasoning=".*" (was refused|is not a reasoning level)/.test(m)) {
+    return "the provider refused the GRAFT_REASONING level";
+  }
   return null;
 }
 

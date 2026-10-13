@@ -280,17 +280,24 @@ export async function nameReport(
   const cfg = resolveConfig({ contextDir });
 
   let namer: Namer | undefined;
+  let setupError: string | undefined;
   if (cfg.chatModel) {
     namer = new ChatNamer(cfg.chatModel);
   } else if (cfg.apiKey) {
     const { createChatModel } = await import("../ai/llm/factory.js");
-    namer = new ChatNamer(createChatModel({
-      provider: cfg.provider, apiKey: cfg.apiKey, model: cfg.model,
-      baseUrl: cfg.baseUrl, headers: cfg.headers,
-    }));
+    try {
+      namer = new ChatNamer(createChatModel({
+        provider: cfg.provider, apiKey: cfg.apiKey, model: cfg.model,
+        baseUrl: cfg.baseUrl, headers: cfg.headers, reasoning: cfg.reasoning,
+      }));
+    } catch (err) {
+      // A malformed GRAFT_REASONING must not fail a report over its cosmetic layer.
+      setupError = err instanceof Error ? err.message : String(err);
+    }
   }
 
   const stats = await applyNames(graph, report, { namer, contextDir });
+  if (setupError) return { stats, note: `naming skipped (${setupError}), so areas keep their symbol names` };
   if (!namer) return { stats, note: "no API key (GRAFT_API_KEY), so areas keep their symbol names" };
   if (stats.error) return { stats, note: `naming failed (${stats.error}) — areas keep their symbol names` };
   if (stats.named + stats.cached + stats.declined > 0) {

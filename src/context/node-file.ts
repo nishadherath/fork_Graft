@@ -26,6 +26,7 @@ import { join } from "node:path";
 import matter from "gray-matter";
 import { contentHash, normalizeName } from "../util/id.js";
 import { relPosix, stripTrailingSlashes } from "../util/paths.js";
+import type { DeepUsage } from "../ai/llm/types.js";
 // Value-only import of a constant; `write.ts` pulls in nothing from here, so no cycle.
 import { GRAPH_DIR } from "../graph/write.js";
 
@@ -71,6 +72,8 @@ export interface Manifest {
   files: SourceRef[];
   /** Node roster (a subset of each node's frontmatter, for fast reads). */
   nodes: Array<{ slug: string; name: string; type: string; sources: string[]; sourcesDigest: string }>;
+  /** Token usage of the last `build --deep` (concept, summary and crux calls together). */
+  deepUsage?: DeepUsage;
 }
 
 export const MANIFEST_VERSION = 1;
@@ -366,6 +369,18 @@ export function deleteNode(dir: string, slug: string): void {
 export function writeManifest(dir: string, manifest: Manifest): void {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, MANIFEST_FILE), JSON.stringify(manifest, null, 2) + "\n");
+}
+
+/**
+ * Record a deep pass's token usage in the manifest the concept pass wrote. The
+ * crux pass runs after that write, so the total is only known at the end of the
+ * build. Returns false (and writes nothing) when there is no manifest to extend.
+ */
+export function recordDeepUsage(dir: string, usage: DeepUsage): boolean {
+  const manifest = readManifest(dir);
+  if (!manifest) return false;
+  writeManifest(dir, { ...manifest, deepUsage: usage });
+  return true;
 }
 
 export function readManifest(dir: string): Manifest | undefined {

@@ -80,6 +80,32 @@ export interface Usage {
   output: number;
   cacheRead: number;
   cacheCreate: number;
+  /** Output tokens spent reasoning, already counted in `output`. Present only when
+   * the provider reports it (OpenAI-compatible `completion_tokens_details`). */
+  reasoning?: number;
+}
+
+/** Usage summed over a run's calls, as `graft build --deep` reports and records it. */
+export interface UsageTotals {
+  calls: number;
+  /** Uncached input. */
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteTokens: number;
+  /** All output, reasoning included. */
+  outputTokens: number;
+  reasoningTokens: number;
+  /** Calls the server would not take with reasoning on (a forced tool in thinking
+   * mode), so they ran with it off whatever `GRAFT_REASONING` asked for. */
+  reasoningOffCalls: number;
+}
+
+/** {@link UsageTotals} with the model and reasoning level that produced them. */
+export interface DeepUsage extends UsageTotals {
+  /** `<provider>:<model>`, the same label the manifest records. */
+  model: string;
+  /** The `GRAFT_REASONING` value sent, or null when none was (provider default). */
+  reasoningEffort: string | null;
 }
 
 export interface ChatRequest {
@@ -101,6 +127,8 @@ export interface ChatResponse {
   stopReason: string | null;
   /** The assistant turn as a neutral message — push straight back into `messages`. */
   assistant: Message;
+  /** True when the adapter had to turn reasoning off to get this call accepted. */
+  reasoningOff?: boolean;
 }
 
 /**
@@ -110,6 +138,23 @@ export interface ChatResponse {
 export interface ChatModel {
   readonly label: string;
   create(req: ChatRequest): Promise<ChatResponse>;
+}
+
+/**
+ * A reasoning level as `GRAFT_REASONING` spells it, checked for shape only: the
+ * vocabulary belongs to each provider (and changes with it), so the server is
+ * the authority on whether a well-formed word is accepted. Returns the value, or
+ * throws naming the variable when it cannot be a level at all.
+ */
+export function checkReasoningLevel(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (!/^[a-z]+$/.test(value)) {
+    throw new Error(
+      `GRAFT_REASONING="${value}" is not a reasoning level: expected one lowercase word such as ` +
+        `"low", "high" or "none" (the accepted words depend on the provider). Fix or unset it.`,
+    );
+  }
+  return value;
 }
 
 /**

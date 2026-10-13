@@ -58,7 +58,8 @@ import {
 } from "./brain/watch-trail.js";
 import { AUTOPUSH_CHILD_ENV, recordTrailPush } from "./brain/autopush.js";
 import { startSpinner } from "./util/spinner.js";
-import { contextDirFor } from "./context/node-file.js";
+import { contextDirFor, recordDeepUsage } from "./context/node-file.js";
+import { formatUsageLine } from "./ai/llm/metered.js";
 import { loadGraphCached } from "./graph/load.js";
 import { ensureFreshChildren, ensureFreshGraph, refreshNote } from "./graph/refresh.js";
 import { isWorkspaceBuildRoot, readWorkspace } from "./graph/workspace.js";
@@ -140,7 +141,8 @@ program
   .option("--provider <name>", "LLM wire format: openai | anthropic | litellm | orcarouter (env GRAFT_PROVIDER)")
   .option("--model <id>", "model id for the LLM pass (env GRAFT_MODEL)")
   .option("--api-key <key>", "provider API key (env GRAFT_API_KEY)")
-  .option("--base-url <url>", "OpenAI-compatible endpoint URL (env GRAFT_BASE_URL)");
+  .option("--base-url <url>", "OpenAI-compatible endpoint URL (env GRAFT_BASE_URL)")
+  .option("--reasoning <level>", "reasoning effort for the LLM pass, in the provider's words, e.g. low | high | none (env GRAFT_REASONING; default: none sent)");
 
 interface GlobalOpts {
   dir?: string;
@@ -148,6 +150,7 @@ interface GlobalOpts {
   model?: string;
   apiKey?: string;
   baseUrl?: string;
+  reasoning?: string;
 }
 
 /** Config drawn from the global CLI flags (env + defaults fill the rest). */
@@ -159,6 +162,7 @@ function cliConfig(): EngineConfig {
     model: o.model,
     apiKey: o.apiKey,
     baseUrl: o.baseUrl,
+    reasoning: o.reasoning,
   };
 }
 
@@ -616,6 +620,10 @@ program
     if (deep) {
       const m = g.meaning;
       console.log(`  meaning: ${m.computed} computed, ${m.cached} cached, ${m.stale} stale, ${m.pending} pending`);
+      // Printed even when the pass failed part-way: the calls made were still billed.
+      const usage = engine.usage();
+      console.log(formatUsageLine(usage));
+      recordDeepUsage(g.contextDir, usage);
     }
     console.log(`  → ${g.contextDir}`);
     // The activation event. Everything here is a bucket or a fixed label: repo

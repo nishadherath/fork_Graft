@@ -27,6 +27,8 @@ export interface OpenAIChatModelOptions {
   headers?: Record<string, string>;
   /** Inject a pre-built client (tests pass a stub; production omits it). */
   client?: OpenAI;
+  /** Sent as `reasoning_effort` on every call (`GRAFT_REASONING`); absent sends none. */
+  reasoning?: string;
 }
 
 type ChatParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming;
@@ -130,13 +132,27 @@ function isRejectedToolsWithReasoning(err: unknown): boolean {
   );
 }
 
+/** A client error about the reasoning level itself (an unknown word, a model
+ * without reasoning). Any 4xx: OpenAI answers 400, DeepSeek 422. */
+function isRejectedReasoningLevel(err: unknown): boolean {
+  return (
+    err instanceof OpenAI.APIError &&
+    err.status !== undefined &&
+    err.status >= 400 &&
+    err.status < 500 &&
+    /reasoning[_ ]effort/i.test(String((err as { message?: string }).message ?? ""))
+  );
+}
+
 export class OpenAIChatModel implements ChatModel {
   readonly label: string;
   private client: OpenAI;
   private model: string;
+  private reasoning?: string;
 
   constructor(opts: OpenAIChatModelOptions) {
     this.model = opts.model;
+    this.reasoning = opts.reasoning;
     this.label = opts.label ?? `${PROVIDER}:${opts.model}`;
     this.client =
       opts.client ??
@@ -154,6 +170,7 @@ export class OpenAIChatModel implements ChatModel {
     const params: ChatParams = { model: this.model, messages };
     if (req.temperature !== undefined) params.temperature = req.temperature;
     if (req.maxTokens !== undefined) params.max_tokens = req.maxTokens;
+    if (this.reasoning !== undefined) params.reasoning_effort = this.reasoning as ChatParams["reasoning_effort"];
 
     const fmt = req.responseFormat ?? { kind: "text" };
     if (fmt.kind === "json") {
@@ -171,8 +188,9 @@ export class OpenAIChatModel implements ChatModel {
       params.tools = tools;
     }
 
-    const resp = await this.createChatCompletion(params);
-    return this.fromResponse(resp, fmt.kind);
+    const { resp, reasoningOff } = await this.createChatCompletion(params);
+    const out = this.fromResponse(resp, fmt.kind);
+    return reasoningOff ? { ...out, reasoningOff } : out;
   }
 
   /**
@@ -184,20 +202,36 @@ export class OpenAIChatModel implements ChatModel {
    * "required" would then let the model choose freely instead of the
    * caller-specified tool — that ambiguity isn't safe to paper over
    * automatically.
+   *
+   * `reasoningOff` reports that the call only went through with reasoning
+   * turned off, so a `GRAFT_REASONING` level that was not honoured is counted
+   * rather than silently dropped.
    */
-  private async createChatCompletion(params: ChatParams): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+  private async createChatCompletion(
+    params: ChatParams,
+  ): Promise<{ resp: OpenAI.Chat.Completions.ChatCompletion; reasoningOff: boolean }> {
     let attempt = params;
+    let reasoningOff = false;
     // Bounded: one retry per known incompatibility below, never an open loop.
     for (let i = 0; i < 4; i++) {
       try {
-        return await this.client.chat.completions.create(attempt);
+        return { resp: await this.client.chat.completions.create(attempt), reasoningOff };
       } catch (err) {
         // Checked before the tool_choice fallback below: a reasoning refusal
         // also names tool_choice, and turning reasoning off keeps the caller's
-        // chosen tool instead of loosening the choice to work around it.
-        if (isRejectedToolsWithReasoning(err) && attempt.reasoning_effort === undefined) {
+        // chosen tool instead of loosening the choice to work around it. A
+        // user-set level gets the same treatment: a forced tool is the call's
+        // contract, the reasoning level only a preference.
+        if (isRejectedToolsWithReasoning(err) && attempt.reasoning_effort !== "none") {
           attempt = { ...attempt, reasoning_effort: "none" } as ChatParams;
+          reasoningOff = true;
           continue;
+        }
+        if (this.reasoning !== undefined && isRejectedReasoningLevel(err)) {
+          throw new Error(
+            `GRAFT_REASONING="${this.reasoning}" was refused by ${this.label}: ` +
+              `${(err as Error).message}. Set a level this provider accepts, or unset GRAFT_REASONING.`,
+          );
         }
         if (isRejectedObjectToolChoice(err) && typeof attempt.tool_choice === "object" && attempt.tools?.length === 1) {
           attempt = { ...attempt, tool_choice: "required" };
@@ -216,7 +250,7 @@ export class OpenAIChatModel implements ChatModel {
         throw err;
       }
     }
-    return this.client.chat.completions.create(attempt);
+    return { resp: await this.client.chat.completions.create(attempt), reasoningOff };
   }
 
   private fromResponse(
@@ -270,10 +304,12 @@ export class OpenAIChatModel implements ChatModel {
 function normalizeUsage(u: OpenAI.Completions.CompletionUsage | undefined): Usage {
   const prompt = u?.prompt_tokens ?? 0;
   const cacheRead = u?.prompt_tokens_details?.cached_tokens ?? 0;
+  const reasoning = u?.completion_tokens_details?.reasoning_tokens;
   return {
     input: Math.max(0, prompt - cacheRead),
     output: u?.completion_tokens ?? 0,
     cacheRead,
     cacheCreate: 0,
+    ...(typeof reasoning === "number" ? { reasoning } : {}),
   };
 }

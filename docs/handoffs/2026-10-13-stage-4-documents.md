@@ -2,7 +2,7 @@
 stage: "Stage 4: documents tier, PDF, DOCX, ODT, EPUB, PPTX and ODP through a cached text rendering"
 model: claude-opus-5-5
 effort: high
-status: ready
+status: in-progress
 created: 2026-10-13
 from: "Opus 5.5 Stage 3 session (structured edges), 2026-10-13"
 ---

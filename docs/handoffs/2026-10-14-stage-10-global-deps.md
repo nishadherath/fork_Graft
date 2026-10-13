@@ -2,7 +2,7 @@
 stage: "Stage 10: bring openai and @anthropic-ai/sdk in the global install to the fork's ranges"
 model: claude-sonnet-5-5
 effort: medium
-status: in-progress
+status: done
 created: 2026-10-14
 from: "Sonnet 5.5 Stage 9 session, operator decision: dependency copy"
 ---
@@ -34,7 +34,7 @@ the global `graft` still answers `--version` and a keyless `ask`. Nothing pushed
 
 ## Work completed
 
-Nothing yet in Stage 10.
+Global `openai` 6.49.0 to 7.32.0 and `@anthropic-ai/sdk` 0.117.1 to 0.122.0, copied from a fresh `npm ci --ignore-scripts` in a throwaway worktree (both satisfy the fork ranges). Backup of the old folders: `D:CodeClaudeork_graft-global-deps-backup-2026-10-14` (restore by deleting the two global folders and copying these back). Transitive dependencies `standardwebhooks` 1.1.1, `json-schema-to-ts` 3.1.1, `@stablelib/base64` and `fast-sha256` were already present globally and satisfy the new SDK; `zod`, `ws` and `undici` are optional peers and stay absent. Verified: both clients import and construct from the global tree; `graft --version` 0.21.1; keyless `graft build` and `ask` on a throwaway git repo returned `src/invoice.ts:L2-L2` for the total function. Not tested: a live `--deep` call, which needs a key. No source changed, so no `npm test` was run. Nothing pushed.
 
 ## Unresolved questions
 

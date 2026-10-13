@@ -16,8 +16,9 @@
  */
 import { convertDocx } from "./docx.js";
 import { convertEpub } from "./epub.js";
-import { convertOdt } from "./odf.js";
+import { convertOdp, convertOdt } from "./odf.js";
 import { convertPdf } from "./pdf.js";
+import { convertPptx } from "./pptx.js";
 import type { DocumentUnit } from "./render.js";
 
 export type DocumentFormat = "pdf" | "docx" | "odt" | "epub" | "pptx" | "odp";
@@ -28,6 +29,8 @@ const FORMAT_BY_EXTENSION: ReadonlyMap<string, DocumentFormat> = new Map([
   [".docx", "docx"],
   [".odt", "odt"],
   [".epub", "epub"],
+  [".pptx", "pptx"],
+  [".odp", "odp"],
 ]);
 
 /** The document format of `path`, or null when the documents tier does not claim it. */
@@ -54,7 +57,9 @@ export async function convertDocument(bytes: Uint8Array, format: DocumentFormat)
       return convertOdt(bytes);
     case "epub":
       return convertEpub(bytes);
-    default:
-      throw new Error(`no converter for ${format} documents yet`);
+    case "pptx":
+      return convertPptx(bytes);
+    case "odp":
+      return convertOdp(bytes);
   }
 }

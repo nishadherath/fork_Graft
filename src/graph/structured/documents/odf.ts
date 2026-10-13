@@ -4,7 +4,8 @@
  * Responsible for: translating an ODT body into {@link Flow} calls: `text:h` with
  * its outline level, paragraphs, list items, tables, and a page at each
  * `text:soft-page-break`, the mark LibreOffice writes where a page began when it
- * last laid the document out.
+ * last laid the document out; and an ODP's slides (`draw:page`), each titled
+ * by its title frame, with a block per other text frame.
  *
  * Deliberately does not: guess pages for a file no editor laid out (no soft page
  * breaks, no page markers), or read notes, annotations, tracked deletions or the
@@ -102,4 +103,66 @@ export async function convertOdt(bytes: Uint8Array): Promise<DocumentUnit[]> {
   const xml = archive.text(CONTENT);
   if (xml === null) throw new Error(`not an ODT: the archive has no ${CONTENT}`);
   return odtUnits(xml);
+}
+
+/** The slides of an ODP's `content.xml`: a unit per `draw:page`, titled by its
+ * title frame, with a block per other text frame and a line per paragraph.
+ * Speaker notes (`presentation:notes`) are not the deck's text and are skipped. */
+export function odpUnits(xml: string): DocumentUnit[] {
+  const units: DocumentUnit[] = [];
+  let slide: DocumentUnit | null = null;
+  let frame: { title: boolean; depth: number; lines: string[] } | null = null;
+  let depth = 0;
+  let line: string | null = null;
+  let skip = 0;
+
+  scanXml(xml, {
+    open(name, attrs) {
+      if (SKIPPED.has(name) || name === "presentation:notes") skip++;
+      if (skip > 0) return;
+      depth++;
+      const inline = inlineText(name, attrs);
+      if (inline !== null) {
+        if (line !== null) line += inline;
+      } else if (name === "draw:page") {
+        slide = { kind: "slide", blocks: [] };
+        units.push(slide);
+      } else if (name === "draw:frame" && slide && !frame) {
+        frame = { title: attrs.get("presentation:class") === "title", depth, lines: [] };
+      } else if ((name === "text:p" || name === "text:h") && frame) {
+        line = "";
+      }
+    },
+    close(name) {
+      if (SKIPPED.has(name) || name === "presentation:notes") {
+        skip--;
+        return;
+      }
+      if (skip > 0) return;
+      if ((name === "text:p" || name === "text:h") && frame && line !== null) {
+        frame.lines.push(line);
+        line = null;
+      } else if (name === "draw:frame" && frame && frame.depth === depth && slide) {
+        const text = frame.lines.map((l) => l.trim()).filter((l) => l !== "").join("\n");
+        if (frame.title && !slide.title) slide.title = text;
+        else if (text) slide.blocks.push({ text });
+        frame = null;
+      } else if (name === "draw:page") {
+        slide = null;
+      }
+      depth--;
+    },
+    text(text) {
+      if (skip === 0 && line !== null) line += text;
+    },
+  });
+  return units;
+}
+
+/** Every slide of the ODP in `bytes`. */
+export async function convertOdp(bytes: Uint8Array): Promise<DocumentUnit[]> {
+  const archive = await openArchive(bytes, (name) => name === CONTENT);
+  const xml = archive.text(CONTENT);
+  if (xml === null) throw new Error(`not an ODP: the archive has no ${CONTENT}`);
+  return odpUnits(xml);
 }

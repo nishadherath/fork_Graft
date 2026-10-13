@@ -98,7 +98,7 @@ export function extractDocument(rel: string, rendering: string, renderingRel: st
         exported: true,
         origin: "generic",
         body_hash: contentHash(lines.slice(m.row, end + 1).join("\n")),
-        body_text: plain(body),
+        body_text: plain(m.title ? [m.title, ...body] : body),
         summary_state: "pending",
         summary: null,
         crux: null,

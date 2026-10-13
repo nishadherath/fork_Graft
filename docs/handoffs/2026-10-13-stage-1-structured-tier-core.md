@@ -2,7 +2,7 @@
 stage: "Stage 1: the structured tier, Markdown, JSON, YAML, TOML, INI"
 model: claude-sonnet-5-5
 effort: high
-status: ready
+status: in-progress
 created: 2026-10-13
 from: "Fable 5.1 Stage 0 session (fork sync, crux fix, plan), 2026-10-13"
 ---

@@ -13,7 +13,8 @@
  * Deliberately does not: render Markdown, resolve the links it records, or
  * recognise headings inside block quotes and list items (those are content of
  * another block, not a navigable section). It is a line scanner, not a CommonMark parser, so where the
- * two could disagree it errs toward emitting fewer headings: a missed heading
+ * two could disagree it errs toward emitting fewer headings (it does track raw
+ * HTML blocks, whose lines are never headings): a missed heading
  * only lengthens the section above it, whereas an invented one is a wrong locator.
  *
  * The non-obvious part is what ends a section: the line before the next heading
@@ -84,6 +85,37 @@ function linksOn(line: string, row: number, out: MarkdownLink[]): void {
     const target = raw.replace(/^<|>$/g, "").trim();
     if (target !== "" && !isExternalTarget(target)) out.push({ line: row, target });
   }
+}
+
+/** HTML block start conditions 1, 3, 4, 5, 6 and 7 of CommonMark: the opener, and
+ * for the first four the pattern that ends the block (6 and 7 end at a blank line;
+ * 7, a lone tag, cannot interrupt a paragraph). Type 2, the comment, is handled
+ * apart in the scan loop because it predates this table. */
+const HTML_BLOCK_TAGS =
+  "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|" +
+  "fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|" +
+  "menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|" +
+  "track|ul";
+const HTML_BLOCK_STARTS: ReadonlyArray<{ open: RegExp; close: RegExp | null; interrupts: boolean }> = [
+  { open: /^ {0,3}<(?:script|pre|style|textarea)(?:[ \t>]|$)/i, close: /<\/(?:script|pre|style|textarea)>/i, interrupts: true },
+  { open: /^ {0,3}<\?/, close: /\?>/, interrupts: true },
+  { open: /^ {0,3}<![A-Za-z]/, close: />/, interrupts: true },
+  { open: /^ {0,3}<!\[CDATA\[/, close: /\]\]>/, interrupts: true },
+  { open: new RegExp(`^ {0,3}</?(?:${HTML_BLOCK_TAGS})(?:[ \\t]|/?>|$)`, "i"), close: null, interrupts: true },
+  {
+    open: /^ {0,3}(?:<[A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za-z_:][\w.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>|<\/[A-Za-z][A-Za-z0-9-]*\s*>)[ \t]*$/,
+    close: null,
+    interrupts: false,
+  },
+];
+
+/** The HTML block a line opens, or null. `inParagraph` is true while a plain
+ * paragraph is in progress, which a lone tag (type 7) cannot interrupt. */
+function htmlBlockStart(line: string, inParagraph: boolean): { close: RegExp | null } | null {
+  for (const start of HTML_BLOCK_STARTS) {
+    if (start.open.test(line) && (start.interrupts || !inParagraph)) return { close: start.close };
+  }
+  return null;
 }
 
 /** A paragraph that could be the text of a setext heading: not indented code, a
@@ -160,10 +192,20 @@ export function scanMarkdown(source: string): MarkdownScan {
   let para: number | null = null;
   let fence: { char: string; length: number; lang: string; firstLine: number } | null = null;
   let inComment = false;
+  // Inside a raw HTML block: `close` ends it on a matching line, null ends it at
+  // the next blank line. Either way no heading, fence or underline is recognised.
+  let html: { close: RegExp | null } | null = null;
 
   for (let i = frontMatterEnd; i < lines.length; i++) {
     const line = lines[i]!;
 
+    if (html) {
+      if (html.close ? html.close.test(line) : /^\s*$/.test(line)) {
+        html = null;
+        para = null;
+      }
+      continue;
+    }
     if (fence) {
       const close = new RegExp(`^\\s*${fence.char === "`" ? "`" : "~"}{${fence.length},}\\s*$`);
       if (close.test(line)) {
@@ -191,6 +233,17 @@ export function scanMarkdown(source: string): MarkdownScan {
     if (COMMENT_OPEN.test(line)) {
       inComment = !line.includes("-->");
       para = null;
+      continue;
+    }
+
+    const htmlStart = htmlBlockStart(line, para !== null && para >= 0);
+    if (htmlStart) {
+      // A closer on the opening line ends the block there (`<script>x()</script>`).
+      if (htmlStart.close?.test(line)) para = null;
+      else {
+        html = htmlStart;
+        para = -1;
+      }
       continue;
     }
 

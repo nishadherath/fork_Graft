@@ -220,3 +220,102 @@ test("markdown: the file node carries the text before the first heading", () => 
   const withPreface = extractStructured("doc.md", doc(["Preface words.", "", "# Title"]), MD).nodes[0]!;
   assert.equal(withPreface.body_text, "Preface words.");
 });
+
+test("markdown: a # line inside a raw HTML block is not a heading", () => {
+  const nodes = sections(doc([
+    "# Real",                              //  1
+    "",                                    //  2
+    "<div>",                               //  3
+    "# text in the block",                 //  4
+    "</div>",                              //  5
+    "",                                    //  6
+    "## After the block",                  //  7
+    "",                                    //  8
+    "body",                                //  9
+  ]));
+  assert.deepEqual(nodes.map((n) => [n.id, n.span]), [
+    ["doc.md#section:real", "L1-L9"],
+    ["doc.md#section:after-the-block", "L7-L9"],
+  ]);
+});
+
+test("markdown: a block-level tag interrupts a paragraph and holds its lines until a blank line", () => {
+  const nodes = sections(doc([
+    "# Real",                              //  1
+    "",                                    //  2
+    "Some text",                           //  3
+    "<table>",                             //  4  type 6 can interrupt a paragraph
+    "# cell",                              //  5
+    "</table>",                            //  6
+    "",                                    //  7
+    "# Next",                              //  8
+  ]));
+  assert.deepEqual(nodes.map((n) => [n.id, n.span]), [
+    ["doc.md#section:real", "L1-L7"],
+    ["doc.md#section:next", "L8-L8"],
+  ]);
+});
+
+test("markdown: <pre>, <script> and <style> blocks run to their closing tag, blank lines included", () => {
+  const nodes = sections(doc([
+    "# Real",                              //  1
+    "",                                    //  2
+    "<pre>",                               //  3
+    "first",                               //  4
+    "",                                    //  5
+    "# inside pre after a blank line",     //  6
+    "</pre>",                              //  7
+    "",                                    //  8
+    "<style>",                             //  9
+    "",                                    // 10
+    "# inside style",                      // 11
+    "</style>",                            // 12
+    "",                                    // 13
+    "# Next",                              // 14
+  ]));
+  assert.deepEqual(nodes.map((n) => [n.id, n.span]), [
+    ["doc.md#section:real", "L1-L13"],
+    ["doc.md#section:next", "L14-L14"],
+  ]);
+});
+
+test("markdown: a block opened and closed on one line, and a comment-like <?...?> or <!X> block, end where CommonMark ends them", () => {
+  const nodes = sections(doc([
+    "# Real",                              //  1
+    "",                                    //  2
+    "<script>run()</script>",              //  3  one-line type 1
+    "# Heading right after it",            //  4  a heading again: the block is over
+    "",                                    //  5
+    "<?php",                               //  6
+    "# inside a processing instruction",   //  7
+    "?>",                                  //  8
+    "# After",                             //  9
+    "",                                    // 10
+    "<!DOCTYPE html>",                     // 11
+    "# After the declaration",             // 12
+  ]));
+  assert.deepEqual(nodes.map((n) => [n.name, n.span]), [
+    ["Real", "L1-L3"],
+    ["Heading right after it", "L4-L8"],
+    ["After", "L9-L11"],
+    ["After the declaration", "L12-L12"],
+  ]);
+});
+
+test("markdown: a lone inline tag line is an HTML block only when it cannot interrupt a paragraph", () => {
+  const nodes = sections(doc([
+    "# Real",                              //  1
+    "",                                    //  2
+    "<custom-element attr=\"x\">",         //  3  type 7 after a blank line: a block
+    "# inside",                            //  4
+    "",                                    //  5
+    "text",                                //  6
+    "<span>",                              //  7  type 7 cannot interrupt a paragraph
+    "",                                    //  8
+    "# Next",                              //  9
+  ]));
+  assert.deepEqual(nodes.map((n) => [n.name, n.span]), [
+    ["Real", "L1-L8"],
+    ["Next", "L9-L9"],
+  ]);
+});

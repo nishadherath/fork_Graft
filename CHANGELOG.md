@@ -12,8 +12,8 @@
   matter keys and the symbols of tagged fenced code (`ts`, `py`, `go` and the
   other full-fidelity languages) are indexed too. Keys go four levels deep with
   at most 500 per file, shallowest first; a key whose name suggests a credential,
-  or whose value is a long opaque string, has no value in its signature or search
-  text; lockfiles are never indexed. The choice persists in `.graft/config.json`
+  or whose value is a long opaque string or a URL with a user name in it, has no
+  value in its signature or search text; lockfiles are never indexed. The choice persists in `.graft/config.json`
   and `--no-structured` turns it off.
 
 ### Fixed

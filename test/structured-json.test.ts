@@ -16,7 +16,7 @@ import {
   structuredLangOf,
   warmStructuredGrammars,
 } from "../src/graph/structured/index.js";
-import { MAX_KEYS_PER_FILE, MAX_KEY_DEPTH } from "../src/graph/structured/shared.js";
+import { MAX_KEYS_PER_FILE, MAX_KEY_DEPTH, MIN_OPAQUE_VALUE_CHARS } from "../src/graph/structured/shared.js";
 import { buildGraph } from "../src/graph/build.js";
 import { checkGraph } from "../src/graph/check.js";
 import { readGraph, wiringPath } from "../src/graph/write.js";
@@ -125,17 +125,21 @@ test("json: secret-looking names and opaque values never reach signature or body
     '  "client-secret": "s1",',
     '  "privateKey": "z1",',
     '  "authToken": "t1",',
-    '  "opaque32": "' + "a".repeat(32) + '",',
-    '  "opaque33": "' + "a".repeat(33) + '",',
+    '  "opaque19": "' + "a".repeat(MIN_OPAQUE_VALUE_CHARS - 1) + '",',
+    '  "opaque20": "' + "a".repeat(MIN_OPAQUE_VALUE_CHARS) + '",',
     '  "spacey": "' + "word ".repeat(10).trim() + '",',
     '  "secrets": { "inner": "plain" }',
     "}",
   ]));
-  for (const n of ["api_key", "DB_PASSWORD", "client-secret", "privateKey", "authToken", "opaque33", "secrets.inner"]) {
+  for (const n of ["api_key", "DB_PASSWORD", "client-secret", "privateKey", "authToken", "opaque20", "secrets.inner"]) {
     assert.equal(byName(wide, n).body_text, undefined, `${n} must have no body_text`);
     assert.ok(!/=/.test(byName(wide, n).signature ?? ""), `${n} must have no value in its signature`);
   }
-  assert.equal(byName(wide, "opaque32").body_text, "a".repeat(32), "32 characters is the boundary, not 33");
+  assert.equal(
+    byName(wide, "opaque19").body_text,
+    "a".repeat(MIN_OPAQUE_VALUE_CHARS - 1),
+    `${MIN_OPAQUE_VALUE_CHARS} characters is the boundary, not ${MIN_OPAQUE_VALUE_CHARS - 1}`,
+  );
   assert.match(byName(wide, "spacey").body_text ?? "", /word word/, "long text with spaces is prose, not a credential");
 });
 

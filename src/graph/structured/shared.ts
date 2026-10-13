@@ -75,17 +75,33 @@ export const MAX_KEYS_PER_FILE = 500;
 /** Longest scalar value shown in a key's signature, which `ask` prints. */
 const MAX_SIGNATURE_VALUE_CHARS = 80;
 
-/** A key whose value must not be searchable or printed: the name says credential. */
-const SECRET_NAME = /token|secret|passw(?:or)?d|api[_-]?key|private/i;
+/** A key whose value must not be searchable or printed: the name says credential.
+ * `auth` is matched as a word (`auth`, `proxy_auth`, `Authorization`), so a
+ * package's `author` stays visible; `basicAuth` is the camelCase spelling, which
+ * the case-insensitive pattern cannot see as a word. */
+const SECRET_NAME =
+  /token|secret|passw(?:or)?d|api[_-]?key|private|access[_-]?key|credential|bearer|authorization|(?:^|[^a-z])auth(?![a-z])/i;
+const SECRET_NAME_CAMEL = /[a-z]Auth(?![a-z])/;
 
-/** A value that looks like a credential whatever its key is called: longer than
- * 32 characters with no whitespace (a token, a hash, a base64 blob). */
-const OPAQUE_VALUE = /^\S{33,}$/;
+/** Fewest characters, with no whitespace, at which a value is treated as a
+ * credential whatever its key is called (a token, a hash, a base64 blob, an AWS
+ * access key id). Lowered from 33 after an acceptance run found a 20 and a 32
+ * character value shown; shorter plain values such as `client-id-public` stay. */
+export const MIN_OPAQUE_VALUE_CHARS = 20;
+
+/** A URL carrying userinfo (`scheme://user:pass@host`, or a token as the user
+ * name): the `@` comes before the first `/` after the scheme. */
+const URL_WITH_USERINFO = /^[a-z][a-z0-9+.-]*:\/\/[^\s/?#]*@/i;
+
+/** A value that looks like a credential whatever its key is called. */
+function isOpaqueValue(value: string): boolean {
+  return (value.length >= MIN_OPAQUE_VALUE_CHARS && !/\s/.test(value)) || URL_WITH_USERINFO.test(value);
+}
 
 /** True when a key's value must stay out of `signature` and `body_text`. The name
  * is tested on the whole path, so everything under `secrets.*` is covered. */
 export function isSecret(path: string, value: string | undefined): boolean {
-  return SECRET_NAME.test(path) || (value !== undefined && OPAQUE_VALUE.test(value));
+  return SECRET_NAME.test(path) || SECRET_NAME_CAMEL.test(path) || (value !== undefined && isOpaqueValue(value));
 }
 
 /** Element fields that identify an array or sequence element to a reader. */

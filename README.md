@@ -231,8 +231,8 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   | INI | `.ini` `.cfg` | `section.name` (`key`) | tree-sitter |
 
   Keys go four levels deep with at most 500 per file, shallowest first. A key whose
-  name suggests a credential, or whose value is a long opaque string, has no value
-  in its signature or search text. Lockfiles are never indexed. The choice is saved
+  name suggests a credential, or whose value is a long opaque string or a URL with
+  a user name in it, has no value in its signature or search text. Lockfiles are never indexed. The choice is saved
   in `.graft/config.json` (or set `GRAFT_STRUCTURED=1`); `--no-structured` turns it
   off again. Like every other file, dot-files and dot-directories such as
   `.github/` are not walked.

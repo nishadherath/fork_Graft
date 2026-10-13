@@ -2,7 +2,7 @@
 stage: "Stage 3: cross-type edges, deep pass over structured files, blast aware of key edges"
 model: claude-opus-5-5
 effort: high
-status: ready
+status: in-progress
 created: 2026-10-13
 from: "Sonnet 5.5 Stage 2 session (markup and build families), 2026-10-13"
 ---

@@ -18,6 +18,7 @@ import PHP from "tree-sitter-php";
 import { basename } from "node:path";
 import { contentHash } from "../util/id.js";
 import { collectBindings, goReceiverVarOf, resolveRecvType, type FileBindings } from "./bindings.js";
+import { keyRefsOf } from "./code-refs.js";
 import type { Kind, NodeV1, Relation } from "./types.js";
 
 export type Language = "typescript" | "tsx" | "python" | "go" | "java" | "kotlin" | "swift" | "php" | "r";
@@ -120,7 +121,18 @@ export interface RawEdge {
    * no such member — and ONLY then, so a name defined as both a member and a
    * free function yields the member edge alone, exactly as Swift dispatches it. */
   implicitSelf?: boolean;
+  /** A reference into the structured tier, resolved by `resolve-structured.ts`
+   * against the finished node set rather than by symbol name. See {@link StructuredRef}. */
+  ref?: StructuredRef;
 }
+
+/**
+ * What a structured-tier reference names, and so how it is resolved:
+ *
+ * - `key`: `name` is a dotted key path read in code (`config.app.limits.maxBody`,
+ *   or a dotted token in a string literal); it targets a `key` node.
+ */
+export type StructuredRef = "key";
 
 export interface ExtractResult {
   nodes: NodeV1[];
@@ -436,7 +448,20 @@ export function extractFile(rel: string, source: string, lang: Language): Extrac
   // nodes[0] is the file node; the rest are its symbols. Index the module-level
   // residual on the file node so a term outside every symbol still surfaces it.
   nodes[0].body_text = fileResidual(source, nodes.slice(1));
-  return { nodes, rawEdges };
+  return { nodes, rawEdges: withoutRepeatedRefs(rawEdges) };
+}
+
+/** One structured reference per (source, name): a function that reads the same key
+ * ten times needs one edge intent, and the extraction cache stores every intent. */
+function withoutRepeatedRefs(edges: RawEdge[]): RawEdge[] {
+  const seen = new Set<string>();
+  return edges.filter((e) => {
+    if (e.ref === undefined) return true;
+    const key = `${e.source}\0${e.ref}\0${e.name ?? ""}\0${e.specifier ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** Mint-time uniqueness: a document-order duplicate (same name reopened, or two
@@ -794,6 +819,11 @@ function walk(node: Parser.SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEd
         file: ctx.rel,
       });
     }
+  }
+  // A dotted path this node spells (member chain or string literal) may name a
+  // configuration key; resolve-structured.ts decides, over the whole node set.
+  for (const name of keyRefsOf(node, ctx.lang)) {
+    edges.push({ source: ctx.parentId, relation: "references", name, ref: "key", file: ctx.rel });
   }
 
   // Java anonymous class (`new Type() { … }`): tree-sitter-java has no

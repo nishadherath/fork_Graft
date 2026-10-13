@@ -2,101 +2,99 @@
 stage: "Stage 4: documents tier, PDF, DOCX, ODT, EPUB, PPTX and ODP through a cached text rendering"
 model: claude-opus-5-5
 effort: high
-status: in-progress
+status: done
 created: 2026-10-13
 from: "Opus 5.5 Stage 3 session (structured edges), 2026-10-13"
 ---
 
 # Stage 4: the documents tier
 
-First confirm your own model and effort match the front matter (session tool,
-`self`); if not, stop and say which to pick. Read `AGENTS.md`,
-`docs/operator-protocol.md` (section 10), the plan's sections 3, 4 and 6
-(`docs/plan-file-type-indexing-2026-10-13.md`), the Stage 3 handoff, then this.
-`high` because this adds optional dependencies, a new cache directory and the
-only locator that is not a line of the file itself.
+Done 2026-10-13 by an Opus 5.5 (high) session. Final gate on `stage-4/documents`
+(`npm run build && npm test`, Node 26.7.0): 1,489 tests, 1,484 pass, 0 fail,
+5 skipped. Stage 3 ended at 1,472; the 17 new tests are in
+`test/structured-documents.test.ts`, fixtures built in `test/document-fixtures.ts`.
 
 ## Goal
 
-`graft build --structured --documents` (env twin `GRAFT_DOCUMENTS=1`, persisted in
-`.graft/config.json` like `structured`) converts PDF, DOCX, ODT, EPUB, PPTX and ODP
-into a deterministic text rendering at `graft/.graph/docs/<content-hash>.txt`, with
-one marker line per page or slide, and indexes the rendering with the Markdown
-scanner: a `section` per heading, page or slide, each with a line span into the
-rendering. `ask --source` prints the rendering's lines; the locator shown names the
-binary and its page (`manuscript.docx (page 12) -> .graph/docs/<hash>.txt:L340-L372`).
-Done: each format has a failing-first test with a fixture built in the test and its
-true lines written in it, a missing converter yields a refusal naming the package,
-a file over the cap is skipped with a message, the gate is green with counts quoted,
-`sync-global` has run, and `pr/documents-tier` is cut.
+`graft build --structured --documents` (env twin `GRAFT_DOCUMENTS=1`, persisted) renders
+PDF, DOCX, ODT, EPUB, PPTX and ODP to `graft/.graph/docs/<sha256>.txt` and indexes it
+with the Markdown scanner. Done as specified; see "Work completed".
 
 ## Decisions already made
 
-- D1 to D7 stand (plan section 6). D3 A: a cached rendering, the span contract is
-  untouched, no new locator grammar through consumers. D4 A: `pdfjs-dist` and
-  `fflate` as optionalDependencies, imported lazily; DOCX, ODT, EPUB, PPTX and ODP are
-  zip archives of XML read with `fflate` and a hand-written scanner (the bundled XML
-  grammar crashes here, Stage 2), headings from paragraph styles and `<h1>` to `<h6>`.
-- Size cap `GRAFT_DOCUMENT_MAX_BYTES`, default 25 MB, a named constant beside the
-  walker's `MAX_FILE_BYTES`; a PDF over 1 MB is otherwise never even listed.
-- Documents stay out of `--deep` unless `--deep-documents` is given: extend
-  `structuredUnitsBeyondBound` in `src/graph/enrich.ts` and `listContextFiles` in
-  `src/context/build.ts` so a document unit is never sent by default.
-- The rendering is keyed by the binary's content hash, so the extraction cache and the
-  rendering agree; a stale rendering is deleted when no binary has its hash.
-- Stage 3's `ref: "link"` resolution applies to a rendering unchanged once its
-  sections exist; do not add document-specific edge kinds.
-- No LLM, no network. Prose: Australian English, no em-dashes, no banned words.
+- D1 to D7 stand. D3 A as built: a node keeps the BINARY's path (ids, cards,
+  `--only-dir`); its span is rendering lines; its signature is the locator
+  `manual.pdf (page 3) -> graft/.graph/docs/<hash>.txt:L40-L52`. `ask` and `grep`
+  print the rendering's path as the pointer, so it opens in any tool. The path is
+  repository-relative (`graft/.graph/...`), not `.graph/...` as the plan sketched.
+- Pages only from what the file records: PDF pages, `w:lastRenderedPageBreak`,
+  `text:soft-page-break`. A file with none gets no page markers, never a guess.
+- Sections per heading; per page or slide only when a document has no headings.
+- `--deep-documents` (env `GRAFT_DEEP_DOCUMENTS`) is per run, not persisted, and
+  covers the per-node pass only; the concept pass never reads a document.
+- Scanned PDF: one warning line per file (the default the handoff proposed).
 
 ## Files and links that matter
 
-- `src/graph/structured/index.ts` (`STRUCTURED_LANGS`, `extractStructured`),
-  `src/graph/structured/markdown.ts` (`scanMarkdown`, `extractMarkdown`),
-  `src/graph/structured/xml.ts` (scanner to reuse for OOXML and ODF),
-  `src/graph/build.ts` (dispatch), `src/graph/source-files.ts` (`listSourceStats`),
-  `src/ingest/fs.ts` (`MAX_FILE_BYTES`, the 1 MB cap the walker applies, L288, L327,
-  L380), `src/util/source.ts` (`readSourceFile`), `src/ask/ask.ts` and
-  `src/graph/cards.ts` (where the locator is printed), `src/cli.ts` build options.
-- Tests to copy the shape of: `test/structured-spans.test.ts`,
-  `test/structured-edges.test.ts`, `test/structured-deep.test.ts`.
+- `src/graph/structured/documents/`: `index.ts` (formats, dispatch), `render.ts`
+  (rendering format, markers, escaping), `extract.ts` (sections, locator,
+  `renderingOf`, `pointerOf`), `cache.ts` (prepare, prune, read), `load.ts` (lazy
+  import, `MissingConverterError`), `pdf.ts`, `docx.ts`, `odf.ts`, `epub.ts`,
+  `pptx.ts`, `flow.ts` (shared DOCX/ODT body), `xml-events.ts`, `zip.ts`.
+- `src/graph/build.ts` (pre-pass, warnings), `src/ingest/fs.ts` (`DOCUMENT_MAX_BYTES`,
+  `SizeCap`), `src/graph/source-files.ts` (`sourceWalkOptions`), `fingerprint.ts`,
+  `check.ts`, `enrich.ts`, `ask/ask.ts`, `search/grep.ts`, `cli.ts`.
 
 ## Verified facts
 
-- Stage 3 final gate: 1,472 tests, 1,467 pass, 0 fail, 5 skipped (Stage 3 handoff).
-- The extractor stamp hashes `src/graph/structured/`; a file appearing there during a
-  gate moves it and fails the MCP tests. Do not edit `src/` while a gate runs.
-- Bash heredocs mangle backslashes here; write scripts and regex-bearing edits with
-  the Write and Edit tools.
-- `npm ci` cannot build `tree-sitter-kotlin` here; install with `--ignore-scripts` and
-  copy the binary (protocol section 10). Adding optionalDependencies changes
-  `package-lock.json`; check `npm ci --ignore-scripts` still succeeds.
+- Every gate green; counts are in each commit message.
+- `node scripts/sync-global.mjs`: global graft answers 0.21.1. The sync copies
+  `dist/` only: the converters were copied into the global install's
+  `node_modules` by hand (`pdfjs-dist`, `fflate`, `@napi-rs/canvas` and its
+  `canvas-win32-x64-msvc` binary). Without them the build refuses by package name.
+- Real files: LibreOffice-made ODT, DOCX and PDF of a three-chapter guide, global
+  graft with both env twins: 21 nodes, 18 sections; PDF split at the true page
+  boundary; `ask "habitat shelter plants" --source` returns the DOCX section with
+  the rendering's lines. Two fixes came from this (`e4513bc`, `1021ff4`).
+- This repository, both env twins: 3,602 nodes, 9,164 edges (no documents here);
+  code-only rebuild 2,763 nodes. BeWhole: 1,774 nodes, 3,027 edges (no documents);
+  code-only 643 nodes; `git status` empty before and after, no `.graft/` written.
+- Install footprint measured on Windows: pdfjs-dist 41 MB, @napi-rs/canvas 37 MB,
+  fflate 0.8 MB. npm installs optionalDependencies by default.
 
 ## Work completed
 
-Nothing yet in Stage 4.
+Branch `stage-4/documents`, one gated commit per item: `39b5599` PDF and the cache,
+`76b22b1` DOCX, `fda0381` ODT, `2aa5cd8` EPUB, `2dffe3a` PPTX and ODP, `5976efe` size
+cap and warnings, `ac00a9a` ask and grep locators, `8f7afe0` CLI flags and
+`--deep-documents`, `083b4f6` README and CHANGELOG, `e4513bc` ODT styled headings,
+`751721e` pdfjs load noise, `1021ff4` canvas refusal. `pr/documents-tier` is stacked on
+`pr/structured-edges`.
 
 ## Unresolved questions
 
-- Scanned PDFs (no text layer) yield a rendering with page markers only; whether to
-  say so in the build output. Operator; default: one warning line per file.
-- Whether `pdfjs-dist`'s Node build runs under Node 20 on upstream CI. Verify early.
+- Install footprint (operator): optionalDependencies add about 79 MB to every
+  install, which D4 assumed would not happen. See the decision in the Stage 5 handoff.
+- `scripts/sync-global.mjs` does not carry optional packages into the global
+  install (operator or a later stage).
+- Not built: links inside documents (DOCX relative hyperlinks), document nodes in
+  `blast` and `traverse` output (they print the binary's `path:span`), workspace
+  builds passing `--documents` to children, `graft check --deep` over documents.
+- The refusal's `npm install pdfjs-dist` installs the newest major, which needs
+  Node 22; graft pins 5.6.205 for Node 20 (maintainer, in review).
 
 ## Exact next action
 
-Set `status: in-progress` here, branch `stage-4/documents` off `main`, then write
-`test/structured-documents.test.ts` with a two-page PDF written as a literal string
-in the test (two text objects, one per page), and assert the rendering's page markers
-and that `section` nodes for page 1 and page 2 carry spans into the rendering whose
-lines hold that page's text. Watch it fail before adding the converter.
+Start Stage 5 from `docs/handoffs/2026-10-13-stage-5-upstream-texts.md`.
 
 ## Cost projection
 
-Opus 5.5 at $4.00 in, $20.00 out, $0.20 cache read per million tokens; 120 turns,
-average context 150k, 3k fresh input and 2.5k output per turn: cache 18M x $0.20 =
-$3.60; fresh 360k x $5.00 = $1.80; output 300k x $20 = $6.00; about $11.40. Stages 1
-to 3 ran 1.5 to 3 times their quotes, so quote $11 to $25.
+Projected $11 to $25. Actual, estimated: about 200 tool turns, context rising to
+470k (average about 250k): cache 200 x 250k = 50M x $0.20 = $10.00; fresh
+200 x 3k = 600k x $5.00 = $3.00; output 200 x 2k = 400k x $20 = $8.00; about $21.
 
 ## Time projection
 
-2 to 3 hours of agent time, at least six gates of about 5 minutes. Operator review:
-about 40 minutes, mostly the converters and the locator text.
+Projected 2 to 3 hours. Actual about 100 minutes wall clock (07:56 to about 09:40
+UTC), twelve gates of about 6 minutes run in the background. Operator review:
+about 40 minutes, mostly the converters, `extract.ts` and the locator text.

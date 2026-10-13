@@ -242,6 +242,30 @@ test("documents: an ODT renders LibreOffice's pages, outline headings, lists and
   assert.equal(nodeById(graph, "spec.odt").signature, `spec.odt -> ${renderingRel(bytes)} (2 pages)`);
 });
 
+test("documents: an ODT paragraph styled as a heading is one, as LibreOffice writes a heading that opens a page", async () => {
+  // LibreOffice writes a heading that starts a new page style as text:p with an
+  // automatic style whose parent is "Heading 1"; levels also come from a style's
+  // default outline level, followed through its parents.
+  const automatic =
+    '<office:automatic-styles><style:style style:name="P1" style:family="paragraph" style:parent-style-name="Heading_20_1"/>' +
+    '<style:style style:name="P2" style:family="paragraph" style:parent-style-name="Deep"/></office:automatic-styles>';
+  const styles =
+    `<office:document-styles ${ODF_NS} xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"><office:styles>` +
+    '<style:style style:name="Heading_20_1" style:display-name="Heading 1" style:family="paragraph" style:parent-style-name="Heading"/>' +
+    '<style:style style:name="Outlined" style:family="paragraph" style:default-outline-level="3"/>' +
+    '<style:style style:name="Deep" style:family="paragraph" style:parent-style-name="Outlined"/>' +
+    "</office:styles></office:document-styles>";
+  const body = '<text:p text:style-name="P1">Overview</text:p><text:p>Body.</text:p><text:p text:style-name="P2">Fine print</text:p>';
+  const bytes = zip({
+    "content.xml": `<office:document-content ${ODF_NS} xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0">${automatic}<office:body><office:text>${body}</office:text></office:body></office:document-content>`,
+    "styles.xml": styles,
+  });
+  const { graph, rendering } = await build("odt-styled", { "styled.odt": bytes });
+  assert.equal(rendering(bytes), text(["# Overview", "", "Body.", "", "### Fine print"]));
+  assert.ok(nodeById(graph, "styled.odt#section:overview"));
+  assert.ok(nodeById(graph, "styled.odt#section:fine-print"));
+});
+
 test("documents: an EPUB renders its spine in order, a chapter marker each, headings from h1 to h6", async () => {
   const xhtml = (body: string, head = ""): string =>
     `<?xml version="1.0" encoding="utf-8"?>\n<html xmlns="http://www.w3.org/1999/xhtml"><head>${head}</head><body>${body}</body></html>`;

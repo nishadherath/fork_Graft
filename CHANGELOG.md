@@ -39,6 +39,17 @@
 - **`--deep` over structured files**: the concept pass reads the files the tier
   claims (never lockfiles), and the per-node summaries cover the first 40 units of
   each structured file; the rest stay pending.
+- **PDF, DOCX, ODT, EPUB, PPTX and ODP behind `--structured --documents`** (also
+  `GRAFT_DOCUMENTS=1`, persisted): each document is converted once into a
+  deterministic text rendering at `graft/.graph/docs/<sha256>.txt`, with a marker
+  line per page, slide or chapter, and indexed by the Markdown scanner as a
+  `section` per heading, or per page or slide when it has none. Spans and pointers
+  are lines of the rendering, so `ask --source` and `grep` print them; the
+  signature names the file and its page or slide. Pages come only from what the
+  file records. Converters are the optional dependencies `pdfjs-dist` and
+  `fflate`, loaded lazily, and a missing one is named. Documents have their own size
+  cap (`GRAFT_DOCUMENT_MAX_BYTES`, default 25 MB); a skipped or text-less document
+  gets a warning line. `--deep` sends no document unless `--deep-documents` is given.
 
 ### Fixed
 

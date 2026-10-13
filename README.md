@@ -218,6 +218,25 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   **Rust, C, C++, C#, Ruby, Scala, Elixir, Solidity,
   OCaml, Zig, Dart, Clojure, Nix, Lua**.
 
+- **Documents and configuration (opt-in)**: `graft build --structured` also
+  indexes the text files agents otherwise read whole, with an exact line span for
+  each unit, so `ask --source`, `skeleton` and `grep` print the right lines:
+
+  | Format | Files | Unit (kind) | Parser |
+  |---|---|---|---|
+  | Markdown | `.md` `.markdown` `.mdx` | a section per heading (`section`), front matter keys, and the symbols of fenced code in a language above | line scanner |
+  | JSON | `.json` `.jsonc` `.jsonl` | a dotted key path such as `bewhole.upload.maxBodyBytes` (`key`) | tree-sitter |
+  | YAML | `.yaml` `.yml` | a dotted key path such as `jobs.verify.runs-on` (`key`) | tree-sitter |
+  | TOML | `.toml` | a table or key such as `profile.release.opt-level` (`key`) | line scanner |
+  | INI | `.ini` `.cfg` | `section.name` (`key`) | tree-sitter |
+
+  Keys go four levels deep with at most 500 per file, shallowest first. A key whose
+  name suggests a credential, or whose value is a long opaque string, has no value
+  in its signature or search text. Lockfiles are never indexed. The choice is saved
+  in `.graft/config.json` (or set `GRAFT_STRUCTURED=1`); `--no-structured` turns it
+  off again. Like every other file, dot-files and dot-directories such as
+  `.github/` are not walked.
+
 - **Compiler-grade edges (opt-in)** — `graft build --lsp` adds precise
   `lsp_resolved` call edges (member calls the static pass can't type) when a
   language server is on your `PATH`: **rust-analyzer** (Rust), **clangd** (C/C++),
@@ -356,6 +375,8 @@ graft build --follow-submodules      # include initialized submodules; persist t
 graft build --no-follow-submodules   # exclude submodules again and persist that choice (the default)
 graft build --follow-nested-repos    # include nested git clones the index doesn't track; persist the choice
 graft build --no-follow-nested-repos # exclude nested clones again and persist that choice (the default)
+graft build --structured             # also index Markdown, JSON, YAML, TOML and INI: a section per heading, a key per path
+graft build --no-structured          # stop indexing those documents and persist that choice (the default)
 
 graft ask "<task>" [dir]             # query the graph — ranked nodes + exact file:line (no LLM, no key)
 graft ask "<task>" --json            # machine-readable result

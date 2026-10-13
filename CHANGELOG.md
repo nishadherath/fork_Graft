@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Documents and configuration are indexed behind `graft build --structured`**
+  (also `GRAFT_STRUCTURED=1`): a new structured tier turns Markdown into a
+  `section` per heading and JSON, JSONC, JSONL, YAML, TOML and INI into a `key`
+  per dotted path, each with an exact line span in the file, so `ask --source`,
+  `skeleton`, `grep` and the cards show them at no model cost. Markdown front
+  matter keys and the symbols of tagged fenced code (`ts`, `py`, `go` and the
+  other full-fidelity languages) are indexed too. Keys go four levels deep with
+  at most 500 per file, shallowest first; a key whose name suggests a credential,
+  or whose value is a long opaque string, has no value in its signature or search
+  text; lockfiles are never indexed. The choice persists in `.graft/config.json`
+  and `--no-structured` turns it off.
+
+### Fixed
+
+- **Cards for files that share a stem no longer overwrite each other**
+  (`config.json` and `config.yml` both mapped to `graft/config.md`); the later
+  file keeps its extension (`config.yml.md`).
+
 ## 0.19.0
 
 ### Added

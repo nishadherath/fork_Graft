@@ -55,8 +55,8 @@ function isConceptNodeFile(path: string): boolean {
 /** The card path for a source path: mirror the tree, swap the extension for .md.
  * Root-level sources share `graft/` with concept nodes. If that filename is
  * already a concept, park the file card under `_root/` instead of clobbering it. */
-function cardPathFor(outDir: string, sourcePath: string): string {
-  const md = sourcePath.replace(/\.[^./]+$/, "") + ".md";
+function cardPathFor(outDir: string, sourcePath: string, keepExtension = false): string {
+  const md = keepExtension ? sourcePath + ".md" : sourcePath.replace(/\.[^./]+$/, "") + ".md";
   const primary = join(outDir, md);
   if (sourcePath.includes("/")) return primary;
   if (isConceptNodeFile(primary)) return join(outDir, ROOT_CARD_DIR, md);
@@ -180,10 +180,28 @@ export function writeCards(graph: GraphV1, outDir: string): CardStats {
   const written = new Set<string>();
   const files: CardFileInfo[] = [];
 
+  // Two sources can swap to the same card name (`config.json` and `config.yml`,
+  // `guide.md` and `guide.json`): the second would overwrite the first and the
+  // INDEX would point two files at one card. The first claimant keeps the short
+  // name and each later one keeps its extension (`config.yml.md`), so the result
+  // depends only on which files exist. A `.md` source claims first: its card name
+  // is its own path, and it should never become `guide.md.md`.
+  const claimed = new Set<string>();
+  const cardOf = new Map<string, string>();
+  const isMarkdown = (p: string): number => (p.endsWith(".md") ? 0 : 1);
+  const claimOrder = [...byPath.keys()].sort((a, b) => isMarkdown(a) - isMarkdown(b) || (a < b ? -1 : a > b ? 1 : 0));
+  for (const sourcePath of claimOrder) {
+    let cardPath = cardPathFor(outDir, sourcePath);
+    if (claimed.has(cardPath)) cardPath = cardPathFor(outDir, sourcePath, true);
+    for (let n = 2; claimed.has(cardPath); n++) cardPath = cardPathFor(outDir, sourcePath, true).replace(/\.md$/, `~${n}.md`);
+    claimed.add(cardPath);
+    cardOf.set(sourcePath, cardPath);
+  }
+
   for (const [sourcePath, group] of byPath) {
     const fileNode = group.find((n) => n.kind === "file");
     const symbols = group.filter((n) => n.kind !== "file");
-    const cardPath = cardPathFor(outDir, sourcePath);
+    const cardPath = cardOf.get(sourcePath)!;
     mkdirSync(dirname(cardPath), { recursive: true });
     writeFileSync(cardPath, renderCard(sourcePath, fileNode, symbols, concepts.get(sourcePath) ?? []));
     written.add(cardPath);

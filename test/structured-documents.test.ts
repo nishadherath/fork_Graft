@@ -15,9 +15,12 @@ import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "
 import { join } from "node:path";
 import { tmpRepo } from "./helpers.js";
 import { pdf, zip } from "./document-fixtures.js";
-import { buildGraph } from "../src/graph/build.js";
+import { buildGraph, type GraphBuildResult } from "../src/graph/build.js";
 import { checkGraph } from "../src/graph/check.js";
+import { emptyExtractCache } from "../src/graph/extract-cache.js";
 import { probeDrift } from "../src/graph/fingerprint.js";
+import { prepareDocuments } from "../src/graph/structured/documents/cache.js";
+import { importOptional, MissingConverterError } from "../src/graph/structured/documents/load.js";
 import { readGraph, wiringPath } from "../src/graph/write.js";
 import { patchBuildConfig } from "../src/util/state.js";
 import type { GraphV1, NodeV1 } from "../src/graph/types.js";
@@ -30,6 +33,7 @@ const text = (lines: readonly string[]): string => lines.join("\n") + "\n";
 interface Built {
   root: string;
   graph: GraphV1;
+  result: GraphBuildResult;
   rendering: (bytes: Uint8Array) => string;
   renderingRel: (bytes: Uint8Array) => string;
 }
@@ -42,10 +46,10 @@ async function build(tag: string, files: Readonly<Record<string, Uint8Array | st
     writeFileSync(join(root, rel), body);
   }
   patchBuildConfig(root, { structured: true, documents: true });
-  await buildGraph(root, { reuse: false });
+  const result = await buildGraph(root, { reuse: false });
   const graph = readGraph(wiringPath(join(root, "graft")))!;
   const renderingRel = (bytes: Uint8Array): string => `graft/.graph/docs/${sha256(bytes)}.txt`;
-  return { root, graph, renderingRel, rendering: (bytes) => readFileSync(join(root, renderingRel(bytes)), "utf8") };
+  return { root, graph, result, renderingRel, rendering: (bytes) => readFileSync(join(root, renderingRel(bytes)), "utf8") };
 }
 
 function nodeById(graph: GraphV1, id: string): NodeV1 {
@@ -353,6 +357,49 @@ test("documents: an ODP renders a slide per draw:page, titled by its title frame
   ]));
   assert.equal(nodeById(graph, "talk.odp#section:slide-1").signature, `talk.odp (slide 1) -> ${renderingRel(bytes)}:L1-L3`);
   assert.equal(nodeById(graph, "talk.odp#section:slide-2").signature, `talk.odp (slide 2) -> ${renderingRel(bytes)}:L5-L6`);
+});
+
+test("documents: a PDF past 1 MB is read, one past GRAFT_DOCUMENT_MAX_BYTES is skipped with a warning", async () => {
+  const big = pdf([["Large but allowed"]], 1_100_000);
+  const huge = pdf([["Too large"]], 1_300_000);
+  process.env.GRAFT_DOCUMENT_MAX_BYTES = "1200000";
+  try {
+    const { root, graph, result } = await build("cap", { "big.pdf": big, "huge.pdf": huge });
+    assert.ok(nodeById(graph, "big.pdf#section:page-1"));
+    assert.equal(graph.nodes.some((n) => n.path === "huge.pdf"), false);
+    assert.deepEqual(result.warnings, [
+      `huge.pdf: skipped, ${huge.length} bytes is over the documents tier's cap of 1200000 bytes (GRAFT_DOCUMENT_MAX_BYTES)`,
+    ]);
+    // The probe walks with the same cap, so the skipped file never reads as new.
+    assert.deepEqual(probeDrift(root, join(root, "graft")), { changed: [], added: [], removed: [] });
+  } finally {
+    delete process.env.GRAFT_DOCUMENT_MAX_BYTES;
+  }
+});
+
+test("documents: a PDF with no text layer keeps its page markers and says so once", async () => {
+  const bytes = pdf([[], []]);
+  const { graph, rendering, result } = await build("scanned", { "scan.pdf": bytes });
+  assert.equal(rendering(bytes), text(["<!-- page 1 -->", "", "<!-- page 2 -->"]));
+  assert.equal(graph.nodes.filter((n) => n.path === "scan.pdf" && n.kind === "section").length, 0);
+  assert.deepEqual(result.warnings, ["scan.pdf: no text in its 2 pages (a scanned PDF has no text layer); only its page markers are indexed"]);
+});
+
+test("documents: a converter package that is not installed is refused by name, and not cached", async () => {
+  await assert.rejects(importOptional("graft-no-such-package", "graft-no-such-package/x.mjs"), (err: unknown) => {
+    assert.ok(err instanceof MissingConverterError);
+    assert.equal(err.packageName, "graft-no-such-package");
+    assert.match(err.message, /graft-no-such-package is not installed/);
+    assert.match(err.message, /npm install graft-no-such-package/);
+    return true;
+  });
+  const root = tmpRepo("documents-missing");
+  writeFileSync(join(root, "a.pdf"), pdf([["x"]]));
+  const missing = async (): Promise<never> => {
+    throw new MissingConverterError("pdfjs-dist");
+  };
+  const prepared = await prepareDocuments(root, join(root, "graft"), [{ abs: join(root, "a.pdf"), rel: "a.pdf" }], emptyExtractCache(), missing);
+  assert.deepEqual(prepared.get("a.pdf"), { status: "missing", format: "pdf", packageName: "pdfjs-dist" });
 });
 
 test("documents: a rebuild replays the rendering, an edit replaces it, and the probe and check stay clean", async () => {

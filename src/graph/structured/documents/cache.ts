@@ -22,7 +22,7 @@ import type { ExtractCache } from "../../extract-cache.js";
 import { GRAPH_DIR } from "../../write.js";
 import { convertDocument, documentFormatOf, type DocumentFormat } from "./index.js";
 import { MissingConverterError } from "./load.js";
-import { renderText } from "./render.js";
+import { renderText, type DocumentUnit } from "./render.js";
 
 /** Directory under `.graph/` holding the renderings. */
 const DOCS_DIR = "docs";
@@ -41,12 +41,14 @@ export type PreparedDocument =
   | { status: "missing"; format: DocumentFormat; packageName: string };
 
 /** Convert and cache every document in `files` (absolute and repo-relative
- * paths). Sequential: the converters are CPU-bound in this process. */
+ * paths). Sequential: the converters are CPU-bound in this process. `convert` is
+ * the format dispatch, replaceable so a test can stand in for a missing package. */
 export async function prepareDocuments(
   root: string,
   outDir: string,
   files: readonly { abs: string; rel: string }[],
   prior: ExtractCache,
+  convert: (bytes: Uint8Array, format: DocumentFormat) => Promise<DocumentUnit[]> = convertDocument,
 ): Promise<Map<string, PreparedDocument>> {
   const out = new Map<string, PreparedDocument>();
   for (const { abs, rel } of files) {
@@ -72,7 +74,7 @@ export async function prepareDocuments(
       continue;
     }
     try {
-      const text = renderText(await convertDocument(bytes, format));
+      const text = renderText(await convert(bytes, format));
       writeAtomic(target, text);
       out.set(rel, { status: "ready", format, hash, text, renderingRel });
     } catch (err) {

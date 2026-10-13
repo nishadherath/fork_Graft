@@ -15,7 +15,7 @@
  */
 import { readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import { STRUCTURED_DOT_PATHS, walkDir } from "../ingest/fs.js";
+import { DOCUMENT_MAX_BYTES, walkDir } from "../ingest/fs.js";
 import { contextDirFor, ensureGitignored, ensureSearchable } from "../context/node-file.js";
 import { extractFile, languageLabelOf, languageOf, type RawEdge } from "./extract.js";
 import { extractGeneric, genericLangOf, warmGenericGrammars } from "./generic.js";
@@ -24,11 +24,12 @@ import { extractStructured, structuredLangOf, warmStructuredGrammars } from "./s
 import { prepareDocuments, pruneRenderings } from "./structured/documents/cache.js";
 import { extractDocument } from "./structured/documents/extract.js";
 import { documentFormatOf } from "./structured/documents/index.js";
+import { textlessUnits } from "./structured/documents/render.js";
 import { MissingConverterError } from "./structured/documents/load.js";
 import { contentHash } from "../util/id.js";
 import { relPosix } from "../util/paths.js";
 import { readSourceFile } from "../util/source.js";
-import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs, readStructured } from "../util/state.js";
+import { readDocumentMaxBytes, readDocuments, readIncludeDirs } from "../util/state.js";
 import {
   emptyExtractCache,
   readExtractCache,
@@ -37,7 +38,7 @@ import {
 } from "./extract-cache.js";
 import { writeFingerprint } from "./fingerprint.js";
 import { seedGraph, type SeedResult } from "./seed.js";
-import { filterByOnlyDirs, listSourceStats } from "./source-files.js";
+import { filterByOnlyDirs, listSourceStats, sourceWalkOptions } from "./source-files.js";
 import { resolveEdges, type GoModule } from "./resolve.js";
 import { enrichGraph, type EnrichStats } from "./enrich.js";
 import { readGraph, writeGraph, wiringPath } from "./write.js";
@@ -126,6 +127,9 @@ export interface GraphBuildResult {
   languages: string[];
   meaning: EnrichStats;
   errors: string[];
+  /** Things the build chose to skip or could only partly read, each naming the
+   * file and why: a document past its size cap, one with no text. */
+  warnings: string[];
 }
 
 /** Every Go module in the repo: each `go.mod`'s declared `module` path and the repo
@@ -162,11 +166,21 @@ export async function buildGraph(
   // Enumerate once: source extraction, scope discovery, and Go module
   // resolution must agree on the same Git-ignore-aware working-tree view —
   // including the repo's persisted directory and submodule choices.
-  const walked = walkDir(root, readIncludeDirs(root), {
-    followSubmodules: readFollowSubmodules(root),
-    followNestedRepos: readFollowNestedRepos(root),
-    admitDotPaths: readStructured(root) ? STRUCTURED_DOT_PATHS : undefined,
-  });
+  // Documents past their cap are dropped by the walk like any oversized file, but
+  // a skipped PDF is a surprise worth a line, so the build names each one.
+  const warnings: string[] = [];
+  const { maxBytes: documentCap, problem: capProblem } = readDocumentMaxBytes(DOCUMENT_MAX_BYTES);
+  if (capProblem && readDocuments(root)) warnings.push(capProblem);
+  const walked = walkDir(
+    root,
+    readIncludeDirs(root),
+    sourceWalkOptions(root, (abs, size) => {
+      if (documentFormatOf(abs) === null) return;
+      warnings.push(
+        `${relPosix(root, abs)}: skipped, ${size} bytes is over the documents tier's cap of ${documentCap} bytes (GRAFT_DOCUMENT_MAX_BYTES)`,
+      );
+    }),
+  );
   const onlyDirs = opts.onlyDirs && opts.onlyDirs.length > 0 ? new Set(opts.onlyDirs) : undefined;
   const repoFiles = filterByOnlyDirs(walked, root, onlyDirs);
   const files = listSourceStats(root, outDir, repoFiles);
@@ -243,6 +257,11 @@ export async function buildGraph(
         errors.push(doc.error);
         entries[rel] = { size: f.size, mtimeMs: f.mtimeMs, hash: doc.hash, nodes: [], rawEdges: [], error: doc.error };
         return;
+      }
+      const textless = textlessUnits(doc.text);
+      if (textless) {
+        const scanned = doc.format === "pdf" ? " (a scanned PDF has no text layer)" : "";
+        warnings.push(`${rel}: no text in its ${textless.label}${scanned}; only its ${textless.kind} markers are indexed`);
       }
       const cached = priorExtract.files[rel];
       sources.set(rel, doc.text);
@@ -475,5 +494,6 @@ export async function buildGraph(
     languages: [...langs].sort(),
     meaning,
     errors,
+    warnings,
   };
 }

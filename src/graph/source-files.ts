@@ -8,9 +8,16 @@
  */
 import { statSync } from "node:fs";
 import { resolve } from "node:path";
-import { STRUCTURED_DOT_PATHS, walkDir } from "../ingest/fs.js";
+import { DOCUMENT_MAX_BYTES, MAX_FILE_BYTES, STRUCTURED_DOT_PATHS, walkDir, type WalkOptions } from "../ingest/fs.js";
 import { relPosix } from "../util/paths.js";
-import { readDocuments, readFollowNestedRepos, readFollowSubmodules, readIncludeDirs, readStructured } from "../util/state.js";
+import {
+  readDocumentMaxBytes,
+  readDocuments,
+  readFollowNestedRepos,
+  readFollowSubmodules,
+  readIncludeDirs,
+  readStructured,
+} from "../util/state.js";
 import { languageOf, depthExtensions } from "./extract.js";
 import { genericLangOf, genericExtensions } from "./generic.js";
 import { containerLangOf, containerExtensions } from "./container.js";
@@ -38,6 +45,27 @@ const DENIED_SOURCE = /\.(?:pem|key|p12|pfx|jks|keystore|crt|cer)$/i;
 /** True for a path that must never be indexed as content. */
 export function isDeniedSource(path: string): boolean {
   return DENIED_SOURCE.test(path);
+}
+
+/** The walk every source enumeration shares: the repo's persisted directory and
+ * submodule choices, the structured tier's admitted dot-paths, and (with the
+ * documents tier on) the documents' own size cap. `onOversize` hears each file
+ * the cap drops; the build reports the documents among them. */
+export function sourceWalkOptions(root: string, onOversize?: (path: string, size: number) => void): WalkOptions {
+  const r = resolve(root);
+  const options: WalkOptions = {
+    followSubmodules: readFollowSubmodules(r),
+    followNestedRepos: readFollowNestedRepos(r),
+    admitDotPaths: readStructured(r) ? STRUCTURED_DOT_PATHS : undefined,
+  };
+  if (readDocuments(r)) {
+    const { maxBytes } = readDocumentMaxBytes(DOCUMENT_MAX_BYTES);
+    options.sizeCap = {
+      maxBytes: (path) => (documentFormatOf(path) ? maxBytes : MAX_FILE_BYTES),
+      ...(onOversize ? { onOversize } : {}),
+    };
+  }
+  return options;
 }
 
 /** Normalize a user-supplied extension: ensure a leading dot, lower-case. */
@@ -83,11 +111,7 @@ export function filterByOnlyDirs(
 export function listSourceFiles(
   root: string,
   outDir: string,
-  repoFiles: string[] = walkDir(root, readIncludeDirs(resolve(root)), {
-    followSubmodules: readFollowSubmodules(resolve(root)),
-    followNestedRepos: readFollowNestedRepos(resolve(root)),
-    admitDotPaths: readStructured(resolve(root)) ? STRUCTURED_DOT_PATHS : undefined,
-  }),
+  repoFiles: string[] = walkDir(root, readIncludeDirs(resolve(root)), sourceWalkOptions(root)),
   onlyDirs?: ReadonlySet<string>,
 ): string[] {
   // A file is a source file if a depth-tier grammar (languageOf), a breadth-tier

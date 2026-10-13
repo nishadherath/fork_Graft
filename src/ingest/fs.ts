@@ -27,6 +27,25 @@ export const SKIP_DIRS = new Set([
 /** Files above this size are generated/vendored in practice, not hand-written code. */
 export const MAX_FILE_BYTES = 1_000_000;
 
+/** The documents tier's own cap: a PDF or a deck is routinely past
+ * {@link MAX_FILE_BYTES} and still worth indexing. `GRAFT_DOCUMENT_MAX_BYTES`
+ * overrides it. */
+export const DOCUMENT_MAX_BYTES = 25_000_000;
+
+/** A per-path size cap for a walk, and a report of each file it drops. */
+export interface SizeCap {
+  maxBytes(path: string): number;
+  onOversize?(path: string, size: number): void;
+}
+
+/** True when `size` is past the cap for `path`, reporting the drop. Without a cap
+ * the historical {@link MAX_FILE_BYTES} applies to every file. */
+function tooLarge(path: string, size: number, cap?: SizeCap): boolean {
+  if (size <= (cap ? cap.maxBytes(path) : MAX_FILE_BYTES)) return false;
+  cap?.onOversize?.(path, size);
+  return true;
+}
+
 /** The dot-directories the structured tier may read. Narrow on purpose (operator
  * decision D7): workflows are configuration agents ask about, while the rest of
  * `.github/` and every other dot-path stay out as before. */
@@ -92,6 +111,9 @@ export interface WalkOptions {
    * Only `.yml` and `.yaml` files under a prefix are admitted; every other skip
    * rule, Git's ignore rules and the size cap still apply. Default none. */
   admitDotPaths?: readonly string[];
+  /** Size cap by path, replacing {@link MAX_FILE_BYTES} for the paths it widens.
+   * Default: {@link MAX_FILE_BYTES} for every file. */
+  sizeCap?: SizeCap;
   /** Include initialized Git submodules (gitlinks) recursively. Default false. */
   followSubmodules?: boolean;
   /** Include nested Git clones the parent index does not track. Default false. */
@@ -170,7 +192,7 @@ export function walkDir(
 ): string[] {
   const requested = resolve(dir);
   const root = canonicalWalkRoot(requested);
-  const files = gitVisibleFiles(root, includes, opts) ?? walkFilesystem(root, includes, opts.admitDotPaths);
+  const files = gitVisibleFiles(root, includes, opts) ?? walkFilesystem(root, includes, opts);
   return remapWalkPaths(requested, root, files);
 }
 
@@ -188,7 +210,7 @@ function gitVisibleFiles(
   // only when at least one boundary-crossing opt-in is on. With both off the
   // walk is byte-for-byte the historical one.
   if (opts.followSubmodules !== true && opts.followNestedRepos !== true) {
-    return gitVisibleFilesShallow(root, includes, opts.admitDotPaths);
+    return gitVisibleFilesShallow(root, includes, opts);
   }
 
   const state = traversal ?? { topRoot: root, activeRoots: new Set<string>() };
@@ -277,7 +299,7 @@ function gitVisibleFiles(
         // top-level Git command fails and walkDir uses its filesystem fallback.
         // Let an unreadable filesystem fallback surface rather than claiming a
         // healthy graph that silently omitted the child again.
-        childFiles = walkFilesystem(abs, includes, opts.admitDotPaths);
+        childFiles = walkFilesystem(abs, includes, opts);
       }
       for (const file of childFiles) out.add(file);
       continue;
@@ -285,7 +307,7 @@ function gitVisibleFiles(
 
     try {
       const stat = lstatSync(abs);
-      if (!stat.isFile() || stat.size > MAX_FILE_BYTES) continue;
+      if (!stat.isFile() || tooLarge(abs, stat.size, opts.sizeCap)) continue;
     } catch {
       // A tracked file deleted from the working tree is still printed by
       // `--cached`; absence means it is not part of the current source set.
@@ -303,9 +325,10 @@ function gitVisibleFiles(
  * did before submodule support existed. */
 function gitVisibleFilesShallow(
   root: string,
-  includes?: ReadonlySet<string>,
-  admit?: readonly string[],
+  includes: ReadonlySet<string> | undefined,
+  opts: Pick<WalkOptions, "admitDotPaths" | "sizeCap">,
 ): string[] | null {
+  const admit = opts.admitDotPaths;
   const result = spawnSync(
     "git",
     ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--"],
@@ -324,7 +347,7 @@ function gitVisibleFilesShallow(
     const abs = resolve(root, rel);
     try {
       const stat = lstatSync(abs);
-      if (!stat.isFile() || stat.size > MAX_FILE_BYTES) continue;
+      if (!stat.isFile() || tooLarge(abs, stat.size, opts.sizeCap)) continue;
     } catch {
       // A tracked file deleted from the working tree is still printed by
       // `--cached`; absence means it is not part of the current source set.
@@ -350,10 +373,11 @@ function skippedPath(path: string, includes?: ReadonlySet<string>, admit?: reado
 
 function walkFilesystem(
   dir: string,
-  includes?: ReadonlySet<string>,
-  admit?: readonly string[],
+  includes: ReadonlySet<string> | undefined,
+  opts: Pick<WalkOptions, "admitDotPaths" | "sizeCap">,
   base = dir,
 ): string[] {
+  const admit = opts.admitDotPaths;
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
@@ -368,7 +392,7 @@ function walkFilesystem(
       const onTheWay = admit?.some((p) => p === rel || p.startsWith(`${rel}/`)) === true;
       if (dotAncestor && !onTheWay && !insidePrefix) continue;
       if (shouldSkipDir(entry.name, includes) && !(onTheWay && entry.name.startsWith("."))) continue;
-      out.push(...walkFilesystem(full, includes, admit, base));
+      out.push(...walkFilesystem(full, includes, opts, base));
     } else if (entry.isFile()) {
       if (dotAncestor && !insidePrefix) continue;
       if (insidePrefix) {
@@ -377,7 +401,7 @@ function walkFilesystem(
         continue; // dot-files are not source either
       }
       try {
-        if (statSync(full).size > MAX_FILE_BYTES) continue;
+        if (tooLarge(full, statSync(full).size, opts.sizeCap)) continue;
       } catch {
         continue;
       }

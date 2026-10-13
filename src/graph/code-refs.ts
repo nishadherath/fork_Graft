@@ -1,6 +1,7 @@
 /**
- * Dotted names in code that may name a configuration key: the code half of the
- * code-to-key edges (Stage 3 of the structured tier).
+ * Dotted names in code that may name a configuration key, and strings that name a
+ * Markdown heading: the code half of the code-to-structured edges (Stage 3 of the
+ * structured tier).
  *
  * Responsible for one question per syntax node: does this node, on its own, spell
  * a dotted path a structured `key` node could carry? Two shapes qualify. A member
@@ -52,6 +53,20 @@ const TRANSPARENT_TYPES: ReadonlySet<string> = new Set(["non_null_expression"]);
  * preceded by a path or dot character (so `src/config.json` yields nothing) and not
  * followed by more of a path or identifier. */
 const DOTTED_TOKEN = /(?<![\w$./\\-])[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)+(?![\w$/\\-]|\.[\w$])/g;
+
+/** A whole string that names a heading in a Markdown file: `docs/setup.md#install`. */
+const DOC_ANCHOR = /^(?:\.{1,2}\/)?(?:[\w.-]+\/)*[\w.-]+\.(?:md|mdx|markdown)#[\w-]+$/i;
+
+/**
+ * The Markdown anchor `node` spells when it is a string literal whose whole text is
+ * `<path>.md#<anchor>`, or null. A path inside a longer sentence is not taken: the
+ * whole literal is the evidence that the code names the section.
+ */
+export function docAnchorOf(node: Parser.SyntaxNode, lang: Language): string | null {
+  if (!STRING_CONTENT[lang]?.has(node.type)) return null;
+  const text = node.text.trim();
+  return DOC_ANCHOR.test(text) ? text : null;
+}
 
 function same(a: Parser.SyntaxNode | null | undefined, b: Parser.SyntaxNode | null | undefined): boolean {
   return !!a && !!b && a.tree === b.tree && a.id === b.id;

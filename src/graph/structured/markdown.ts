@@ -7,9 +7,12 @@
  * fenced code blocks it passed (`scanMarkdown().fences`) for the embedded-code
  * pass in `fences.ts`.
  *
- * Deliberately does not: render Markdown, resolve links, or recognise headings
- * inside block quotes and list items (those are content of another block, not a
- * navigable section). It is a line scanner, not a CommonMark parser, so where the
+ * It also records every relative link target on a prose line (`links`), which the
+ * resolver turns into `references` edges.
+ *
+ * Deliberately does not: render Markdown, resolve the links it records, or
+ * recognise headings inside block quotes and list items (those are content of
+ * another block, not a navigable section). It is a line scanner, not a CommonMark parser, so where the
  * two could disagree it errs toward emitting fewer headings: a missed heading
  * only lengthens the section above it, whereas an invented one is a wrong locator.
  *
@@ -43,10 +46,18 @@ export interface Fence {
   endLine: number;
 }
 
+/** A link target written in the prose: an inline link, an image or a reference
+ * definition. `line` is 0-based; `target` is as written, angle brackets removed. */
+export interface MarkdownLink {
+  line: number;
+  target: string;
+}
+
 export interface MarkdownScan {
   lines: string[];
   headings: Heading[];
   fences: Fence[];
+  links: MarkdownLink[];
   /** 0-based line one past the front matter, or 0 when there is none. */
   frontMatterEnd: number;
 }
@@ -58,6 +69,24 @@ const BACKTICK_FENCE = /^\s*(`{3,})([^`]*)$/;
 const TILDE_FENCE = /^\s*(~{3,})(.*)$/;
 const COMMENT_OPEN = /^ {0,3}<!--/;
 const LIST_MARKER = /^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]|$)/;
+const INLINE_LINK = /\[(?:[^\]\\]|\\.)*\]\(\s*(<[^>]*>|[^\s)]+)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/g;
+const LINK_DEFINITION = /^ {0,3}\[[^\]]+\]:\s*(<[^>]*>|\S+)/;
+const CODE_SPAN = /(`+)[^`]*?\1/g;
+/** A target with a scheme (`https:`, `mailto:`) or a network path leaves the repository. */
+const EXTERNAL_TARGET = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+
+/** Link targets on one prose line. Code spans are blanked first, so a link shown
+ * as code is not read as one; external targets are dropped here. */
+function linksOn(line: string, row: number, out: MarkdownLink[]): void {
+  const prose = line.replace(CODE_SPAN, (m) => " ".repeat(m.length));
+  const targets = [...prose.matchAll(INLINE_LINK)].map((m) => m[1]!);
+  const definition = LINK_DEFINITION.exec(prose);
+  if (definition) targets.push(definition[1]!);
+  for (const raw of targets) {
+    const target = raw.replace(/^<|>$/g, "").trim();
+    if (target !== "" && !EXTERNAL_TARGET.test(target)) out.push({ line: row, target });
+  }
+}
 
 /** A paragraph that could be the text of a setext heading: not indented code, a
  * block quote, a list item, a table row or an HTML block. */
@@ -113,6 +142,7 @@ export function scanMarkdown(source: string): MarkdownScan {
   const lines = splitLines(source);
   const headings: Heading[] = [];
   const fences: Fence[] = [];
+  const links: MarkdownLink[] = [];
 
   // Front matter: `---` on line 1 (after an optional byte order mark) up to the
   // next `---` or `...`. Without a closer it is an ordinary thematic break.
@@ -166,6 +196,9 @@ export function scanMarkdown(source: string): MarkdownScan {
       continue;
     }
 
+    // Indented code outside a paragraph is code, not prose.
+    if (!(para === null && /^(?: {4}|\t)/.test(line))) linksOn(line, i, links);
+
     const atx = ATX.exec(line);
     if (atx) {
       const text = plainText((atx[2] ?? "").replace(/[ \t]+#+[ \t]*$/, "").replace(/^#+[ \t]*$/, ""));
@@ -192,14 +225,14 @@ export function scanMarkdown(source: string): MarkdownScan {
 
   // An unclosed fence runs to the end of the document.
   if (fence?.lang) fences.push({ lang: fence.lang, firstLine: fence.firstLine, endLine: lines.length });
-  return { lines, headings, fences, frontMatterEnd };
+  return { lines, headings, fences, links, frontMatterEnd };
 }
 
 /** Sections for one Markdown document: a file node, a `key` per front matter key
  * (when the yaml grammar is available), a `section` per non-empty heading, and
  * `contains` edges from each section's parent (or the file). */
 export function extractMarkdown(rel: string, source: string, yaml?: unknown): ExtractResult {
-  const { lines, headings, fences, frontMatterEnd } = scanMarkdown(source);
+  const { lines, headings, fences, links, frontMatterEnd } = scanMarkdown(source);
   const minted = new Set<string>([rel]);
   const nodes: NodeV1[] = [];
   const rawEdges: RawEdge[] = [];
@@ -255,6 +288,20 @@ export function extractMarkdown(rel: string, source: string, yaml?: unknown): Ex
     placed.push({ id, start: h.line, end });
   });
 
+  // The innermost section holding a 0-based row: sections are placed parent
+  // first, so the last one that contains the row is the tightest.
+  const innermost = (row: number): string => {
+    let owner = rel;
+    for (const s of placed) if (s.start <= row && row <= s.end) owner = s.id;
+    return owner;
+  };
+
+  // Links reference the file or section they name; resolve-structured.ts decides
+  // which once every file is extracted. Each hangs off the innermost section.
+  for (const link of links) {
+    rawEdges.push({ source: innermost(link.line), relation: "references", specifier: link.target, ref: "link", file: rel });
+  }
+
   // Tagged fences the depth tier can parse. Only `contains` edges are kept: a
   // documentation sample that calls `greet()` or imports a module is not a
   // dependency of the real code, and an edge from README into src/ would claim
@@ -265,8 +312,7 @@ export function extractMarkdown(rel: string, source: string, yaml?: unknown): Ex
     const script = lines.slice(fence.firstLine, fence.endLine).join("\n");
     const embedded = extractEmbedded(rel, script, inner, fence.firstLine, minted);
     if (!embedded) continue;
-    let owner = rel;
-    for (const s of placed) if (s.start <= fence.firstLine && fence.firstLine <= s.end) owner = s.id;
+    const owner = innermost(fence.firstLine);
     nodes.push(...embedded.nodes);
     for (const e of embedded.rawEdges) {
       if (e.relation !== "contains") continue;

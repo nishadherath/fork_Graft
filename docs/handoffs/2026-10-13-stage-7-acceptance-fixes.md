@@ -1,0 +1,94 @@
+---
+stage: "Stage 7: acceptance fixes on the structured branches, README line, stack rebase"
+model: claude-sonnet-5-5
+effort: high
+status: ready
+created: 2026-10-13
+from: "Fable 5.1 Stage 6 session (adversarial acceptance), 2026-10-13"
+---
+
+# Stage 7: acceptance fixes and the stack rebase
+
+First confirm your own model and effort match the front matter (session tool,
+`self`); if not, stop and say which to pick in the model menu. Load
+`ENGINEERING_PERSONA.md` (the only edition checked in; no Sonnet edition exists
+in this repository) and `ENGINEERING_PERSONA_LANGUAGES/node-ts-js.sonnet.md`.
+Set the status to `in-progress` on starting, `done` on finishing, in this file.
+
+## Goal
+
+The four findings of `docs/acceptance-2026-10-13.md` section 5 fixed on the
+branches that own them, each with a test that fails first; the secret rule
+widened if the kickoff prompt says so (section 6, first decision); the three
+upper branches rebased onto the fixed core; `git log upstream/main..<branch>
+--name-only` still showing only the allowed paths; the gate green on all five
+branches, one at a time, with counts quoted in the commit messages and in
+`docs/upstream/*.md`. Nothing pushed.
+
+## Decisions already made
+
+- D1 to D7 stand. Findings 1 to 4 are fixed in this stage (acceptance section
+  6, second decision, option A).
+- Branch ownership: findings 1 (`yaml.ts`), 2 (`markdown.ts`) and 4
+  (`README.md`) on `pr/structured-tier-core`; finding 3 (`src/context/build.ts`)
+  on `pr/structured-edges`; the secret rule (`shared.ts`) on core.
+- Gates run one at a time: parallel `npm test` runs time out the MCP and CLI
+  tests on this machine (acceptance section 3).
+- Rebase order: markup onto the new core tip, edges onto markup, documents onto
+  edges; `git rebase --onto` per branch, then the gate on each.
+
+## Files and links that matter
+
+- `docs/acceptance-2026-10-13.md` sections 5 and 6 (what to fix, with the fix
+  sketch per finding) and `docs/acceptance/2026-10-13/make-fixtures.mjs` (the
+  fixture; `headings/forms.md` lines 44 to 46 and `cfg/app.yaml` for the two
+  scanner findings; the `yaml-probe` in section 5 item 1).
+- `src/graph/structured/yaml.ts` (block node end rows), `markdown.ts` (the
+  scan loop, `para` state), `shared.ts` (`SECRET_NAME`, `OPAQUE_VALUE`),
+  `src/context/build.ts` (`listContextFiles`), `src/graph/source-files.ts`
+  (`sourceWalkOptions`).
+- Tests to extend: `test/structured-spans.test.ts` or the YAML family file,
+  the Markdown scanner test, `test/structured-deep.test.ts`, the secret test.
+- `docs/upstream/pr-structured-tier-core.md`, `pr-structured-edges.md`,
+  `pr-documents-tier.md`: update tips, gate figures and the secret-rule sentence.
+
+## Verified facts
+
+- Sequential gates at the current tips, 2026-10-13, Node 26.7.0: see the table
+  in `docs/acceptance-2026-10-13.md` section 3. The documents branch counts
+  1,517 tests, not the 1,489 its commit message says.
+- The YAML over-claim reproduces with a 12-line file (`a:` mapping then a
+  column-0 comment after a blank line): `b` L5-L10 where L5-L8 is right.
+- The HTML-block heading reproduces with `<div>` / `# text` / `</div>`.
+- `listContextFiles` walks with the follow options only; `sourceWalkOptions`
+  carries the admit list and the documents cap.
+
+## Work completed
+
+Nothing yet in Stage 7.
+
+## Unresolved questions
+
+- Operator: the secret-rule widening (acceptance section 6, option C
+  recommended). The kickoff prompt states the choice.
+- Operator: the AGENTS.md rule 3 exception for `package.json` on
+  `pr/documents-tier` (unchanged by this stage).
+
+## Exact next action
+
+`git worktree add ../fork_graft-stage7-core pr/structured-tier-core`, install as
+protocol section 10 says, write the failing YAML span test from the probe in
+acceptance section 5 item 1, then fix `yaml.ts`.
+
+## Cost projection
+
+Sonnet 5.5, high ($2.00 in, $10.00 out, $0.20 cache read per million).
+Assumptions: 80 turns, average context 100k, 3k fresh input and 2k output per
+turn. Cache 80 x 100k = 8M x $0.20 = $1.60. Fresh 80 x 3k = 240k x $2.50 =
+$0.60. Output 80 x 2k = 160k x $10 = $1.60. About $4; quote $3 to $6. Estimate.
+
+## Time projection
+
+Wall clock 60 to 90 minutes: 20 to 45 minutes of model time plus five
+sequential gates of 4 to 7 minutes each. Operator review of the diffs and
+the rebased stack: about 20 minutes.

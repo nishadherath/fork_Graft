@@ -2,7 +2,7 @@
 stage: "Stage 6: adversarial acceptance of Stages 1 to 5"
 model: claude-fable-5-1
 effort: high
-status: ready
+status: done
 created: 2026-10-13
 from: "Haiku 5.5 Stage 5 session (upstream texts and audits), 2026-10-13"
 ---
@@ -78,7 +78,15 @@ fixed on its branch or listed for the operator. Nothing pushed.
 
 ## Work completed
 
-Nothing yet in Stage 6.
+Done 2026-10-13. Report: `docs/acceptance-2026-10-13.md`; scripts in
+`docs/acceptance/2026-10-13/`. Sequential gates, Node 26.7.0, all exit 0:
+crux 1,359 tests, 1,354 pass; core 1,425, 1,420; markup 1,474, 1,469;
+edges 1,500, 1,495; documents 1,517, 1,512 (through cmd.exe); 0 fail and
+5 skipped on each. Eight cases held; four findings listed, none fixed here
+(no `src/` or `test/` edits on `pr/` branches). Next stage:
+`docs/handoffs/2026-10-13-stage-7-acceptance-fixes.md` (Sonnet 5.5, high).
+Actual cost, estimated: about 85 turns at about 120k average context,
+about $13.
 
 ## Unresolved questions
 

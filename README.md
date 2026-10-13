@@ -235,6 +235,10 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   | Gradle | `.gradle` | a task (`task`), plugin and dependency entries (`key`) | line scanner |
   | Make, CMake, Dockerfile | `Makefile` `.mk` `CMakeLists.txt` `.cmake` `Dockerfile` | a rule, target or build stage (`task`), CMake functions | line scanner, tree-sitter |
   | Bash, PowerShell | `.sh` `.bash` `.ps1` `.psm1` | a function (`function`) | tree-sitter |
+  | PDF | `.pdf` | a section per heading, or per page when there are none (`section`) | `pdfjs-dist`, with `--documents` |
+  | Word processor | `.docx` `.odt` | a section per heading; pages where the editor recorded them | `fflate` and an XML scanner, with `--documents` |
+  | EPUB | `.epub` | a section per heading, in spine order, a chapter marker each | `fflate` and an XML scanner, with `--documents` |
+  | Slides | `.pptx` `.odp` | a section per slide, named by its title | `fflate` and an XML scanner, with `--documents` |
 
   Keys go four levels deep with at most 500 per file, shallowest first. A key whose
   name suggests a credential, or whose value is a long opaque string, has no value
@@ -252,6 +256,22 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   the script key or the file. A name that matches more than one unit gets no edge.
   So `graft blast` on a changed config line reports the code that reads it, and
   `--deep` summarises the first 40 units of each structured file.
+
+  Binary documents need one more flag, `graft build --structured --documents` (or
+  `GRAFT_DOCUMENTS=1`, saved like `--structured`). A document has no lines of its
+  own, so graft converts it once into a text rendering at
+  `graft/.graph/docs/<sha256 of the file>.txt`, with a marker line per page, slide
+  or chapter, and indexes that. Every span is a line range of the rendering, so a
+  pointer such as `graft/.graph/docs/9f2c….txt:L40-L52` opens in any editor and
+  `ask --source` prints it; the node's signature names the file and its place,
+  `manual.pdf (page 3) -> graft/.graph/docs/9f2c….txt:L40-L52`. Page numbers come
+  only from what the file records (a PDF's pages, the page breaks Word or
+  LibreOffice wrote when they last laid it out), never from an estimate. The
+  converters are the optional dependencies `pdfjs-dist` and `fflate`, loaded only
+  when a document is read; a missing one is named in the build output. Documents
+  have their own size cap, `GRAFT_DOCUMENT_MAX_BYTES` (default 25 MB), and a
+  skipped or text-less file gets a warning line. `--deep` leaves documents alone
+  unless `--deep-documents` is given.
 
 - **Compiler-grade edges (opt-in)** — `graft build --lsp` adds precise
   `lsp_resolved` call edges (member calls the static pass can't type) when a
@@ -392,6 +412,8 @@ graft build --follow-nested-repos    # include nested git clones the index doesn
 graft build --no-follow-nested-repos # exclude nested clones again and persist that choice (the default)
 graft build --structured             # also index Markdown, JSON, YAML, TOML and INI: a section per heading, a key per path
 graft build --no-structured          # stop indexing those documents and persist that choice (the default)
+graft build --structured --documents # also index PDF, DOCX, ODT, EPUB, PPTX and ODP through a cached text rendering
+graft build --deep --deep-documents  # let the LLM pass summarise documents too (not persisted)
 
 graft ask "<task>" [dir]             # query the graph — ranked nodes + exact file:line (no LLM, no key)
 graft ask "<task>" --json            # machine-readable result

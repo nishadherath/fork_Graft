@@ -175,6 +175,42 @@ function seedsForFile(graph: GraphV1, path: string, ranges: { start: number; end
   return [...hit.values()];
 }
 
+/** Kinds whose text contains their children's text: a key's value holds the
+ * values under it, a section's span holds its sub-sections. Code kinds are not
+ * here on purpose: a caller of a class does not call every method in it. */
+const CONTAINING_KINDS: ReadonlySet<string> = new Set(["key", "section"]);
+
+/** Child id → parent id, for `contains` edges between two units of a
+ * {@link CONTAINING_KINDS} kind. */
+function containerIndex(graph: GraphV1, nodeById: Map<string, NodeV1>): Map<string, string> {
+  const parent = new Map<string, string>();
+  for (const e of graph.edges) {
+    if (e.relation !== "contains") continue;
+    const from = nodeById.get(e.source);
+    const to = nodeById.get(e.target);
+    if (from && to && CONTAINING_KINDS.has(from.kind) && CONTAINING_KINDS.has(to.kind)) parent.set(to.id, from.id);
+  }
+  return parent;
+}
+
+/**
+ * The seeds plus, for a key or section seed, every key or section that contains
+ * it. Whoever reads `demo.upload` reads the changed `demo.upload.maxBodyBytes`, and
+ * a link to "Limits" points at the changed "Limits > Detail". The seeds reported
+ * stay the innermost units; only the walk starts wider.
+ */
+function withContainers(seeds: NodeV1[], containerOf: Map<string, string>, nodeById: Map<string, NodeV1>): NodeV1[] {
+  const out = new Map(seeds.map((s) => [s.id, s]));
+  for (const seed of seeds) {
+    if (!CONTAINING_KINDS.has(seed.kind)) continue;
+    for (let id = containerOf.get(seed.id); id !== undefined && !out.has(id); id = containerOf.get(id)) {
+      const node = nodeById.get(id);
+      if (node) out.set(id, node);
+    }
+  }
+  return [...out.values()];
+}
+
 /** Compute the blast radius of `changed` against `graph`. */
 export function blastRadius(
   graph: GraphV1,
@@ -184,6 +220,8 @@ export function blastRadius(
 ): BlastReport {
   const fileNodes = new Map<string, NodeV1>();
   for (const n of graph.nodes) if (n.kind === "file") fileNodes.set(n.path, n);
+  const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
+  const containerOf = containerIndex(graph, nodeById);
 
   const seeds: Seed[] = [];
   const unindexed: string[] = [];
@@ -234,7 +272,7 @@ export function blastRadius(
     // only dependents there are.
     const walkSeeds = symbolSeeds.length > 0 ? symbolSeeds : [fileNode];
     seedNodes.set(file.path, walkSeeds);
-    const hits = impactOfMany(graph, walkSeeds, opts.depth, "in");
+    const hits = impactOfMany(graph, withContainers(walkSeeds, containerOf, nodeById), opts.depth, "in");
     for (const h of hits) {
       if (!hasNode(h)) continue;
       const hit = toImpacted(h);

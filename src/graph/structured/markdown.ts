@@ -23,7 +23,7 @@ import { contentHash } from "../../util/id.js";
 import { extractEmbedded } from "../container.js";
 import { languageOf, mintId, type ExtractResult, type Language, type RawEdge } from "../extract.js";
 import type { NodeV1 } from "../types.js";
-import { MAX_BODY_TEXT_CHARS, spanOf, structuredFileNode } from "./shared.js";
+import { MAX_BODY_TEXT_CHARS, spanOf, splitLines, structuredFileNode } from "./shared.js";
 
 /** One heading: its 0-based first line (the paragraph's first line for a setext
  * heading), level 1 to 6, and plain text with inline markup removed. */
@@ -106,14 +106,6 @@ export function slugOf(text: string): string {
     .trim()
     .replace(/ /g, "-");
   return slug === "" ? "section" : slug;
-}
-
-/** Split into lines on `\n`, dropping a trailing `\r` from each and the empty
- * element a final newline leaves, so `lines.length` is the file's line count. */
-function splitLines(source: string): string[] {
-  const lines = source.split("\n").map((l) => (l.endsWith("\r") ? l.slice(0, -1) : l));
-  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
-  return lines;
 }
 
 export function scanMarkdown(source: string): MarkdownScan {

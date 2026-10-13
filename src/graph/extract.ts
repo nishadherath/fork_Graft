@@ -18,7 +18,7 @@ import PHP from "tree-sitter-php";
 import { basename } from "node:path";
 import { contentHash } from "../util/id.js";
 import { collectBindings, goReceiverVarOf, resolveRecvType, type FileBindings } from "./bindings.js";
-import { keyRefsOf } from "./code-refs.js";
+import { docAnchorOf, keyRefsOf } from "./code-refs.js";
 import type { Kind, NodeV1, Relation } from "./types.js";
 
 export type Language = "typescript" | "tsx" | "python" | "go" | "java" | "kotlin" | "swift" | "php" | "r";
@@ -131,8 +131,15 @@ export interface RawEdge {
  *
  * - `key`: `name` is a dotted key path read in code (`config.app.limits.maxBody`,
  *   or a dotted token in a string literal); it targets a `key` node.
+ * - `link`: `specifier` is a link as a document wrote it (`setup.md#install`,
+ *   `#top`, `/docs/a.md`), relative to the linking file's directory, or to the
+ *   repository root after a leading `/`; it targets the section the anchor names,
+ *   else the file.
+ * - `path`: `specifier` is a path a program or command names, whose base the text
+ *   does not state: tried beside the file and at the repository root, and kept
+ *   only when exactly one of those exists.
  */
-export type StructuredRef = "key";
+export type StructuredRef = "key" | "link" | "path";
 
 export interface ExtractResult {
   nodes: NodeV1[];
@@ -825,6 +832,8 @@ function walk(node: Parser.SyntaxNode, ctx: WalkCtx, out: NodeV1[], edges: RawEd
   for (const name of keyRefsOf(node, ctx.lang)) {
     edges.push({ source: ctx.parentId, relation: "references", name, ref: "key", file: ctx.rel });
   }
+  const anchor = docAnchorOf(node, ctx.lang);
+  if (anchor) edges.push({ source: ctx.parentId, relation: "references", specifier: anchor, ref: "path", file: ctx.rel });
 
   // Java anonymous class (`new Type() { … }`): tree-sitter-java has no
   // `anonymous_class` node (unlike PHP) — the body is an optional `class_body`

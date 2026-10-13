@@ -158,3 +158,103 @@ test("code to key: no reference edge ever targets a non-key node or carries a va
   // The fixture text itself is unchanged by the build.
   assert.equal(readFileSync(join(dir, "package.json"), "utf8"), PACKAGE.join("\n") + "\n");
 });
+
+// ---------------------------------------------------------------------------
+// Markdown links, and code strings that name a Markdown anchor.
+// ---------------------------------------------------------------------------
+
+let linksDir: string;
+let links: GraphV1;
+
+const GUIDE_MD = [
+  "# Guide",                                                         //  1
+  "",                                                                //  2
+  "See [the setup](setup.md#install-steps).",                        //  3
+  "Also [setup](./setup.md) and [up](../README.md#overview).",       //  4
+  "[External](https://example.com/x.md#a) and [mail](mailto:a@b.c).",//  5
+  "",                                                                //  6
+  "## Local",                                                        //  7
+  "",                                                                //  8
+  "Jump to [the top](#guide) or the [second](setup.md#install-steps-1).", //  9
+  "A `[span](setup.md#setup)` is code, and so is the fence below.",  // 10
+  "",                                                                // 11
+  "```md",                                                           // 12
+  "[fenced](../README.md)",                                          // 13
+  "```",                                                             // 14
+  "",                                                                // 15
+  "[gone]: setup.md#no-such-heading",                                // 16
+  "[nowhere](missing.md)",                                           // 17
+];
+
+const SETUP_MD = [
+  "# Setup",          // 1
+  "",                 // 2
+  "## Install steps", // 3
+  "",                 // 4
+  "## Install steps", // 5
+];
+
+const HELP_TS = [
+  "export function helpLink(): string {",      // 1
+  '  return "docs/setup.md#install-steps";',   // 2
+  "}",                                          // 3
+  "export function missingLink(): string {",   // 4
+  '  return "docs/missing.md#install-steps";', // 5
+  "}",                                          // 6
+];
+
+before(async () => {
+  linksDir = tmpRepo("structured-links");
+  mkdirSync(join(linksDir, "docs"), { recursive: true });
+  mkdirSync(join(linksDir, "src"), { recursive: true });
+  writeFileSync(join(linksDir, "docs", "guide.md"), GUIDE_MD.join("\n") + "\n");
+  writeFileSync(join(linksDir, "docs", "setup.md"), SETUP_MD.join("\n") + "\n");
+  writeFileSync(join(linksDir, "README.md"), "# Overview\n\nWords.\n");
+  writeFileSync(join(linksDir, "src", "help.ts"), HELP_TS.join("\n") + "\n");
+  patchBuildConfig(linksDir, { structured: true });
+  const outDir = join(linksDir, "graft");
+  await buildGraph(linksDir, { contextDir: outDir, reuse: false });
+  links = readGraph(wiringPath(outDir))!;
+});
+
+function linkTargets(source: string): Array<[string, string]> {
+  return links.edges
+    .filter((e) => e.source === source && e.relation === "references")
+    .map((e): [string, string] => [e.target, e.confidence])
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+}
+
+test("markdown links: a link to a heading references that section, to a file the file", () => {
+  // Lines 3 to 5 sit in "Guide" (L1-L17 holds "Local" too, so Local's own links
+  // hang off Local). External and mailto targets yield nothing.
+  assert.deepEqual(linkTargets("docs/guide.md#section:guide"), [
+    ["README.md#section:overview", "extracted"],
+    ["docs/setup.md", "extracted"],
+    ["docs/setup.md#section:install-steps", "extracted"],
+  ]);
+});
+
+test("markdown links: same-file anchors, duplicate-heading anchors and reference definitions", () => {
+  // `#install-steps-1` is GitHub's anchor for the second "Install steps", which
+  // this tier ids `~2`. A definition whose anchor is missing still names the file.
+  assert.deepEqual(linkTargets("docs/guide.md#section:local"), [
+    ["docs/guide.md#section:guide", "extracted"],
+    ["docs/setup.md", "extracted"],
+    ["docs/setup.md#section:install-steps~2", "extracted"],
+  ]);
+  const second = links.nodes.find((n) => n.id === "docs/setup.md#section:install-steps~2")!;
+  assert.equal(second.span, "L5-L5");
+  assert.equal(SETUP_MD[4], "## Install steps");
+});
+
+test("markdown links: code spans, fences and missing files yield no edge", () => {
+  const all = links.edges.filter((e) => e.source.startsWith("docs/guide.md") && e.relation === "references");
+  assert.ok(!all.some((e) => e.target === "docs/setup.md#section:setup"), "a code span is not a link");
+  assert.ok(!all.some((e) => e.target === "README.md"), "a fenced link is not a link");
+  assert.ok(!all.some((e) => e.target.includes("missing")), "a missing file is not a target");
+});
+
+test("code to anchor: a string naming a Markdown heading references that section", () => {
+  assert.deepEqual(linkTargets("src/help.ts#helpLink"), [["docs/setup.md#section:install-steps", "inferred"]]);
+  assert.deepEqual(linkTargets("src/help.ts#missingLink"), []);
+});

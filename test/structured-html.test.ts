@@ -79,7 +79,10 @@ test("html: node shape, signatures and nesting", () => {
   assert.ok(pairs.includes("page.html > page.html#element:div#app"));
   assert.ok(pairs.includes("page.html#element:div#app > page.html#element:input[name=email]"));
   assert.ok(pairs.includes("page.html > page.html#boot"));
-  assert.deepEqual([...new Set(rawEdges.map((e) => e.relation))], ["contains"], "a page's script adds no calls or imports");
+  // Attribute references (class, src, href) carry `ref` and are resolved later;
+  // everything the script itself yields is structure only.
+  assert.deepEqual([...new Set(rawEdges.filter((e) => e.ref === undefined).map((e) => e.relation))], ["contains"], "a page's script adds no calls or imports");
+  assert.deepEqual(rawEdges.filter((e) => e.ref !== undefined).map((e) => [e.source, e.ref, e.name]), [["page.html#element:div#app", "class", "x"]]);
 });
 
 test("html: a script inside an identified element hangs off it; non-JavaScript scripts stay text", () => {

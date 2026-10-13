@@ -29,7 +29,12 @@ export interface StructuredIndex {
   keysByPath: Map<string, NodeV1[]>;
   /** Every node id, for file and section targets. */
   ids: ReadonlySet<string>;
+  /** A class name → the selector nodes whose list holds exactly `.<class>`. */
+  rulesByClass: Map<string, NodeV1[]>;
 }
+
+/** One selector in a list that is a bare class: `.btn`, not `.btn:hover` or `a.btn`. */
+const BARE_CLASS = /^\.(-?[_a-zA-Z][\w-]*)$/;
 
 export interface StructuredHit {
   id: string;
@@ -39,7 +44,17 @@ export interface StructuredHit {
 /** Index the finished node set for {@link resolveStructuredRef}. */
 export function indexStructured(nodes: readonly NodeV1[]): StructuredIndex {
   const keysByPath = new Map<string, NodeV1[]>();
+  const rulesByClass = new Map<string, NodeV1[]>();
   for (const n of nodes) {
+    if (n.kind === "selector") {
+      // A compound selector (`.card .title`, `.btn:hover`) applies under a condition
+      // the class alone does not state, so only a bare `.class` in the list counts.
+      for (const part of n.name.split(",")) {
+        const m = BARE_CLASS.exec(part.trim());
+        if (m) push(rulesByClass, m[1]!, n);
+      }
+      continue;
+    }
     if (n.kind !== "key") continue;
     // Array indices and quoted segments (`steps[3]`, `a["b.c"]`) are not spelled
     // as a plain dotted path in code, so they are not looked up as one.
@@ -48,7 +63,7 @@ export function indexStructured(nodes: readonly NodeV1[]): StructuredIndex {
     if (segments.length >= MIN_KEY_REF_SEGMENTS) push(keysByPath, n.name, n);
     if (segments.length - 1 >= MIN_KEY_REF_SEGMENTS) push(keysByPath, segments.slice(1).join("."), n);
   }
-  return { keysByPath, ids: new Set(nodes.map((n) => n.id)) };
+  return { keysByPath, ids: new Set(nodes.map((n) => n.id)), rulesByClass };
 }
 
 /**
@@ -76,6 +91,14 @@ export function resolveStructuredRef(e: RawEdge, index: StructuredIndex): Struct
       if (path === "") return null;
       const file = uniqueFile(path, e.file, index);
       return file === null ? null : { id: sectionOrFile(file, anchor, index), confidence: "inferred" };
+    }
+    case "class": {
+      // The page's own <style> first, where the rule certainly applies; else the one
+      // rule in the repository, which the page may or may not load.
+      const rules = index.rulesByClass.get(e.name ?? "") ?? [];
+      const local = rules.filter((r) => r.path === e.file);
+      if (local.length > 0) return local.length === 1 ? { id: local[0]!.id, confidence: "extracted" } : null;
+      return rules.length === 1 ? { id: rules[0]!.id, confidence: "inferred" } : null;
     }
     default:
       return null;

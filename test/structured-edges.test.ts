@@ -258,3 +258,85 @@ test("code to anchor: a string naming a Markdown heading references that section
   assert.deepEqual(linkTargets("src/help.ts#helpLink"), [["docs/setup.md#section:install-steps", "inferred"]]);
   assert.deepEqual(linkTargets("src/help.ts#missingLink"), []);
 });
+
+// ---------------------------------------------------------------------------
+// HTML: src and stylesheet href import the file, a link references it, and a
+// class attribute references the stylesheet rule for that class.
+// ---------------------------------------------------------------------------
+
+const INDEX_HTML = [
+  "<!doctype html>",                                   //  1
+  "<html>",                                            //  2
+  "<head>",                                            //  3
+  '  <link rel="stylesheet" href="styles/site.css">',  //  4
+  '  <script src="app.js"></script>',                  //  5
+  "  <style>",                                         //  6
+  "    .local { color: red; }",                        //  7
+  "  </style>",                                        //  8
+  "</head>",                                           //  9
+  "<body>",                                            // 10
+  '  <main id="main" class="card local shared">',      // 11
+  '    <a href="about.html">About</a>',                // 12
+  '    <img src="https://cdn.example.com/x.png">',     // 13
+  '    <a href="missing.html">Gone</a>',               // 14
+  "  </main>",                                         // 15
+  "</body>",                                           // 16
+  "</html>",                                           // 17
+];
+
+const SITE_CSS = [
+  ".card {",           // 1
+  "  padding: 1rem;",  // 2
+  "}",                 // 3
+  ".shared {",         // 4
+  "  margin: 0;",      // 5
+  "}",                 // 6
+];
+
+let htmlDir: string;
+let page: GraphV1;
+
+before(async () => {
+  htmlDir = tmpRepo("structured-html-edges");
+  mkdirSync(join(htmlDir, "site", "styles"), { recursive: true });
+  writeFileSync(join(htmlDir, "site", "index.html"), INDEX_HTML.join("\n") + "\n");
+  writeFileSync(join(htmlDir, "site", "styles", "site.css"), SITE_CSS.join("\n") + "\n");
+  // `.shared` is defined twice, so a class="shared" names no single rule.
+  writeFileSync(join(htmlDir, "site", "styles", "other.css"), ".shared {\n  margin: 1px;\n}\n");
+  writeFileSync(join(htmlDir, "site", "app.js"), "export function boot() {}\n");
+  writeFileSync(join(htmlDir, "site", "about.html"), "<p>About</p>\n");
+  patchBuildConfig(htmlDir, { structured: true });
+  const outDir = join(htmlDir, "graft");
+  await buildGraph(htmlDir, { contextDir: outDir, reuse: false });
+  page = readGraph(wiringPath(outDir))!;
+});
+
+function pageEdges(source: string, relation: string): Array<[string, string]> {
+  return page.edges
+    .filter((e) => e.source === source && e.relation === relation)
+    .map((e): [string, string] => [e.target, e.confidence])
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+}
+
+test("html: a script src and a stylesheet link import the file they name", () => {
+  assert.deepEqual(pageEdges("site/index.html", "imports"), [
+    ["site/app.js", "extracted"],
+    ["site/styles/site.css", "extracted"],
+  ]);
+});
+
+test("html: a class references its rule, same-file first; an ambiguous class yields nothing", () => {
+  assert.deepEqual(pageEdges("site/index.html#element:main#main", "references"), [
+    ["site/about.html", "extracted"],
+    ["site/index.html#selector:.local", "extracted"],
+    ["site/styles/site.css#selector:.card", "inferred"],
+  ]);
+  const card = page.nodes.find((n) => n.id === "site/styles/site.css#selector:.card")!;
+  assert.equal(card.span, "L1-L3");
+  assert.equal(SITE_CSS[0], ".card {");
+});
+
+test("html: external, missing and non-indexed targets yield no edge", () => {
+  const all = page.edges.filter((e) => e.source.startsWith("site/index.html") && e.relation !== "contains");
+  assert.ok(!all.some((e) => /missing|example\.com|x\.png|shared/.test(e.target)), JSON.stringify(all));
+});

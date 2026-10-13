@@ -58,6 +58,15 @@ export function structuredFileNode(rel: string, source: string, bodyText?: strin
   };
 }
 
+/** A link target with a scheme (`https:`, `mailto:`, `data:`) or a network path
+ * (`//cdn`) leaves the repository; only the rest can name a file here. */
+const EXTERNAL_TARGET = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+
+/** True when a link or `src` target cannot name a file in this repository. */
+export function isExternalTarget(target: string): boolean {
+  return EXTERNAL_TARGET.test(target);
+}
+
 // ---------------------------------------------------------------------------
 // Keys: the unit JSON, YAML, TOML and INI share.
 // ---------------------------------------------------------------------------

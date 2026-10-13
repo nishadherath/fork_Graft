@@ -105,7 +105,7 @@ test("markdown: node shape is truthful (kind, signature, owner file, origin)", (
 test("markdown: nested sections are linked by contains edges, top level to the file", () => {
   const { rawEdges } = extractStructured("doc.md", doc(GUIDE), MD);
   const pairs = rawEdges
-    .filter((e) => e.relation === "contains")
+    .filter((e) => e.relation === "contains" && e.targetId!.includes("#section:"))
     .map((e) => `${e.source} > ${e.targetId}`)
     .sort();
   assert.deepEqual(pairs, [

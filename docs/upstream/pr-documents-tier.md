@@ -1,12 +1,12 @@
 # Pull request: PDF, Word, EPUB and slide documents behind `--documents` (base `pr/structured-edges`)
 
-> Operator note (not part of the text). Branch `pr/documents-tier`, thirty-five commits above `upstream/main`: the twenty-three structured commits (the core, markup and edges branches) and twelve documents commits (`c157840` to `3aa52c1`, with `cf76433`). Set the base to `pr/structured-edges`.
+> Operator note (not part of the text). Branch `pr/documents-tier`, forty-one commits above `upstream/main`: the twenty-nine structured commits (the core, markup and edges branches) and twelve documents commits (`9bcca24` to `9cd4e9b`, with `8fbc8d5`). Set the base to `pr/structured-edges`.
 >
 > Three things must be settled before this is opened:
 >
 > 1. **Install footprint (decided: option A, 2026-10-13).** `pdfjs-dist` and `fflate` stay as `optionalDependencies`, so npm installs them by default, about 79 MB on Windows. The section headed "Install" below stands as written.
 > 2. **Repository rule conflict.** AGENTS.md rule 3 lets a pull-request branch carry only `src/`, `test/`, `CHANGELOG.md`, `CREDITS.md` and `README.md`. This branch also changes `package.json` and `package-lock.json`, which the converters need. The operator must accept that exception, or the dependency declaration must move out of the branch, before the branch is handed over.
-> 3. **Gate figure.** The tip commit `3aa52c1` records 1,489 tests, 1,484 pass, 0 fail, 5 skipped. The Stage 4 handoff records 1,517 tests and 1,512 pass after the lockfile was regenerated on a newer upstream base, but no commit carries that figure. The text quotes the commit figure. Run the gate on the branch and quote the result before opening.
+> 3. **Gate figure (settled in Stage 7).** The tip commit `9cd4e9b` records 1,537 tests, 1,532 pass, 0 fail, 5 skipped, from a fresh `npm ci --ignore-scripts` on Node 26.7.0 under cmd.exe. The 1,489 an earlier message quoted was the count before the lockfile was regenerated on a newer upstream base.
 
 ---
 
@@ -56,7 +56,7 @@ The converters are declared as `optionalDependencies`, so npm installs them by d
 
 **Verification**
 
-- `npm run build && npm test` on Node 26.7.0, at the tip commit `3aa52c1`: 1,489 tests, 1,484 pass, 0 fail, 5 skipped.
+- `npm run build && npm test` on Node 26.7.0, at the tip commit `9cd4e9b`: 1,537 tests, 1,532 pass, 0 fail, 5 skipped.
 - The documents tests (`test/structured-documents.test.ts`) use fixtures built in `test/document-fixtures.ts`.
 - Checked against real files: a three-chapter guide, saved from LibreOffice as ODT, DOCX and PDF. With both environment flags set, the build produced 21 nodes and 18 sections. The PDF split at the true page boundary, and `ask --source` returned the DOCX section with the rendering's lines.
 

@@ -20,7 +20,7 @@ This change cuts the echoed line at the first ` | `. Real ids never contain that
 **Verification**
 
 - `npm run build` exits 0.
-- `npm test` on Node 26.7.0: 1,329 tests, 1,324 pass, 0 fail, 5 skipped.
+- `npm test` on Node 26.7.0 (Stage 6 re-gate, fresh install, tip `4748b34`): 1,359 tests, 1,354 pass, 0 fail, 5 skipped.
 
 **Scope**
 

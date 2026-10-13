@@ -1,6 +1,6 @@
 # Pull request: structured tier core (base `upstream/main`)
 
-> Operator note (not part of the text). Branch `pr/structured-tier-core`, seven commits, tip `4298acb`. Changed paths: `CHANGELOG.md`, `README.md`, `src/cli.ts`, `src/graph/build.ts`, `src/graph/cards.ts`, `src/graph/check.ts`, `src/graph/container.ts`, `src/graph/extract-cache.ts`, `src/graph/invariants.ts`, `src/graph/source-files.ts`, `src/graph/structured/` (index, markdown, json, yaml, toml, ini, shared), `src/graph/types.ts`, `src/graph/workspace-cli.ts`, `src/util/state.ts`, and seven test files. All of these are allowed by AGENTS.md rule 3. Before opening, fix one line in `README.md`: the `--no-structured` example reads "(the default)", but the tier is off unless enabled, so the wording must change to "(the default is off)". Make that edit in a commit on this branch, then run the gate again.
+> Operator note (not part of the text). Branch `pr/structured-tier-core`, eleven commits, tip `d716f05` (the original seven, ending at `4298acb`, and four Stage 7 commits above them). Changed paths: `CHANGELOG.md`, `README.md`, `src/cli.ts`, `src/graph/build.ts`, `src/graph/cards.ts`, `src/graph/check.ts`, `src/graph/container.ts`, `src/graph/extract-cache.ts`, `src/graph/invariants.ts`, `src/graph/source-files.ts`, `src/graph/structured/` (index, markdown, json, yaml, toml, ini, shared), `src/graph/types.ts`, `src/graph/workspace-cli.ts`, `src/util/state.ts`, and seven test files. All of these are allowed by AGENTS.md rule 3. The four Stage 7 commits fix what the Stage 6 acceptance found: a YAML key's span stopped at the comment that introduces the next key; a `#` line inside a raw HTML block became a Markdown section; the secret rule let a 20-character access key id, a 32-character value and a Basic auth header through (widened as option C of `docs/acceptance-2026-10-13.md` section 6); and the `--no-structured` README line read "(the default)". Each has a test that failed first. Nothing is left to edit before opening.
 
 ---
 
@@ -23,7 +23,7 @@ The design was agreed in the design issue (link when opened). This is the core: 
 | INI | `.ini` `.cfg` | `section.name` (`key`) | tree-sitter |
 
 - Keys go four levels deep, with at most 500 per file, shallowest first.
-- A key whose name suggests a credential, or whose value is a long opaque string, has no value in its signature or search text.
+- A key whose name suggests a credential (token, secret, password, API key, access key, credential, bearer, authorization, or `auth` as a word), whose value is 20 or more characters with no whitespace, or whose value is a URL with a user name in it, has no value in its signature or search text.
 - Lockfiles are never indexed.
 - Dot-files and dot-directories are not walked, as before.
 
@@ -38,7 +38,7 @@ The tier is off by default. `graft build --structured` turns it on and saves the
 
 **Verification**
 
-- `npm run build && npm test` on Node 26.7.0, at the tip commit: 1,397 tests, 1,392 pass, 0 fail, 5 skipped.
+- `npm run build && npm test` on Node 26.7.0, at the tip commit `d716f05`: 1,443 tests, 1,438 pass, 0 fail, 5 skipped.
 - The span tests (`test/structured-spans.test.ts`, with the family files for JSON, YAML, TOML and INI) pin exact line numbers against fixtures.
 
 **Stack**

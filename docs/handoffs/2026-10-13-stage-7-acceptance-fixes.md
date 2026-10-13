@@ -2,7 +2,7 @@
 stage: "Stage 7: acceptance fixes on the structured branches, README line, stack rebase"
 model: claude-sonnet-5-5
 effort: high
-status: ready
+status: done
 created: 2026-10-13
 from: "Fable 5.1 Stage 6 session (adversarial acceptance), 2026-10-13"
 ---
@@ -65,20 +65,42 @@ branches, one at a time, with counts quoted in the commit messages and in
 
 ## Work completed
 
-Nothing yet in Stage 7.
+All on branches, nothing pushed. Commits, gate counts and the reviewer notes
+are in `docs/acceptance-2026-10-13.md` section 8.
+
+- Core (`pr/structured-tier-core`, tip `d716f05`): `3840921` YAML span stops
+  before the comment that introduces the next key; `e054a1d` raw HTML blocks
+  hold no headings (CommonMark start conditions 1 and 3 to 7); `82bf96c` secret
+  rule option C with `test/structured-secrets.test.ts` (one test per planted
+  value); `d716f05` README `--no-structured` line. Gate 1,443 tests, 1,438
+  pass, 0 fail, 5 skipped.
+- Markup rebased, tip `aa5fe4e`: 1,492 tests, 1,487 pass, 0 fail, 5 skipped.
+- Edges rebased (one conflict, `markdown.ts`, resolved by keeping both the HTML
+  block state and the link recorder), tip `9c6273d`: `efeb238` concept pass
+  walks with the workflow admit; `9c6273d` guard test. 1,520 tests, 1,515 pass,
+  0 fail, 5 skipped.
+- Documents rebased (one README conflict, resolved), tip `9cd4e9b`: 1,537
+  tests, 1,532 pass, 0 fail, 5 skipped.
+- `docs/upstream/*.md` carry the new tips, gate figures and the secret-rule
+  sentence. Path audit: only the allowed paths on every branch, plus
+  `package.json` and `package-lock.json` on documents.
+- Worktrees left in place beside the repository: `fork_graft-stage7-core`,
+  `-markup`, `-edges`, `-docs` (the first three share core's `node_modules`
+  through a junction: run `cmd /c rmdir node_modules` in markup and edges first,
+  or `git worktree remove` may delete through the junction). Remove them once
+  the branches are pushed.
 
 ## Unresolved questions
 
-- Operator: the secret-rule widening (acceptance section 6, option C
-  recommended). The kickoff prompt states the choice.
+- Operator: PROSETOKEN88-style secrets in Markdown prose still reach the
+  extract cache; the rule covers keys only. Decide whether prose needs a rule.
 - Operator: the AGENTS.md rule 3 exception for `package.json` on
   `pr/documents-tier` (unchanged by this stage).
 
 ## Exact next action
 
-`git worktree add ../fork_graft-stage7-core pr/structured-tier-core`, install as
-protocol section 10 says, write the failing YAML span test from the probe in
-acceptance section 5 item 1, then fix `yaml.ts`.
+Stage 8, `docs/handoffs/2026-10-14-stage-8-fixes-onto-main.md`: cherry-pick the
+six fix commits onto `main`, gate, sync the global install.
 
 ## Cost projection
 

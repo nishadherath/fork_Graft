@@ -371,3 +371,34 @@ D4 option A (decided).
   bad cap value named, `--deep-documents` per run and bounded: held (cases 1,
   3, 8). Gate figure: 1,517, not 1,489; the text must change.
 - Crux text: the gate is the acceptance; see section 3.
+
+## 8. Stage 7 outcome (2026-10-14)
+
+Findings 1 to 4 and the secret rule (section 6, option C) are fixed on the
+branches that own them, each with a test that failed first, and the stack is
+rebased in order. Sequential gates, `npm run build && npm test`, Node 26.7.0:
+
+| Branch | Tip | Commits above `upstream/main` | Tests | Pass | Fail | Skipped | Time |
+|---|---|---|---|---|---|---|---|
+| `pr/crux-id-echo` | `4748b34` | 1 | 1,359 | 1,354 | 0 | 5 | unchanged |
+| `pr/structured-tier-core` | `d716f05` | 11 | 1,443 | 1,438 | 0 | 5 | 273 s |
+| `pr/structured-tier-markup-build` | `aa5fe4e` | 19 | 1,492 | 1,487 | 0 | 5 | 385 s |
+| `pr/structured-edges` | `9c6273d` | 29 | 1,520 | 1,515 | 0 | 5 | 306 s |
+| `pr/documents-tier` | `9cd4e9b` | 41 | 1,537 | 1,532 | 0 | 5 | 318 s |
+
+Fixes on core: finding 1 `3840921`, finding 2 `e054a1d`, the secret rule
+`82bf96c`, finding 4 `d716f05`. Finding 3 is `efeb238` on edges; a guard test, `9c6273d`, covers links inside HTML
+blocks, which the edges branch's link recorder now skips. On `pr/structured-edges` the concept pass admit is inline
+(`STRUCTURED_DOT_PATHS`); `sourceWalkOptions` exists only on the documents
+branch, where the inline admit and that function say the same thing.
+
+Decisions taken in the fixes, for the reviewer: `auth` is matched as a word
+(`auth`, `proxy_auth`, `basicAuth`, `Authorization`) so a package's `author`
+stays visible; a URL with a user name and no password is hidden too, because a
+token is often the user name; the HTML block scanner implements all seven
+CommonMark start conditions, with the lone-tag form unable to interrupt a
+paragraph. Not changed: prose in Markdown is still indexed as body text, so
+`PROSETOKEN88` in `secrets/notes.md` still reaches the extract cache.
+`git log upstream/main..<branch> --name-only` shows only `src/`, `test/`,
+`CHANGELOG.md`, `README.md` and `CREDITS.md` on every branch, plus
+`package.json` and `package-lock.json` on `pr/documents-tier`.

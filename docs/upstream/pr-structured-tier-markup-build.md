@@ -1,6 +1,6 @@
 # Pull request: markup and build files in the structured tier (base `pr/structured-tier-core`)
 
-> Operator note (not part of the text). Branch `pr/structured-tier-markup-build`, fifteen commits above `upstream/main`, of which seven are the core branch. Above the core tip `4298acb`, this PR adds eight commits: `77eb591`, `79d0672`, `2524d40`, `248e4ad`, `678941f`, `0abae53`, `6e743bc` and `b5a63a3`. Changed paths beyond core: `src/graph/structured/` (css, gradle, html, make, shell, targets, xml), `src/ingest/fs.ts` (the workflow admit rule, D7), `src/graph/source-files.ts` (denylist), and their tests. Gate figure is from tip `77eb591`. Set the PR base to `pr/structured-tier-core`, so the diff shows only this PR's commits.
+> Operator note (not part of the text). Branch `pr/structured-tier-markup-build`, nineteen commits above `upstream/main`, of which eleven are the core branch. Above the core tip `d716f05`, this PR adds eight commits: `aa5fe4e`, `6f09cf8`, `74d244f`, `1e70a5e`, `4c69876`, `8ead234`, `9f48614` and `4ee45ea`. Changed paths beyond core: `src/graph/structured/` (css, gradle, html, make, shell, targets, xml), `src/ingest/fs.ts` (the workflow admit rule, D7), `src/graph/source-files.ts` (denylist), and their tests. Gate figure is from tip `aa5fe4e`, rebased onto the fixed core in Stage 7. Set the PR base to `pr/structured-tier-core`, so the diff shows only this PR's commits.
 
 ---
 
@@ -31,7 +31,7 @@ Key material (`.pem`, `.key` and similar), `.env` files and minified assets are 
 
 **Verification**
 
-- `npm run build && npm test` on Node 26.7.0, at the tip commit: 1,446 tests, 1,441 pass, 0 fail, 5 skipped.
+- `npm run build && npm test` on Node 26.7.0, at the tip commit `aa5fe4e`: 1,492 tests, 1,487 pass, 0 fail, 5 skipped.
 - Each family has its own test file, with fixtures that pin line spans.
 
 **Stack**

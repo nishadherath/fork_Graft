@@ -1,6 +1,6 @@
 # Pull request: edges between the structured tier and code (base `pr/structured-tier-markup-build`)
 
-> Operator note (not part of the text). Branch `pr/structured-edges`, eight commits above its base (`e6f30cc`, `8dda43e`, `9f36c7a`, `353f1bc`, `e0a691f`, `fdfe914`, `003df45`, `d1489c7`). Changed paths beyond the markup branch include `src/blast/blast.ts`, `src/context/build.ts`, `src/context/check.ts`, `src/graph/code-refs.ts`, `src/graph/enrich.ts`, `src/graph/extract.ts`, `src/graph/resolve.ts`, `src/graph/resolve-structured.ts` (new) and `src/graph/structured/commands.ts` (new). Set the base to `pr/structured-tier-markup-build`. The gate figure is from tip `e6f30cc`. One point for the reviewer and the operator: the concept pass's default file list now includes structured files when the tier is on, which raises the cost of existing `--deep` runs in repositories that enable the tier. The text says so.
+> Operator note (not part of the text). Branch `pr/structured-edges`, ten commits above its base: the eight feature commits (`342319f`, `ce54251`, `cd0a87e`, `5f2158f`, `b55a76e`, `6bf0625`, `05e3426`, `d52a1c4`) and two Stage 7 commits (`efeb238`, which makes the concept pass walk with the workflow admit, and `9c6273d`, a test). Changed paths beyond the markup branch include `src/blast/blast.ts`, `src/context/build.ts`, `src/context/check.ts`, `src/graph/code-refs.ts`, `src/graph/enrich.ts`, `src/graph/extract.ts`, `src/graph/resolve.ts`, `src/graph/resolve-structured.ts` (new) and `src/graph/structured/commands.ts` (new). Set the base to `pr/structured-tier-markup-build`. The gate figure is from tip `9c6273d`, rebased onto the fixed markup branch in Stage 7. One point for the reviewer and the operator: the concept pass's default file list now includes structured files when the tier is on, which raises the cost of existing `--deep` runs in repositories that enable the tier. The text says so.
 
 ---
 
@@ -31,7 +31,7 @@ This is a cost change for existing `--deep` runs in repositories that enable the
 
 **Verification**
 
-- `npm run build && npm test` on Node 26.7.0, at the tip commit: 1,472 tests, 1,467 pass, 0 fail, 5 skipped.
+- `npm run build && npm test` on Node 26.7.0, at the tip commit `9c6273d`: 1,520 tests, 1,515 pass, 0 fail, 5 skipped.
 - A real-data audit of this repository found two false edges (a test id read as a key read, and an anchor that fell back to a file). Both are fixed in `8dda43e`, with tests.
 
 **Stack**

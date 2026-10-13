@@ -180,3 +180,56 @@ export function splitLines(source: string): string[] {
   if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
   return lines;
 }
+
+// ---------------------------------------------------------------------------
+// Units: elements, selectors and tasks, the markup and build families' nodes.
+// ---------------------------------------------------------------------------
+
+/** Most element, selector or task nodes one file contributes. A generated
+ * stylesheet or a page with thousands of ids would otherwise bury the handful of
+ * named units a reader looks up; the first ones in document order are kept. */
+export const MAX_UNITS_PER_FILE = 500;
+
+/** A unit found by a markup or build extractor, before ids and the cap. Rows are
+ * 0-based and inclusive; `parent` indexes the drafts array (-1 for none) and
+ * always precedes the child. */
+export interface UnitDraft {
+  kind: "element" | "selector" | "task";
+  name: string;
+  parent: number;
+  startRow: number;
+  endRow: number;
+  signature?: string;
+  bodyText?: string;
+}
+
+/** `rel#<kind>:<name>` nodes for the first MAX_UNITS_PER_FILE drafts, plus the
+ * `contains` edges between them. Document order is kept. */
+export function emitUnits(rel: string, lines: readonly string[], drafts: readonly UnitDraft[]): { nodes: NodeV1[]; rawEdges: RawEdge[] } {
+  const minted = new Set<string>([rel]);
+  const idOf = new Map<number, string>();
+  const nodes: NodeV1[] = [];
+  const rawEdges: RawEdge[] = [];
+  drafts.slice(0, MAX_UNITS_PER_FILE).forEach((d, i) => {
+    const id = mintId(`${rel}#${d.kind}:${d.name}`, minted);
+    idOf.set(i, id);
+    const body = d.bodyText?.replace(/\s+/g, " ").trim().slice(0, MAX_BODY_TEXT_CHARS);
+    nodes.push({
+      id,
+      name: d.name,
+      kind: d.kind,
+      path: rel,
+      span: spanOf(d.startRow + 1, d.endRow + 1),
+      signature: d.signature ?? d.name,
+      exported: true,
+      origin: "generic",
+      body_hash: contentHash(lines.slice(d.startRow, d.endRow + 1).join("\n")),
+      ...(body ? { body_text: body } : {}),
+      summary_state: "pending",
+      summary: null,
+      crux: null,
+    });
+    rawEdges.push({ source: d.parent >= 0 ? idOf.get(d.parent) ?? rel : rel, relation: "contains", targetId: id, file: rel });
+  });
+  return { nodes, rawEdges };
+}

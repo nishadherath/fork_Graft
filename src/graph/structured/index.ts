@@ -82,14 +82,19 @@ const LOCKFILE_NAMES: ReadonlySet<string> = new Set([
   "pnpm-lock.yaml",
 ]);
 
+/** Minified asset formats. A bundle is one line of generated text: its spans would
+ * all be line 1 and its units noise. `.min.js` stays with the depth tier, whose
+ * behaviour this tier does not change. */
+const MINIFIED = /\.min\.(?:css|json|html?|svg)$/i;
+
 const byExt = new Map<string, StructuredLang>();
 for (const l of STRUCTURED_LANGS) for (const e of l.exts) byExt.set(e, l);
 
 /** The structured language for a path, or null if none claims it (or it is a
- * lockfile). Extension match is case-insensitive. */
+ * lockfile or a minified asset). Extension match is case-insensitive. */
 export function structuredLangOf(path: string): StructuredLang | null {
   const lower = path.toLowerCase().replaceAll("\\", "/");
-  if (LOCKFILE_NAMES.has(basename(lower))) return null;
+  if (LOCKFILE_NAMES.has(basename(lower)) || MINIFIED.test(lower)) return null;
   for (const [ext, l] of byExt) if (lower.endsWith(ext)) return l;
   return null;
 }

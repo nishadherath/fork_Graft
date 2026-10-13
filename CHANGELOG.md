@@ -16,6 +16,14 @@
   text; lockfiles are never indexed. The choice persists in `.graft/config.json`
   and `--no-structured` turns it off.
 
+- **Markup and build files join the structured tier**: HTML, Svelte and Astro
+  (identified elements, plus the symbols of `<script>` and the rules of `<style>`),
+  CSS and SCSS rules, custom properties and Sass variables, XML (Android ids and
+  names, Maven coordinates, property list keys, storyboard scenes), Gradle tasks,
+  plugins and dependencies, Makefile rules, CMake targets and functions,
+  Dockerfile stages, and Bash and PowerShell functions, each with an exact line
+  span. New node kinds `element`, `selector` and `task`. Key material (`.pem`,
+  `.key` and similar) and minified assets are never indexed.
 - **Workflow YAML is indexed with `--structured`**: the walker admits `.yml` and
   `.yaml` files under `.github/workflows/`, and nothing else behind a dot.
 

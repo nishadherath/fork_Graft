@@ -251,9 +251,12 @@ D6  Decision:      an assets tier (images, fonts) in this plan
     Recommended:   A
 ```
 
-Assumptions taken until the operator answers: D1 A (shipped as B in the
-first PR), D2 A, D3 A, D4 A, D5 A, D6 A. Stage 1 depends only on D1 and
-D2 and proceeds on those assumptions.
+### Decided
+
+Recorded 2026-10-13, the operator approving every recommendation: D1 A
+(shipped behind `--structured` in the first pull request, flipped to
+default-on a release later if upstream agrees), D2 A, D3 A, D4 A, D5 A,
+D6 A. Do not reopen them.
 
 ## 7. Verified facts (this session, 2026-10-13)
 

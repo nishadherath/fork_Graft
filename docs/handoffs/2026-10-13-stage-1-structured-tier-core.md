@@ -32,7 +32,7 @@ item below, each gated and quoted.
 
 ## Decisions already made
 
-- D1 (assumed A, shipped as B): the tier is behind `--structured` in this
+- D1 A, decided 2026-10-13: the tier is behind `--structured` in this
   first cut, with `GRAFT_STRUCTURED=1` as its env twin; default-on is a
   one-line flip later. D2 A: Markdown and TOML are hand-written line
   scanners; JSON, YAML and INI parse with the bundled wasm grammars
@@ -101,8 +101,6 @@ Nothing yet in Stage 1.
 
 ## Unresolved questions
 
-- D1 and D2 are assumed as above; if the operator answers differently
-  before you start, follow the answer. (operator)
 - Whether `--structured` should also admit `.jsonc` tsconfig files with
   comments: parse with the `json` grammar's error recovery and see;
   record the outcome. (this stage)

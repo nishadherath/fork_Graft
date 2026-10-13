@@ -2,7 +2,7 @@
 stage: "Stage 2: markup and build families, HTML, CSS, XML, Groovy, shell, Dockerfile, Make, CMake, and the denylist"
 model: claude-sonnet-5-5
 effort: medium
-status: ready
+status: in-progress
 created: 2026-10-13
 from: "Sonnet 5.5 Stage 1 session (structured tier core), 2026-10-13"
 ---

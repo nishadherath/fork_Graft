@@ -40,6 +40,8 @@ export interface WorkspaceBuildOptions {
   followSubmodules?: boolean;
   /** An explicit CLI nested-clone choice to persist into every child repo. */
   followNestedRepos?: boolean;
+  /** An explicit CLI `--structured` / `--no-structured` choice to persist into every child repo. */
+  structured?: boolean;
 }
 
 /** Build every git child into its own committable `graft/`, then replace the
@@ -58,6 +60,9 @@ export async function runWorkspaceBuild(root: string, opts: WorkspaceBuildOption
     }
     if (opts.followNestedRepos !== undefined) {
       childConfigPatch.followNestedRepos = opts.followNestedRepos;
+    }
+    if (opts.structured !== undefined) {
+      childConfigPatch.structured = opts.structured;
     }
     if (Object.keys(childConfigPatch).length > 0) {
       patchBuildConfig(childDir, childConfigPatch);

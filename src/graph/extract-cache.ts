@@ -147,7 +147,7 @@ function computeStamp(): string | null {
     // `.js` when running from `dist/`, `.ts` under tsx — take the extension from
     // our own filename rather than guessing which layout we're in.
     const dir = dirname(self);
-    const hashed = stampDir(dir, extname(self), packageVersion(dir) ?? "");
+    const hashed = stampDir(dir, extname(self), packageVersion(dir) ?? "", STAMPED_SUBDIRS);
     if (hashed) return hashed;
     // Couldn't read the modules (bundled into one file, say). The version alone is
     // a weaker identity — it can't see a local edit — but it still turns over on
@@ -159,13 +159,22 @@ function computeStamp(): string | null {
   }
 }
 
+/** Subdirectories of `graph/` whose modules also decide what a parse produces.
+ * `structured/` holds the document scanners; `lsp/` and `queries/` do not feed the
+ * memoized extraction, so they stay out and editing them costs no cold rebuild. */
+const STAMPED_SUBDIRS = ["structured"];
+
 /**
  * Hash every `ext` file in `dir`, plus `version`. Null when the directory holds no
  * such file. Separated from {@link extractorStamp} so a test can prove the property
  * that matters: a change to *any* module in the directory moves the stamp, not just
  * the one the old implementation happened to watch.
+ *
+ * `subdirs` are hashed too, one level deep and by `subdir/name`, so a scanner that
+ * lives below `dir` cannot change without the stamp moving. A subdirectory that
+ * does not exist is skipped.
  */
-export function stampDir(dir: string, ext: string, version = ""): string | null {
+export function stampDir(dir: string, ext: string, version = "", subdirs: readonly string[] = []): string | null {
   const files = readdirSync(dir).filter((f) => f.endsWith(ext)).sort();
   if (!files.length) return null;
   const h = createHash("sha256");
@@ -173,6 +182,18 @@ export function stampDir(dir: string, ext: string, version = ""): string | null 
   for (const f of files) {
     h.update(f); // a rename is a change, even at identical content
     h.update(readFileSync(join(dir, f)));
+  }
+  for (const sub of subdirs) {
+    let nested: string[];
+    try {
+      nested = readdirSync(join(dir, sub)).filter((f) => f.endsWith(ext)).sort();
+    } catch {
+      continue;
+    }
+    for (const f of nested) {
+      h.update(`${sub}/${f}`);
+      h.update(readFileSync(join(dir, sub, f)));
+    }
   }
   return h.digest("hex").slice(0, 16);
 }

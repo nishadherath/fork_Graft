@@ -20,6 +20,7 @@ import { contextDirFor, ensureGitignored, ensureSearchable } from "../context/no
 import { extractFile, languageLabelOf, languageOf, type RawEdge } from "./extract.js";
 import { extractGeneric, genericLangOf, warmGenericGrammars } from "./generic.js";
 import { containerLangOf, extractContainer, warmContainerGrammars } from "./container.js";
+import { extractStructured, structuredLangOf, warmStructuredGrammars } from "./structured/index.js";
 import { contentHash } from "../util/id.js";
 import { relPosix } from "../util/paths.js";
 import { readSourceFile } from "../util/source.js";
@@ -202,6 +203,12 @@ export async function buildGraph(
     new Set(files.map((f) => containerLangOf(f.abs)?.name).filter((n): n is string => !!n)),
   );
 
+  // Structured tier (opt-in): only the JSON, YAML and INI families need a grammar.
+  // `files` holds structured files only when the repo enabled the tier.
+  await warmStructuredGrammars(
+    new Set(files.map((f) => structuredLangOf(f.abs)?.name).filter((n): n is string => !!n)),
+  );
+
   files.forEach((f, i) => {
     const rel = f.rel;
     opts.onProgress?.({ phase: "parse", index: i, total: files.length, file: rel });
@@ -213,7 +220,8 @@ export async function buildGraph(
     // breadth tier so a future grammar claiming .vue can't shadow it.
     const container = lang ? null : containerLangOf(f.abs);
     const generic = lang || container ? null : genericLangOf(f.abs);
-    const label = languageLabelOf(f.abs) ?? container?.name ?? generic?.name ?? "unknown";
+    const structured = lang || container || generic ? null : structuredLangOf(f.abs);
+    const label = languageLabelOf(f.abs) ?? container?.name ?? generic?.name ?? structured?.name ?? "unknown";
     const cached = priorExtract.files[rel];
 
     // Every file is read and hashed, every build — only the *parse* is memoized.
@@ -264,7 +272,9 @@ export async function buildGraph(
         ? extractFile(rel, source, lang)
         : container
           ? extractContainer(rel, source, container)
-          : extractGeneric(rel, source, generic!.name);
+          : generic
+            ? extractGeneric(rel, source, generic.name)
+            : extractStructured(rel, source, structured!);
       nodes.push(...fileNodes);
       rawEdges.push(...fileEdges);
       sources.set(rel, source);

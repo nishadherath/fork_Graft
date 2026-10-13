@@ -23,6 +23,7 @@ import { contextDirFor } from "../context/node-file.js";
 import { extractFile, languageOf } from "./extract.js";
 import { extractGeneric, genericLangOf, warmGenericGrammars } from "./generic.js";
 import { containerLangOf, extractContainer, warmContainerGrammars } from "./container.js";
+import { extractStructured, structuredLangOf, warmStructuredGrammars } from "./structured/index.js";
 import { listSourceFiles } from "./build.js";
 import { readGraph, wiringPath } from "./write.js";
 import { readFingerprint } from "./fingerprint.js";
@@ -97,6 +98,9 @@ export async function checkGraph(
   await warmContainerGrammars(
     new Set(sourceFiles.map((f) => containerLangOf(f)?.name).filter((n): n is string => !!n)),
   );
+  await warmStructuredGrammars(
+    new Set(sourceFiles.map((f) => structuredLangOf(f)?.name).filter((n): n is string => !!n)),
+  );
   const current = new Map<string, string>(); // id → body_hash
   for (const file of sourceFiles) {
     // The same three-way branch `buildGraph` uses, in the same order. The two must
@@ -106,6 +110,7 @@ export async function checkGraph(
     const lang = languageOf(file);
     const container = lang ? null : containerLangOf(file);
     const generic = lang || container ? null : genericLangOf(file);
+    const structured = lang || container || generic ? null : structuredLangOf(file);
     let source: string | null;
     try {
       source = readSourceFile(file);
@@ -121,7 +126,9 @@ export async function checkGraph(
           ? extractContainer(rel, source, container)
           : generic
             ? extractGeneric(rel, source, generic.name)
-            : null;
+            : structured
+              ? extractStructured(rel, source, structured)
+              : null;
       // No tier claims this file. Spelled out rather than asserted away: the
       // `generic!` that used to stand in this position threw a TypeError on a
       // container-tier file, the catch below swallowed it as a parse failure, and

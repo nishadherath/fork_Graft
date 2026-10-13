@@ -10,15 +10,21 @@ import { statSync } from "node:fs";
 import { resolve } from "node:path";
 import { walkDir } from "../ingest/fs.js";
 import { relPosix } from "../util/paths.js";
-import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs } from "../util/state.js";
+import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs, readStructured } from "../util/state.js";
 import { languageOf, depthExtensions } from "./extract.js";
 import { genericLangOf, genericExtensions } from "./generic.js";
 import { containerLangOf, containerExtensions } from "./container.js";
+import { structuredLangOf, structuredExtensions } from "./structured/index.js";
 
-/** Every extension graft has a parser for (depth + breadth + container), sorted
- * and de-duped — the authoritative answer to "what does `-e` actually support". */
-export function supportedExtensions(): string[] {
-  return [...new Set([...depthExtensions(), ...genericExtensions(), ...containerExtensions()])].sort();
+/** Every extension graft has a parser for (depth + breadth + container, plus the
+ * structured tier when it is on), sorted and de-duped: the authoritative answer
+ * to "what does `-e` support". The structured extensions are listed only
+ * when `structured` is set, or `-e .md` would read as supported while indexing
+ * nothing, the silent no-op the warning exists to prevent. */
+export function supportedExtensions(structured = false): string[] {
+  const all = [...depthExtensions(), ...genericExtensions(), ...containerExtensions()];
+  if (structured) all.push(...structuredExtensions());
+  return [...new Set(all)].sort();
 }
 
 /** Normalize a user-supplied extension: ensure a leading dot, lower-case. */
@@ -32,8 +38,8 @@ function normExt(e: string): string {
  * `graft build -e ".vue"` used to accept these silently and index nothing; the CLI warns
  * on whatever this returns so an unsupported extension is never a quiet no-op.
  */
-export function unsupportedExtensions(exts: string[]): string[] {
-  const supported = new Set(supportedExtensions());
+export function unsupportedExtensions(exts: string[], structured = false): string[] {
+  const supported = new Set(supportedExtensions(structured));
   return exts.filter((e) => !supported.has(normExt(e)));
 }
 
@@ -71,13 +77,19 @@ export function listSourceFiles(
   onlyDirs?: ReadonlySet<string>,
 ): string[] {
   // A file is a source file if a depth-tier grammar (languageOf), a breadth-tier
-  // grammar (genericLangOf) or a container (containerLangOf) claims its extension.
-  // All three must agree here or `build` and `check` would enumerate different sets.
+  // grammar (genericLangOf), a container (containerLangOf) or, when the repo opted
+  // in, the structured tier claims its extension. All must agree here or `build`
+  // and `check` would enumerate different sets. The opt-in is read from state, like
+  // the other walk choices, so the probe and the refresh path see it too.
+  const structured = readStructured(resolve(root));
   return filterByOnlyDirs(
     repoFiles.filter(
       (f) =>
         !f.startsWith(outDir) &&
-        (languageOf(f) !== null || genericLangOf(f) !== null || containerLangOf(f) !== null),
+        (languageOf(f) !== null ||
+          genericLangOf(f) !== null ||
+          containerLangOf(f) !== null ||
+          (structured && structuredLangOf(f) !== null)),
     ),
     root,
     onlyDirs,

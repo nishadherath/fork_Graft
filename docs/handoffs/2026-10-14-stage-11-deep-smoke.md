@@ -2,7 +2,7 @@
 stage: "Stage 11: live --deep smoke against DeepSeek, BENCH reasoning levels in .env"
 model: claude-opus-5-5
 effort: high
-status: in-progress
+status: done
 created: 2026-10-14
 from: "Stage 10 session; operator switched the session to Opus 5.5 and chose DeepSeek"
 ---
@@ -46,11 +46,23 @@ exit code and cost line quoted, and the key found in no file or log written by t
 
 ## Work completed
 
-Nothing yet in Stage 11.
+- `.env` (git-ignored, not committed): `BENCH_AGENT_REASONING=high`,
+  `BENCH_JUDGE_REASONING=max`, with a comment that nothing reads them yet.
+- Global `graft build --deep` on a throwaway two-file TypeScript repo: exit 0;
+  4 concepts and 6 links from 2 files, 6 summaries computed, 0 cached;
+  manifest model `openai:deepseek-flash`. `graft ask` placed `totalCents` at
+  `src/invoice.ts:L12-L15`, which is exact.
+- No cost line: graft prints none and records no token usage in `manifest.json`.
+  DeepSeek spend was not measured.
+- Key check: `grep -rlF` for the key over the repo, the run log and every file
+  under the home directory (depth 4) written during the run found no hit. The
+  files written outside the repo belonged to other apps (Codex, Cline, Claude).
+- Throwaway repo and log deleted. The Stage 10 dependency backup was not needed.
 
 ## Unresolved questions
 
 - Operator: whether graft itself should gain a reasoning-effort setting for `GRAFT_MODEL`.
+- Operator: whether graft should report deep-pass token usage (it reports none today).
 - Operator: pushing `main`. Not this stage.
 
 ## Exact next action

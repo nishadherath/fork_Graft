@@ -234,8 +234,8 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   name suggests a credential, or whose value is a long opaque string or a URL with
   a user name in it, has no value in its signature or search text. Lockfiles are never indexed. The choice is saved
   in `.graft/config.json` (or set `GRAFT_STRUCTURED=1`); `--no-structured` turns it
-  off again. Like every other file, dot-files and dot-directories such as
-  `.github/` are not walked.
+  off again. Dot-files and dot-directories are not walked, with one exception:
+  with this tier on, YAML under `.github/workflows/` is.
 
 - **Compiler-grade edges (opt-in)** — `graft build --lsp` adds precise
   `lsp_resolved` call edges (member calls the static pass can't type) when a

@@ -15,7 +15,7 @@
  */
 import { readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import { walkDir } from "../ingest/fs.js";
+import { STRUCTURED_DOT_PATHS, walkDir } from "../ingest/fs.js";
 import { contextDirFor, ensureGitignored, ensureSearchable } from "../context/node-file.js";
 import { extractFile, languageLabelOf, languageOf, type RawEdge } from "./extract.js";
 import { extractGeneric, genericLangOf, warmGenericGrammars } from "./generic.js";
@@ -24,7 +24,7 @@ import { extractStructured, structuredLangOf, warmStructuredGrammars } from "./s
 import { contentHash } from "../util/id.js";
 import { relPosix } from "../util/paths.js";
 import { readSourceFile } from "../util/source.js";
-import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs } from "../util/state.js";
+import { readFollowNestedRepos, readFollowSubmodules, readIncludeDirs, readStructured } from "../util/state.js";
 import {
   emptyExtractCache,
   readExtractCache,
@@ -161,6 +161,7 @@ export async function buildGraph(
   const walked = walkDir(root, readIncludeDirs(root), {
     followSubmodules: readFollowSubmodules(root),
     followNestedRepos: readFollowNestedRepos(root),
+    admitDotPaths: readStructured(root) ? STRUCTURED_DOT_PATHS : undefined,
   });
   const onlyDirs = opts.onlyDirs && opts.onlyDirs.length > 0 ? new Set(opts.onlyDirs) : undefined;
   const repoFiles = filterByOnlyDirs(walked, root, onlyDirs);

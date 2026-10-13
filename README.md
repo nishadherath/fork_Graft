@@ -229,6 +229,12 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   | YAML | `.yaml` `.yml` | a dotted key path such as `jobs.verify.runs-on` (`key`) | tree-sitter |
   | TOML | `.toml` | a table or key such as `profile.release.opt-level` (`key`) | line scanner |
   | INI | `.ini` `.cfg` | `section.name` (`key`) | tree-sitter |
+  | HTML, Svelte, Astro | `.html` `.htm` `.svelte` `.astro` | an element with an `id` or `name` (`element`), the symbols of `<script>` and frontmatter, the rules of `<style>` | tree-sitter |
+  | CSS, SCSS | `.css` `.scss` | a rule, at-rule, custom property or Sass variable (`selector`) | tree-sitter |
+  | XML | `.xml` `.plist` `.storyboard` `.xib` `.entitlements` | Android `android:id` and `name` elements, Maven coordinates, plist keys (`element`, `key`) | line scanner |
+  | Gradle | `.gradle` | a task (`task`), plugin and dependency entries (`key`) | line scanner |
+  | Make, CMake, Dockerfile | `Makefile` `.mk` `CMakeLists.txt` `.cmake` `Dockerfile` | a rule, target or build stage (`task`), CMake functions | line scanner, tree-sitter |
+  | Bash, PowerShell | `.sh` `.bash` `.ps1` `.psm1` | a function (`function`) | tree-sitter |
 
   Keys go four levels deep with at most 500 per file, shallowest first. A key whose
   name suggests a credential, or whose value is a long opaque string or a URL with

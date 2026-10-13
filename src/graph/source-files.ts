@@ -27,6 +27,18 @@ export function supportedExtensions(structured = false): string[] {
   return [...new Set(all)].sort();
 }
 
+/** Key material, denied whichever tier would otherwise claim the extension. No
+ * tier claims these today, so this changes nothing now; it makes the promise
+ * ("never index secrets as content") a checked fact before a future tier or a
+ * `-e` choice could break it. Minified assets are denied by the structured tier
+ * itself, which leaves the code tiers' file set untouched. */
+const DENIED_SOURCE = /\.(?:pem|key|p12|pfx|jks|keystore|crt|cer)$/i;
+
+/** True for a path that must never be indexed as content. */
+export function isDeniedSource(path: string): boolean {
+  return DENIED_SOURCE.test(path);
+}
+
 /** Normalize a user-supplied extension: ensure a leading dot, lower-case. */
 function normExt(e: string): string {
   const t = e.trim().toLowerCase();
@@ -87,6 +99,7 @@ export function listSourceFiles(
     repoFiles.filter(
       (f) =>
         !f.startsWith(outDir) &&
+        !isDeniedSource(f) &&
         (languageOf(f) !== null ||
           genericLangOf(f) !== null ||
           containerLangOf(f) !== null ||

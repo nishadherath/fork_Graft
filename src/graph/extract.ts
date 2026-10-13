@@ -140,8 +140,10 @@ export interface RawEdge {
  *   only when exactly one of those exists.
  * - `class`: `name` is a class an HTML element carries; it targets the stylesheet
  *   rule whose selector is exactly `.<name>`.
+ * - `script`: `name` is a package script a command runs (`npm run build`); it
+ *   targets the `scripts` key of the nearest package.json above the file.
  */
-export type StructuredRef = "key" | "link" | "path" | "class";
+export type StructuredRef = "key" | "link" | "path" | "class" | "script";
 
 export interface ExtractResult {
   nodes: NodeV1[];

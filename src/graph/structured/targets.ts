@@ -8,6 +8,9 @@
  * `add_custom_target`, `add_test`), with `function()` and `macro()` definitions as
  * `function` nodes. Spans are exact lines of the file.
  *
+ * A Dockerfile's RUN, CMD and ENTRYPOINT commands, and its COPY and ADD sources,
+ * also yield the script and file references they make, hung off their stage.
+ *
  * Deliberately does not: expand variables, follow `include()` or `COPY --from`, or
  * index single instructions. A stage's text is its body_text, so a search for the
  * package it installs finds the stage.
@@ -16,8 +19,10 @@
  * FROM, so the comment block that introduces the next stage is not claimed.
  */
 import { parseWasm, type TsNode } from "../generic.js";
-import type { ExtractResult } from "../extract.js";
-import { emitUnits, endRowOf, splitLines, structuredFileNode, type UnitDraft } from "./shared.js";
+import type { ExtractResult, RawEdge } from "../extract.js";
+import type { NodeV1 } from "../types.js";
+import { emitUnits, endRowOf, isExternalTarget, ownerAt, splitLines, structuredFileNode, type UnitDraft } from "./shared.js";
+import { commandEdges } from "./commands.js";
 
 /** Source for the grammar: no BOM, LF endings (a CR before a line continuation
  * breaks the Dockerfile grammar; the line count is unchanged, so rows still match). */
@@ -60,7 +65,52 @@ export function extractDockerfile(rel: string, source: string, language: unknown
     });
   }
   const { nodes, rawEdges } = emitUnits(rel, lines, drafts);
+  rawEdges.push(...dockerfileCommandEdges(rel, lines, nodes));
   return { nodes: [file, ...nodes], rawEdges };
+}
+
+/** Instructions whose argument is a command line. Each runs in a fresh shell. */
+const RUN_INSTRUCTION = /^\s*(?:RUN|CMD|ENTRYPOINT)\s+(.*)$/i;
+/** Instructions whose arguments are sources, then one destination. */
+const COPY_INSTRUCTION = /^\s*(?:COPY|ADD)\s+(.*)$/i;
+
+/** An exec-form argument (`["node", "x.mjs"]`) as the command line it stands for. */
+function shellForm(args: string): string {
+  if (!args.trimStart().startsWith("[")) return args;
+  try {
+    const parsed: unknown = JSON.parse(args);
+    return Array.isArray(parsed) && parsed.every((w) => typeof w === "string") ? parsed.join(" ") : args;
+  } catch {
+    return args;
+  }
+}
+
+/** Scripts and files a Dockerfile's RUN, CMD and ENTRYPOINT run, and the files its
+ * COPY and ADD take from the build context. A COPY `--from` another stage, a glob
+ * or a variable names no file in the repository here. */
+function dockerfileCommandEdges(rel: string, lines: readonly string[], nodes: readonly NodeV1[]): RawEdge[] {
+  const edges: RawEdge[] = [];
+  for (let row = 0; row < lines.length; row++) {
+    const start = row;
+    let text = lines[row]!;
+    while (text.endsWith("\\") && row + 1 < lines.length) text = `${text.slice(0, -1)} ${lines[++row]!}`;
+    const owner = ownerAt(nodes, start, rel);
+    const run = RUN_INSTRUCTION.exec(text);
+    if (run) {
+      edges.push(...commandEdges(rel, shellForm(run[1]!), () => owner));
+      continue;
+    }
+    const copy = COPY_INSTRUCTION.exec(text);
+    if (!copy) continue;
+    const words = shellForm(copy[1]!).split(/\s+/).filter((w) => w !== "");
+    if (words.some((w) => w.startsWith("--from"))) continue;
+    const sources = words.filter((w) => !w.startsWith("--")).slice(0, -1);
+    for (const s of sources) {
+      if (s === "." || /[*?[$]/.test(s) || isExternalTarget(s)) continue;
+      edges.push({ source: owner, relation: "references", specifier: s, ref: "path", file: rel });
+    }
+  }
+  return edges;
 }
 
 const CMAKE_TARGETS: ReadonlySet<string> = new Set(["add_executable", "add_library", "add_custom_target", "add_test"]);

@@ -340,3 +340,152 @@ test("html: external, missing and non-indexed targets yield no edge", () => {
   const all = page.edges.filter((e) => e.source.startsWith("site/index.html") && e.relation !== "contains");
   assert.ok(!all.some((e) => /missing|example\.com|x\.png|shared/.test(e.target)), JSON.stringify(all));
 });
+
+// ---------------------------------------------------------------------------
+// Commands: `npm run x` to the package.json script key, `node scripts/x.mjs` to
+// the file, from workflows, shell scripts, Dockerfiles, Makefiles and scripts.
+// ---------------------------------------------------------------------------
+
+const CMD_PACKAGE = [
+  "{",                                                                 // 1
+  '  "name": "cmds",',                                                 // 2
+  '  "scripts": {',                                                    // 3
+  '    "build": "tsc",',                                               // 4
+  '    "test": "npm run build && node scripts/run-tests.mjs",',        // 5
+  '    "lint:css": "stylelint ."',                                     // 6
+  "  }",                                                               // 7
+  "}",                                                                 // 8
+];
+
+const CI_YML = [
+  "name: ci",                                     //  1
+  "on: push",                                     //  2
+  "jobs:",                                        //  3
+  "  verify:",                                    //  4
+  "    runs-on: ubuntu-latest",                   //  5
+  "    steps:",                                   //  6
+  "      - uses: actions/checkout@v4",            //  7
+  "      - run: npm ci",                          //  8
+  "      - name: Test",                           //  9
+  "        run: npm run test",                    // 10
+  "      - name: Lint",                           // 11
+  "        run: |",                               // 12
+  "          npm run lint:css",                   // 13
+  "          node scripts/run-tests.mjs --only lint", // 14
+  "      - name: Web",                            // 15
+  "        working-directory: web",               // 16
+  "        run: npm run build",                   // 17
+];
+
+const DEPLOY_SH = [
+  "#!/usr/bin/env bash",             //  1
+  "set -euo pipefail",               //  2
+  "deploy() {",                      //  3
+  "  npm run build",                 //  4
+  "  node scripts/upload.mjs",       //  5
+  "}",                               //  6
+  "npm test",                        //  7
+  "node helper.mjs",                 //  8
+  "# npm run lint:css",              //  9
+  "node scripts/run-tests.mjs \\",   // 10
+  "  --only unit",                   // 11
+  "cd web && npm run build",         // 12
+  "npm run lint:css",                // 13
+];
+
+const DOCKERFILE = [
+  "FROM node:22 AS build",                  // 1
+  "WORKDIR /app",                           // 2
+  "COPY package.json ./",                   // 3
+  "COPY scripts/upload.mjs ./scripts/",     // 4
+  "RUN npm run build",                      // 5
+  'CMD ["node", "scripts/upload.mjs"]',     // 6
+];
+
+const MAKEFILE = [
+  "test:",                               // 1
+  "\tnpm test",                          // 2
+  "\tnode scripts/run-tests.mjs",        // 3
+];
+
+let cmdDir: string;
+let cmds: GraphV1;
+
+before(async () => {
+  cmdDir = tmpRepo("structured-commands");
+  for (const d of ["scripts", "web", join(".github", "workflows")]) mkdirSync(join(cmdDir, d), { recursive: true });
+  writeFileSync(join(cmdDir, "package.json"), CMD_PACKAGE.join("\n") + "\n");
+  writeFileSync(join(cmdDir, ".github", "workflows", "ci.yml"), CI_YML.join("\n") + "\n");
+  writeFileSync(join(cmdDir, "scripts", "deploy.sh"), DEPLOY_SH.join("\n") + "\n");
+  writeFileSync(join(cmdDir, "Dockerfile"), DOCKERFILE.join("\n") + "\n");
+  writeFileSync(join(cmdDir, "Makefile"), MAKEFILE.join("\n") + "\n");
+  writeFileSync(join(cmdDir, "scripts", "run-tests.mjs"), "export function run() {}\n");
+  writeFileSync(join(cmdDir, "scripts", "upload.mjs"), "export function upload() {}\n");
+  // helper.mjs exists beside the script AND at the root: `node helper.mjs` is ambiguous.
+  writeFileSync(join(cmdDir, "scripts", "helper.mjs"), "export function a() {}\n");
+  writeFileSync(join(cmdDir, "helper.mjs"), "export function b() {}\n");
+  // A nested package: its own scripts win for a script that lives beside it.
+  writeFileSync(join(cmdDir, "web", "package.json"), '{\n  "scripts": {\n    "build": "vite build"\n  }\n}\n');
+  writeFileSync(join(cmdDir, "web", "build.sh"), "npm run build\n");
+  patchBuildConfig(cmdDir, { structured: true });
+  const outDir = join(cmdDir, "graft");
+  await buildGraph(cmdDir, { contextDir: outDir, reuse: false });
+  cmds = readGraph(wiringPath(outDir))!;
+});
+
+function cmdTargets(source: string): string[] {
+  return cmds.edges.filter((e) => e.source === source && e.relation === "references").map((e) => e.target).sort();
+}
+
+test("commands: a workflow step's run line references the script key and the file it runs", () => {
+  assert.deepEqual(cmdTargets(".github/workflows/ci.yml#key:jobs.verify.steps[2].run"), ["package.json#key:scripts.test"]);
+  assert.deepEqual(cmdTargets(".github/workflows/ci.yml#key:jobs.verify.steps[3].run"), [
+    'package.json#key:scripts["lint:css"]',
+    "scripts/run-tests.mjs",
+  ]);
+  // `npm ci` is not a script; a step with its own working-directory is not resolved.
+  const fromCi = cmds.edges.filter((e) => e.source.startsWith(".github/workflows/ci.yml") && e.relation === "references");
+  assert.equal(fromCi.length, 3, JSON.stringify(fromCi));
+});
+
+test("commands: a shell function and the script body resolve; cd, comments and ambiguity do not", () => {
+  assert.deepEqual(cmdTargets("scripts/deploy.sh#deploy"), ["package.json#key:scripts.build", "scripts/upload.mjs"]);
+  // Lines 7 and 10 (continued on 11) resolve. Line 8's helper.mjs exists both
+  // beside the script and at the root, line 9 is a comment, and lines 12 and 13
+  // run after a cd, in a directory the text does not pin down.
+  assert.deepEqual(cmdTargets("scripts/deploy.sh"), ["package.json#key:scripts.test", "scripts/run-tests.mjs"]);
+});
+
+test("commands: the nearest package.json owns the script", () => {
+  assert.deepEqual(cmdTargets("web/build.sh"), ["web/package.json#key:scripts.build"]);
+});
+
+test("commands: Dockerfile COPY, RUN and exec-form CMD, and Makefile recipes", () => {
+  assert.deepEqual(cmdTargets("Dockerfile#task:build"), ["package.json", "package.json#key:scripts.build", "scripts/upload.mjs"]);
+  assert.deepEqual(cmdTargets("Makefile#task:test"), ["package.json#key:scripts.test", "scripts/run-tests.mjs"]);
+});
+
+test("commands: package.json scripts reference the scripts and files they run", () => {
+  assert.deepEqual(cmdTargets("package.json#key:scripts.test"), ["package.json#key:scripts.build", "scripts/run-tests.mjs"]);
+  const key = cmds.nodes.find((n) => n.id === "package.json#key:scripts.test")!;
+  assert.equal(key.span, "L5-L5");
+});
+
+test("commands: what the scanner refuses, and the wrappers it reads through", async () => {
+  const { commandRefs } = await import("../src/graph/structured/commands.js");
+  const read = (text: string): string[] => commandRefs(text).map((r) => `${r.kind}:${r.target}@${r.line}`);
+  // Another package, inline code, a directory and a module name are not targets.
+  assert.deepEqual(read("npm --prefix web run build"), []);
+  assert.deepEqual(read("pnpm -C web run build"), []);
+  assert.deepEqual(read('node -e "require(\'./x.js\')"'), []);
+  assert.deepEqual(read("node dist"), []);
+  assert.deepEqual(read("python -m pkg.main"), []);
+  assert.deepEqual(read("npm ci && npm install"), []);
+  // Assignments, npx, PowerShell's call operator and flags before the script.
+  assert.deepEqual(read("CI=1 npx tsx scripts/a.ts"), ["path:scripts/a.ts@0"]);
+  assert.deepEqual(read("& ./tools/x.ps1 -Force"), ["path:./tools/x.ps1@0"]);
+  assert.deepEqual(read("node --import tsx scripts/b.mjs arg.js"), ["path:scripts/b.mjs@0"]);
+  assert.deepEqual(read("yarn run lint && npm t"), ["script:lint@0", "script:test@0"]);
+  // A second line after a pushd is not reported; the first is.
+  assert.deepEqual(read("npm run a\npushd sub\nnpm run b"), ["script:a@0"]);
+});

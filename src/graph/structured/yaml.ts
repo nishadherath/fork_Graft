@@ -18,12 +18,14 @@
  */
 import { parseWasm, type TsNode } from "../generic.js";
 import type { ExtractResult } from "../extract.js";
+import { commandEdges } from "./commands.js";
 import {
   IDENTIFYING_FIELDS,
   MAX_KEY_DEPTH,
   emitKeys,
   endRowOf,
   joinKey,
+  ownerAt,
   splitLines,
   structuredFileNode,
   type KeyDraft,
@@ -198,11 +200,47 @@ export function yamlKeyDrafts(language: unknown, text: string, rowBase = 0): Key
   return drafts;
 }
 
+/** Every scalar `run:` in a YAML text (a CI step's commands), with the 0-based row
+ * of its key. Unnamed steps count too, though the key emitter skips them. A step
+ * with its own `working-directory` is left out, and a `defaults.run` with one
+ * empties the list, because the commands then run somewhere the text does not
+ * resolve against. */
+export function yamlRunCommands(language: unknown, text: string): Array<{ row: number; value: string }> {
+  const root = parseWasm(language, text.replace(/^﻿/, ""));
+  if (!root) return [];
+  const out: Array<{ row: number; value: string }> = [];
+  let elsewhere = false;
+  const keyOf = (pair: TsNode): string | undefined => scalarOf(pair.childForFieldName?.("key"));
+  const visit = (node: TsNode): void => {
+    if (node.type === "block_mapping" || node.type === "flow_mapping") {
+      const pairs = namedChildren(node).filter((p) => PAIR_TYPES.has(p.type));
+      const ownDirectory = pairs.some((p) => keyOf(p) === "working-directory");
+      for (const pair of pairs) {
+        if (keyOf(pair) !== "run") continue;
+        const value = pair.childForFieldName?.("value");
+        const command = scalarOf(value);
+        if (command !== undefined) {
+          if (!ownDirectory) out.push({ row: pair.startPosition.row, value: command });
+        } else if (value && mappingOf(value) && namedChildren(mappingOf(value)!).some((p) => PAIR_TYPES.has(p.type) && keyOf(p) === "working-directory")) {
+          elsewhere = true; // defaults: run: working-directory: x
+        }
+      }
+    }
+    for (const c of namedChildren(node)) visit(c);
+  };
+  visit(root);
+  return elsewhere ? [] : out;
+}
+
 /** Keys for one YAML file. `language` is the warmed `yaml` grammar, or undefined
- * when it is unavailable (the file then yields its file node only). */
+ * when it is unavailable (the file then yields its file node only). Each `run:`
+ * also yields the script and file references its commands make. */
 export function extractYaml(rel: string, source: string, language: unknown | undefined): ExtractResult {
   const file = structuredFileNode(rel, source);
   if (!language) return { nodes: [file], rawEdges: [] };
   const { nodes, rawEdges } = emitKeys(rel, splitLines(source), yamlKeyDrafts(language, source));
+  for (const run of yamlRunCommands(language, source)) {
+    rawEdges.push(...commandEdges(rel, run.value, () => ownerAt(nodes, run.row, rel)));
+  }
   return { nodes: [file, ...nodes], rawEdges };
 }

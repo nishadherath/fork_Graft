@@ -194,7 +194,7 @@ export const MAX_UNITS_PER_FILE = 500;
  * 0-based and inclusive; `parent` indexes the drafts array (-1 for none) and
  * always precedes the child. */
 export interface UnitDraft {
-  kind: "element" | "selector" | "task";
+  kind: "element" | "selector" | "task" | "function";
   name: string;
   parent: number;
   startRow: number;
@@ -203,7 +203,7 @@ export interface UnitDraft {
   bodyText?: string;
 }
 
-/** `rel#<kind>:<name>` nodes for the first MAX_UNITS_PER_FILE drafts, plus the
+/** `rel#<kind>:<name>` nodes (`rel#<name>` for functions) for the first MAX_UNITS_PER_FILE drafts, plus the
  * `contains` edges between them. Document order is kept. */
 export function emitUnits(rel: string, lines: readonly string[], drafts: readonly UnitDraft[]): { nodes: NodeV1[]; rawEdges: RawEdge[] } {
   const minted = new Set<string>([rel]);
@@ -211,7 +211,8 @@ export function emitUnits(rel: string, lines: readonly string[], drafts: readonl
   const nodes: NodeV1[] = [];
   const rawEdges: RawEdge[] = [];
   drafts.slice(0, MAX_UNITS_PER_FILE).forEach((d, i) => {
-    const id = mintId(`${rel}#${d.kind}:${d.name}`, minted);
+    // A function keeps the id shape the depth tier gives functions, `rel#name`.
+    const id = mintId(d.kind === "function" ? `${rel}#${d.name}` : `${rel}#${d.kind}:${d.name}`, minted);
     idOf.set(i, id);
     const body = d.bodyText?.replace(/\s+/g, " ").trim().slice(0, MAX_BODY_TEXT_CHARS);
     nodes.push({

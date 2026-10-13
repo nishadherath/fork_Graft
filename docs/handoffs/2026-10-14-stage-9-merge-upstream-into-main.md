@@ -2,7 +2,7 @@
 stage: "Stage 9: merge upstream/main into main, gate, sync the global install"
 model: claude-sonnet-5-5
 effort: medium
-status: in-progress
+status: done
 created: 2026-10-14
 from: "Sonnet 5.5 Stage 8 session, operator decision: option C"
 ---
@@ -42,10 +42,11 @@ quoted, and the global install is synced. Nothing pushed.
 
 ## Work completed
 
-Nothing yet in Stage 9.
+`upstream/main` (`fe30ead`) merged into `main` as `955e73d`; `package-lock.json` regenerated, no other conflicts. `git diff pr/documents-tier -- src test` differs only by the crux-id-echo fix (`src/ai/crux.ts`, `test/crux-id-echo.test.ts`), which lives on `pr/crux-id-echo`. Gate, Node 26.7.0, sequential: `npm run build` exit 0; `npm test` 1,539 tests, 1,534 pass, 0 fail, 5 skipped, 431 s. `sync-global`: 33 changed, 0 stale; global `graft trail` answers. Not changed: global `node_modules` still holds openai 6.49.0 and @anthropic-ai/sdk 0.117.1 while the fork now wants ^7.8.0 and ^0.122.0 (`sync-global` copies `dist/` only). Nothing pushed.
 
 ## Unresolved questions
 
+- Operator: whether to update the global install's dependencies (openai, @anthropic-ai/sdk) to the fork's ranges; not done.
 - Operator: pushing `main` publishes the persona, handoffs and acceptance docs to the public `nishadherath/fork_graft`. Not this stage.
 
 ## Exact next action

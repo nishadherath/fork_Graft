@@ -17,6 +17,7 @@ import { toPosixPath } from "../util/paths.js";
 import type { EdgeV1, Kind, NodeV1, Relation } from "./types.js";
 import { languageOf, type RawEdge } from "./extract.js";
 import { genericLangOf } from "./generic.js";
+import { indexStructured, resolveStructuredRef, type StructuredIndex } from "./resolve-structured.js";
 
 const IMPORT_EXTS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py"];
 /** C/C++ source + header extensions, for resolving `#include` targets. */
@@ -201,7 +202,17 @@ export function resolveEdges(
     out.push({ source, target, relation, confidence });
   };
 
+  // Structured-tier references resolve against their own index, built only when a
+  // raw edge needs it; see resolve-structured.ts for the precision rules.
+  let structured: StructuredIndex | null = null;
+
   for (const e of rawEdges) {
+    if (e.ref !== undefined) {
+      structured ??= indexStructured(nodes);
+      const hit = resolveStructuredRef(e, structured);
+      if (hit && hit.id !== e.source) add(e.source, hit.id, e.relation, hit.confidence);
+      continue;
+    }
     if (e.relation === "contains" && e.targetId) {
       add(e.source, e.targetId, "contains", "extracted");
     } else if (e.relation === "imports" && e.specifier) {

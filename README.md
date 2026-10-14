@@ -53,6 +53,7 @@
 
 ## Contents
 
+- [This build: 0.21.1-nishadherath](#this-build-0211-nishadherath)
 - [Quick start](#quick-start)
 - [The problem](#the-problem)
 - [What Graft does](#what-graft-does)
@@ -70,6 +71,29 @@
 - [Tested on your popular repos](#tested-on-your-popular-repos)
 - [Development](#development)
 - [License](#license)
+
+---
+
+## This build: 0.21.1-nishadherath
+
+This is a fork of upstream Graft 0.21.1 (`@nanonets/graft`, MIT), released as git tag `v0.21.1-nishadherath`. It carries every upstream 0.21.1 feature and adds the following. The structured, document and reasoning additions are opt-in; the token line shows on `--deep` and the fixes apply to every build.
+
+- **Documents and configuration are indexed** (`graft build --structured`, or `GRAFT_STRUCTURED=1`): Markdown becomes a `section` per heading and JSON, JSONC, JSONL, YAML, TOML and INI a `key` per dotted path, each with an exact line span that `ask --source` prints verbatim. Keys that look like credentials are never indexed with their values, and lockfiles are skipped.
+- **Markup and build files** join that tier: HTML, Svelte, Astro, CSS and SCSS, XML (Android, Maven, property lists, storyboards), Gradle, Makefile, CMake, Dockerfile, Bash and PowerShell, and GitHub workflow YAML under `.github/workflows/`.
+- **Edges from the structured tier to code**, at no model cost: code that spells a key path, Markdown links, HTML `src`, `href` and `class`, and `npm run`/`node scripts/x` commands in workflows, scripts, Dockerfiles and Makefiles. `graft blast` follows them, so changing a config key reports the code that reads it.
+- **PDF, DOCX, ODT, EPUB, PPTX and ODP** (`--structured --documents`, or `GRAFT_DOCUMENTS=1`): each document is rendered once to a cached text file with a marker per page, slide or chapter, and indexed like Markdown, so a hit names its page and prints its lines. The converters (`pdfjs-dist`, `fflate`) are optional dependencies loaded lazily, and a missing one is named. `--deep` sends no document unless `--deep-documents` is given.
+- **`GRAFT_REASONING` / `--reasoning <level>`** sets the reasoning effort of every LLM call, in your provider's own words (`low`, `high`, `none`, ...). Unset sends nothing. A level the provider refuses stops the deep pass at once and names the variable.
+- **`graft build --deep` reports its token usage**: one `tokens:` line after the pass (calls, uncached and cached input, output with the reasoning share, model and level), also recorded as `deepUsage` in `graft/manifest.json`. Tokens only, no prices.
+- **Fixes**: a model that echoes a whole `TARGETS` descriptor line as the crux id no longer makes the pass report an empty reply; cards for files that share a stem (`config.json`, `config.yml`) no longer overwrite each other.
+
+Install this build from the packaged tarball, not from npm:
+
+```bash
+npm install -g ./nanonets-graft-0.21.1-nishadherath.tgz
+graft --version        # 0.21.1-nishadherath
+```
+
+`graft version` and `graft upgrade` compare against the `@nanonets/graft` release on npm, which is upstream's, so `graft upgrade` would replace this build with upstream's. Details of each change are in [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

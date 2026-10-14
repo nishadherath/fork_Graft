@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.21.1-nishadherath
+
+The operator's build on upstream 0.21.1 (git tag `v0.21.1-nishadherath`).
 
 ### Added
 
@@ -65,6 +67,8 @@
 
 ### Fixed
 
+- **A model that echoes a whole `TARGETS` descriptor line as the crux id** (`path#sym | kind | lines ... | sig`) no longer
+  makes the pass report an empty reply: the id is cut back to the bare id at the first ` | `.
 - **Cards for files that share a stem no longer overwrite each other**
   (`config.json` and `config.yml` both mapped to `graft/config.md`); the later
   file keeps its extension (`config.yml.md`).

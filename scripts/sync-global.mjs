@@ -8,8 +8,10 @@
  * machine's Visual Studio (docs/operator-protocol.md section 10). The global
  * install already holds working binaries, so only `dist/` needs to move.
  *
- * Guards: the two package versions must agree (a sync across versions would
- * pair new JS with old dependencies), `dist/cli.js` must exist (the tree was
+ * Guards: the two package versions must agree up to a fork suffix (a sync across
+ * 0.x.y releases would pair new JS with old dependencies; "0.21.1-name" and
+ * "0.21.1" share their dependencies), the global package.json then takes the
+ * fork's version so `graft --version` names the build, `dist/cli.js` must exist (the tree was
  * built), and the copied CLI must answer `--version` afterwards. Files in the
  * global `dist/` that the fork no longer builds are removed, so a renamed
  * module cannot leave a stale twin behind. `--dry-run` reports without writing.
@@ -38,7 +40,9 @@ const npmRoot = execSync("npm root -g", { encoding: "utf8" }).trim();
 const target = join(npmRoot, "@nanonets", "graft");
 if (!existsSync(join(target, "package.json"))) fail(`no global install at ${target}; install @nanonets/graft globally first`);
 const globalPkg = JSON.parse(readFileSync(join(target, "package.json"), "utf8"));
-if (globalPkg.version !== forkPkg.version) {
+/** The release a version is built on: "0.21.1-nishadherath" is based on "0.21.1". */
+const baseRelease = (version) => version.split("-")[0];
+if (baseRelease(globalPkg.version) !== baseRelease(forkPkg.version)) {
   fail(
     `version mismatch: fork is ${forkPkg.version}, global install is ${globalPkg.version}. ` +
       `Fast-forward the fork to the installed tag (or reinstall) before syncing.`,
@@ -96,6 +100,12 @@ console.log(
 );
 
 if (!dryRun) {
+  if (globalPkg.version !== forkPkg.version) {
+    const globalPkgPath = join(target, "package.json");
+    const text = readFileSync(globalPkgPath, "utf8");
+    writeFileSync(globalPkgPath, text.replace(/("version"\s*:\s*)"[^"]*"/, `$1"${forkPkg.version}"`));
+    console.log(`sync-global: global package.json version ${globalPkg.version} → ${forkPkg.version}`);
+  }
   const version = execFileSync(process.execPath, [join(target, "dist", "cli.js"), "--version"], { encoding: "utf8" }).trim();
   if (version !== forkPkg.version) fail(`the synced CLI answers "${version}", expected ${forkPkg.version}`);
   console.log(`sync-global: global graft answers --version ${version}`);

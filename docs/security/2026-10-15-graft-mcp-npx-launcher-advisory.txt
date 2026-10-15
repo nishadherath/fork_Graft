@@ -1,0 +1,510 @@
+Subject: [Advisory] @nanonets/graft: "graft init" writes an unpinned "npx -y" MCP launcher, and the check that should prevent it always fails on Windows
+
+Date:     2026-10-15
+Product:  @nanonets/graft (Graft), MIT licence
+Upstream: https://github.com/NanoNets/context-graph-engine
+Versions: 0.21.1, and upstream main at commit fe30ead (checked 2026-10-15).
+          Earlier versions were not tested.
+Class:    Supply-chain exposure (CWE-1357, reliance on insufficiently
+          trustworthy component; CWE-829, inclusion of functionality from
+          untrusted control sphere), plus a logic fault (CWE-754, improper
+          check for unusual or exceptional conditions).
+Severity: Low to medium (hardening issue). No CVE ID assigned. See section 5.
+Reporter: [NAME AND CONTACT OF PUBLISHER]
+Status:   Vendor notification: [DATE AND METHOD, OR "NOT YET DONE"].
+          Patch: included in section 8. Not yet merged upstream.
+
+
+1. SUMMARY
+
+Graft is a code-graph tool for AI coding agents. The command "graft init"
+writes an MCP server entry into the configuration files of the agent hosts,
+for example ".mcp.json" for Claude Code.
+
+Graft is meant to write the entry "graft mcp" when the "graft" program is
+installed. Graft is meant to write "npx -y @nanonets/graft mcp" only when
+"graft" is not installed.
+
+On Windows the check for an installed "graft" always fails. Graft therefore
+writes the "npx" form every time, also on machines where "graft" is installed.
+
+The "npx" form has no version. Each time the agent starts the MCP server,
+npm downloads and runs the package version that the npm registry serves at
+that moment. The "-y" flag removes the confirmation prompt.
+
+A compromised registry release of @nanonets/graft, or of one of its
+dependencies, would run on every machine that uses this entry. It would run
+at the start of each agent session.
+
+
+2. AFFECTED SYSTEMS
+
+- All platforms: the fallback entry has no version pin.
+- Windows: the entry is the default, because the check always fails.
+- POSIX systems: the entry is written only when "graft" is not on PATH.
+
+Files that Graft writes with this entry include:
+
+  .mcp.json                        (Claude Code, project scope, often committed)
+  ~/.claude.json                   (Claude Code, user scope)
+  .cursor/mcp.json
+  .gemini/settings.json
+  ~/.gemini/config/mcp_config.json
+  .kiro/settings/mcp.json
+  .grok/config.toml
+  ~/.codex/config.toml
+  opencode.json
+
+The session-start hook of Graft also rewrites these entries when the Graft
+version changes. A manual correction is therefore not permanent on Windows
+(see section 7).
+
+
+3. TECHNICAL DETAILS
+
+3.1 The check
+
+File: src/hosts/mcp-config.ts, function graftOnPath().
+
+    function graftOnPath(): boolean {
+      const r = spawnSync('graft', ['--version'], { stdio: 'ignore', timeout: 5000 });
+      return r.status === 0;
+    }
+
+The call does not use a shell. On Windows, npm installs "graft" as a
+"graft.cmd" shim. A call to spawnSync without a shell cannot start a shim.
+Observed results on Windows 11, Node.js 26.7.0, with Graft installed and on
+PATH:
+
+    spawnSync('graft', ['--version'])      -> status null, error ENOENT
+    spawnSync('graft.cmd', ['--version'])  -> error EINVAL
+    spawnSync('graft', ..., {shell: true}) -> ETIMEDOUT at 5 seconds
+
+The EINVAL result is the expected effect of the Node.js change for
+CVE-2024-27980. That change blocks the start of .cmd and .bat files
+without a shell. The shell variant is not a good repair: "graft --version"
+takes about 2.5 seconds on the test machine, and the 5 second limit was
+reached.
+
+Because the function returns false, serverEntry() selects the fallback.
+
+3.2 The fallback
+
+File: src/hosts/mcp-config.ts.
+
+    const NPX_LAUNCH = { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] };
+
+The package name has no version. npm resolves the "latest" tag at the time
+of each start.
+
+3.3 Why the two faults add up
+
+Each fault is small alone.
+
+- Without the Windows fault, only machines without "graft" use the "npx" form.
+- Without the missing pin, the "npx" form would run a fixed version.
+
+Together they make an unpinned, unreviewed download the normal start path for
+every Windows user. This path runs in every repository that Graft wires.
+
+
+4. REPRODUCTION
+
+Verified on Windows 11, Node.js 26.7.0, Graft 0.21.1 installed with
+"npm install -g". The command "graft" works in a terminal.
+
+Step 1. In a clone of the Graft source, run:
+
+    node_modules/.bin/tsx -e "import {serverEntry} from './src/hosts/mcp-config.ts'; console.log(JSON.stringify(serverEntry()))"
+
+Result:
+
+    {"command":"npx","args":["-y","@nanonets/graft","mcp"]}
+
+The expected result is {"command":"graft","args":["mcp"]}.
+
+Step 2. The same entry was found in the ".mcp.json" files of two real
+repositories on the test machine. Graft wrote them. The reporter did not
+re-run "graft init" in a clean repository for this report. The code path is:
+"graft init" calls serverEntry() in src/claude/init.ts and
+src/hosts/claude-global.ts.
+
+Upstream main uses the same function (checked with "git grep" at fe30ead).
+
+
+5. IMPACT AND SEVERITY
+
+What an attacker needs: control of a release of @nanonets/graft, or of a
+dependency of it, on the npm registry. This can happen through theft of a
+maintainer account or token, or through a malicious dependency update.
+Graft is an npm package with install scripts and native grammar
+dependencies, so a bad release can run code at install time.
+
+What the attacker gets: code execution with the rights of the user, on every
+machine that starts the MCP server with this entry. The next agent session
+starts the new code. No new user action is needed.
+
+Why this is worse than a normal install of the package:
+
+- A global install runs the code that the user chose and installed once.
+  The "npx -y" entry fetches again at each start.
+- The entry is often in ".mcp.json", which projects commit. One committed
+  file can send this trust decision to every contributor.
+- The user does not see a new version. There is no lock file and no review.
+
+Limits of this finding:
+
+- There is no exploit for Graft itself. The attack needs a prior
+  compromise of the registry supply chain.
+- The same risk exists for any tool that documents "npx -y <package>" for
+  MCP servers. The Graft README shows this form.
+- Claude Code asks the user to approve a project MCP server on first use.
+  The reporter did not test whether it asks again when the package version
+  behind the same command changes. Do not assume that it does.
+
+Suggested rating, reporter's estimate only: low to medium. A CVSS 3.1 vector
+is not given, because the attack complexity depends on events outside
+Graft.
+
+
+6. WORKAROUND FOR USERS
+
+1. Install Graft globally: npm install -g @nanonets/graft
+2. In each project, edit the Graft entry in ".mcp.json" and the other files
+   in section 2 to read:
+
+       "graft": { "command": "graft", "args": ["mcp"] }
+
+3. Check the entry again after each Graft upgrade (see section 7).
+
+To pin the fallback by hand, use "@nanonets/graft@<version>" in place of
+"@nanonets/graft". Use the exact version that you reviewed.
+
+
+7. RESIDUAL BEHAVIOUR WITHOUT THE PATCH
+
+The Graft session-start refresh rewrites the entry when the stamp version
+differs from the running version. On Windows, the rewrite writes the "npx"
+form again. A manual correction can therefore revert after an upgrade.
+
+
+8. PATCH
+
+The patch below applies to upstream main at commit fe30ead.
+It makes two changes:
+
+a) It replaces the spawn check with a file system search of PATH. The search
+   uses PATHEXT on Windows and the execute bit on POSIX. It does not start a
+   process. It has no time limit and no shell.
+
+b) It pins the "npx" fallback to the running Graft version:
+   "@nanonets/graft@<version>". If the version cannot be read (0.0.0), the
+   fallback stays unpinned.
+
+The runningVersion() function moves from src/upkeep.ts to src/cli-meta.ts.
+This avoids an import cycle. src/upkeep.ts exports the function again, so
+existing imports still work.
+
+The patch does not remove the "npx" fallback. A stricter policy is possible:
+always write "graft mcp" and print a warning when "graft" is not on PATH.
+That policy changes behaviour for users who run "npx @nanonets/graft init"
+without a global install. The maintainers should decide on it.
+
+Save the text between the two marker lines to a file, without the marker
+lines. Then run:
+
+    git apply --check graft-mcp-launcher.patch
+    git apply graft-mcp-launcher.patch
+
+----- BEGIN PATCH graft-mcp-launcher.patch -----
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 5ef248a..deea42c 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,5 +1,11 @@
+ # Changelog
+ 
++## Unreleased
++
++### Fixed
++
++- **The MCP launcher probe works on Windows, and the `npx` fallback is pinned.** The probe spawned `graft` without a shell, which cannot see the `graft.cmd` shim, so `npx -y @nanonets/graft mcp` was written on every init and refresh. It is now a filesystem PATH lookup (`PATHEXT` on Windows, executable bit on POSIX). The fallback is now `@nanonets/graft@<running version>`, so it no longer runs whatever the registry serves at that moment.
++
+ ## 0.19.0
+ 
+ ### Added
+diff --git a/src/cli-meta.ts b/src/cli-meta.ts
+index f9cad44..59da844 100644
+--- a/src/cli-meta.ts
++++ b/src/cli-meta.ts
+@@ -31,6 +31,20 @@ export function readCurrentVersion(moduleUrl: string): string {
+   return pkg.version ?? "0.0.0";
+ }
+ 
++/**
++ * The version of the graft package this code was loaded from.
++ *
++ * Resolved from *this* module rather than the caller's: `readCurrentVersion`
++ * looks one level up from the module URL it's given, which lands on the package
++ * root for `dist/cli-meta.js` but misses entirely for `dist/claude/hooks.js` and
++ * `dist/mcp/server.js`. Every caller asking here instead of passing its own
++ * `import.meta.url` is what keeps the hook and the MCP server from reading
++ * `0.0.0` and re-initing on every single session.
++ */
++export function runningVersion(): string {
++  try { return readCurrentVersion(import.meta.url); } catch { return "0.0.0"; }
++}
++
+ /** True when the running module lives under an npx cache dir (e.g.
+  * `~/.npm/_npx/<hash>/node_modules/...`) rather than a regular global install.
+  *
+diff --git a/src/hosts/mcp-config.ts b/src/hosts/mcp-config.ts
+index 111da50..1b07c41 100644
+--- a/src/hosts/mcp-config.ts
++++ b/src/hosts/mcp-config.ts
+@@ -8,11 +8,11 @@
+  * `registerMcpConfigs()` walks that same list to do the writing.
+  */
+ import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
+-import { spawnSync } from 'node:child_process';
+-import { dirname, join } from 'node:path';
++import { dirname, delimiter, join } from 'node:path';
+ import { homedir } from 'node:os';
+ import type { PlannedWrite } from './plan.js';
+ import { readJsonObject, type ConfigWrite } from './config-write.js';
++import { runningVersion } from '../cli-meta.js';
+ 
+ /** MCP registration reports the same write-result record every installer does. */
+ export type McpWrite = ConfigWrite;
+@@ -43,12 +43,50 @@ export interface McpTarget extends PlannedWrite {
+  * bare `graft` works on any machine that has it installed; `npx` remains the
+  * fallback for machines that don't.
+  */
+-const NPX_LAUNCH = { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] };
++const PACKAGE = '@nanonets/graft';
+ const BIN_LAUNCH = { command: 'graft', args: ['mcp'] };
++/** Windows' own default when PATHEXT is unset. */
++const DEFAULT_PATHEXT = '.COM;.EXE;.BAT;.CMD';
++
++/**
++ * The `npx` fallback, pinned to the running version. An unpinned `npx -y` runs
++ * whatever the registry serves at that moment, on every session start. An
++ * unreadable version (`0.0.0`) stays unpinned.
++ */
++function npxLaunch(): { command: string; args: string[] } {
++  const v = runningVersion();
++  return { command: 'npx', args: ['-y', v === '0.0.0' ? PACKAGE : `${PACKAGE}@${v}`, 'mcp'] };
++}
++
++/**
++ * Filesystem PATH lookup. A spawn cannot do this on Windows: the global `graft` is
++ * a `graft.cmd` shim, which a shell-less spawn reports as ENOENT, so the old
++ * probe always failed there. Returns the first match, or undefined.
++ */
++export function findOnPath(
++  name: string,
++  env: NodeJS.ProcessEnv = process.env,
++  platform: NodeJS.Platform = process.platform,
++): string | undefined {
++  const win = platform === 'win32';
++  const dirs = (win ? (env.PATH ?? env.Path ?? '') : (env.PATH ?? '')).split(win ? ';' : delimiter).filter(Boolean);
++  const exts = win
++    ? ['', ...(env.PATHEXT ?? DEFAULT_PATHEXT).split(';').filter(Boolean)].map((e) => e.toLowerCase())
++    : [''];
++  for (const dir of dirs) {
++    for (const ext of exts) {
++      const candidate = join(dir.replace(/^"|"$/g, ''), name + ext);
++      try {
++        const s = statSync(candidate);
++        if (s.isFile() && (win || (s.mode & 0o111) !== 0)) return candidate;
++      } catch { /* not here */ }
++    }
++  }
++  return undefined;
++}
+ 
+ function graftOnPath(): boolean {
+-  const r = spawnSync('graft', ['--version'], { stdio: 'ignore', timeout: 5000 });
+-  return r.status === 0;
++  return findOnPath('graft') !== undefined;
+ }
+ 
+ /**
+@@ -61,8 +99,8 @@ function graftOnPath(): boolean {
+  */
+ export function serverEntry(opts: { onPath?: boolean } = {}): { command: string; args: string[] } {
+   const forced = process.env.GRAFT_MCP_NPX;
+-  if (forced !== undefined && forced !== '' && forced !== '0' && forced !== 'false') return NPX_LAUNCH;
+-  return (opts.onPath ?? graftOnPath()) ? BIN_LAUNCH : NPX_LAUNCH;
++  if (forced !== undefined && forced !== '' && forced !== '0' && forced !== 'false') return npxLaunch();
++  return (opts.onPath ?? graftOnPath()) ? BIN_LAUNCH : npxLaunch();
+ }
+ 
+ 
+diff --git a/src/upkeep.ts b/src/upkeep.ts
+index 132fb28..5661ab4 100644
+--- a/src/upkeep.ts
++++ b/src/upkeep.ts
+@@ -31,23 +31,11 @@ import { homedir } from 'node:os';
+ import { readJson, writeJsonAtomic, cacheDir } from './util/state.js';
+ import { HOSTS } from './hosts/registry.js';
+ import { START } from './hosts/sections.js';
+-import { getNpmViewVersion, readCurrentVersion } from './cli-meta.js';
++import { getNpmViewVersion, runningVersion } from './cli-meta.js';
+ import { cacheIsStale, markRulesChecked, readLink, readRulesCache } from './brain/link.js';
+ import { graftCliPath } from './claude/paths.js';
+ 
+-/**
+- * The version of the graft package this code was loaded from.
+- *
+- * Resolved from *this* module rather than the caller's: `readCurrentVersion`
+- * looks one level up from the module URL it's given, which lands on the package
+- * root for `dist/upkeep.js` but misses entirely for `dist/claude/hooks.js` and
+- * `dist/mcp/server.js`. Every caller asking here instead of passing its own
+- * `import.meta.url` is what keeps the hook and the MCP server from reading
+- * `0.0.0` and re-initing on every single session.
+- */
+-export function runningVersion(): string {
+-  try { return readCurrentVersion(import.meta.url); } catch { return '0.0.0'; }
+-}
++export { runningVersion };
+ 
+ /** How long a registry answer is considered current. A day: graft ships far less
+  * often than that, and this is a nudge, not a security update. */
+diff --git a/test/hosts-mcp-config.test.ts b/test/hosts-mcp-config.test.ts
+index f659667..6fd8827 100644
+--- a/test/hosts-mcp-config.test.ts
++++ b/test/hosts-mcp-config.test.ts
+@@ -4,10 +4,11 @@ import assert from 'node:assert/strict';
+ // The MCP launch command is resolved from PATH at init time; pin it to the npx
+ // form so these expectations are the same on every machine.
+ process.env.GRAFT_MCP_NPX = '1';
+-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
++import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
+ import { tmpdir } from 'node:os';
+ import { join } from 'node:path';
+-import { registerMcpConfigs, serverEntry } from '../src/hosts/mcp-config.js';
++import { registerMcpConfigs, serverEntry, findOnPath } from '../src/hosts/mcp-config.js';
++import { runningVersion } from '../src/cli-meta.js';
+ 
+ function fresh(): string { return mkdtempSync(join(tmpdir(), 'graft-mcpcfg-')); }
+ 
+@@ -16,7 +17,7 @@ test('cursor/gemini/kiro get repo-local JSON entries', () => {
+   const w = registerMcpConfigs(repo, ['cursor', 'gemini', 'kiro'], { home });
+   assert.deepEqual(w.map((x) => x.action), ['created', 'created', 'created']);
+   const cursor = JSON.parse(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf8'));
+-  assert.deepEqual(cursor.mcpServers.graft, { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] });
++  assert.deepEqual(cursor.mcpServers.graft, { command: 'npx', args: ['-y', `@nanonets/graft@${runningVersion()}`, 'mcp'] });
+   assert.ok(existsSync(join(repo, '.gemini', 'settings.json')));
+   assert.ok(existsSync(join(repo, '.kiro', 'settings', 'mcp.json')));
+ });
+@@ -51,7 +52,7 @@ test('agents id: codex TOML + opencode JSON, gated on home dirs', () => {
+   assert.equal(w.length, 2);
+   const toml = readFileSync(join(home, '.codex', 'config.toml'), 'utf8');
+   assert.match(toml, /^\[mcp_servers\.graft\]$/m);
+-  assert.match(toml, /"@nanonets\/graft"/);
++  assert.match(toml, /"@nanonets\/graft@[^"]+"/);
+   const oc = JSON.parse(readFileSync(join(repo, 'opencode.json'), 'utf8'));
+   assert.equal(oc.mcp.graft.type, 'local');
+   const again = registerMcpConfigs(repo, ['agents'], { home });
+@@ -75,7 +76,7 @@ test('grok gets a repo-local TOML MCP section', () => {
+   assert.deepEqual(w.map((x) => x.action), ['created']);
+   const toml = readFileSync(join(repo, '.grok', 'config.toml'), 'utf8');
+   assert.match(toml, /^\[mcp_servers\.graft\]$/m);
+-  assert.match(toml, /"@nanonets\/graft"/);
++  assert.match(toml, /"@nanonets\/graft@[^"]+"/);
+   const again = registerMcpConfigs(repo, ['grok'], { home });
+   assert.deepEqual(again.map((x) => x.action), ['unchanged']);
+ });
+@@ -97,7 +98,7 @@ test('serverEntry prefers the installed binary and falls back to npx', () => {
+   delete process.env.GRAFT_MCP_NPX;
+   try {
+     assert.deepEqual(serverEntry({ onPath: true }), { command: 'graft', args: ['mcp'] });
+-    assert.deepEqual(serverEntry({ onPath: false }), { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] });
++    assert.deepEqual(serverEntry({ onPath: false }), { command: 'npx', args: ['-y', `@nanonets/graft@${runningVersion()}`, 'mcp'] });
+     for (const e of [serverEntry({ onPath: true }), serverEntry({ onPath: false })]) {
+       assert.ok(!e.command.startsWith('/'), 'never an absolute path — configs get shared');
+     }
+@@ -106,6 +107,43 @@ test('serverEntry prefers the installed binary and falls back to npx', () => {
+   }
+ });
+ 
++test('findOnPath finds a graft.cmd shim on win32 and honours PATHEXT', () => {
++  const dir = fresh();
++  writeFileSync(join(dir, 'graft.cmd'), '@echo off\r\n');
++  assert.equal(findOnPath('graft', { PATH: dir, PATHEXT: '.CMD' }, 'win32'), join(dir, 'graft.cmd'));
++  assert.equal(findOnPath('graft', { PATH: dir, PATHEXT: '.EXE' }, 'win32'), undefined);
++  assert.equal(findOnPath('graft', { PATH: fresh() }, 'win32'), undefined);
++});
++
++test('findOnPath requires the executable bit on POSIX', () => {
++  const dir = fresh();
++  writeFileSync(join(dir, 'graft'), '#!/bin/sh\n');
++  chmodSync(join(dir, 'graft'), 0o644);
++  assert.equal(findOnPath('graft', { PATH: dir }, 'linux'), undefined);
++  chmodSync(join(dir, 'graft'), 0o755);
++  if (process.platform !== 'win32') assert.equal(findOnPath('graft', { PATH: dir }, 'linux'), join(dir, 'graft'));
++});
++
++test('serverEntry finds a graft shim on PATH without spawning', () => {
++  const saved = { npx: process.env.GRAFT_MCP_NPX, path: process.env.PATH, Path: process.env.Path };
++  delete process.env.GRAFT_MCP_NPX;
++  const bin = fresh();
++  try {
++    const win = process.platform === 'win32';
++    const shim = join(bin, win ? 'graft.cmd' : 'graft');
++    writeFileSync(shim, win ? '@echo off\r\n' : '#!/bin/sh\n');
++    if (!win) chmodSync(shim, 0o755);
++    process.env.PATH = bin; process.env.Path = bin;
++    assert.deepEqual(serverEntry(), { command: 'graft', args: ['mcp'] });
++    process.env.PATH = fresh(); process.env.Path = process.env.PATH;
++    assert.deepEqual(serverEntry(), { command: 'npx', args: ['-y', `@nanonets/graft@${runningVersion()}`, 'mcp'] });
++  } finally {
++    for (const [k, v] of [['GRAFT_MCP_NPX', saved.npx], ['PATH', saved.path], ['Path', saved.Path]] as const) {
++      if (v === undefined) delete process.env[k]; else process.env[k] = v;
++    }
++  }
++});
++
+ test('GRAFT_MCP_NPX overrides an installed binary', () => {
+   process.env.GRAFT_MCP_NPX = '1';
+   assert.equal(serverEntry({ onPath: true }).command, 'npx', 'the escape hatch wins');
+----- END PATCH -----
+
+
+9. VERIFICATION OF THE PATCH
+
+Run on a clean checkout of upstream main (fe30ead) with the patch applied,
+on Windows 11 with Node.js 26.7.0:
+
+- TypeScript type check ("tsc --noEmit"): no errors.
+- Test files test/hosts-mcp-config.test.ts, test/upkeep.test.ts,
+  test/hosts-init.test.ts, test/claude-init.test.ts,
+  test/hosts-retract.test.ts and test/hosts-claude-global.test.ts:
+  105 tests, 105 pass, 0 fail.
+
+The patch adds tests for these cases:
+
+- A directory that holds "graft.cmd" on PATH (Windows) makes serverEntry()
+  return {"command":"graft","args":["mcp"]}.
+- An empty PATH directory makes serverEntry() return the pinned "npx" form.
+- PATHEXT is respected; a file without the execute bit (POSIX) does not match.
+
+The full upstream test suite was not run against this patch. Run it before
+you merge. The POSIX branch of the search is tested only through its logic
+on Windows (the execute-bit assertion is skipped there). Run the tests on
+Linux or macOS too.
+
+
+10. TIMELINE
+
+[DATE]  Fault found during a review of the MCP configuration of a fork.
+[DATE]  Vendor notified: [METHOD].
+[DATE]  Vendor reply: [REPLY OR "NONE"].
+[DATE]  This advisory published.
+
+
+11. CREDITS
+
+Reported by [NAME]. Patch written with the help of an AI coding assistant
+and reviewed by the reporter.

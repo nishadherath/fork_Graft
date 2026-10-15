@@ -1,109 +1,109 @@
 ---
-stage: "Stage 14: the MCP launcher resolves the installed graft on Windows"
+stage: "Stage 14: the MCP launcher is always the installed graft"
 model: claude-sonnet-5-5
 effort: medium
-status: ready
+status: in-progress
 created: 2026-10-15
-from: "Fable 5.1 assessment session, 2026-10-15, on the operator's question about the npx launcher in .mcp.json"
+from: "Fable 5.1 assessment session, 2026-10-15; option C chosen by the operator the same day"
 ---
 
-# Stage 14: the MCP launcher resolves the installed graft on Windows
+# Stage 14: the MCP launcher is always the installed graft
 
 ## Goal
 
 `graft init`, and the wiring refresh that upkeep runs at session start, write
 `{ "command": "graft", "args": ["mcp"] }` into `.mcp.json`, `~/.claude.json` and
-every other host's MCP config whenever a `graft` executable is on PATH, on Windows
-as well as POSIX. The `npx` form is written only when no installed graft can be
-found, and then pinned to the running version. Gate green, global install synced,
-the repos on this machine that carry the npx form re-wired.
+every other host's MCP config, on every platform, whether or not graft is on PATH.
+The `npx -y @nanonets/graft mcp` form is never written by this fork. When no graft
+executable is on PATH, `graft init` says so in one warning line naming the install
+command. Gate green, global install synced, every wired repo on this machine
+converges on the next session.
 
 ## Decisions already made
 
-- Root cause is `graftOnPath()` in `src/hosts/mcp-config.ts:49`: `spawnSync('graft', ...)`
-  without a shell. On Windows the global `graft` is a `graft.cmd` shim, which a
-  shell-less spawn reports as ENOENT (and `graft.cmd` by name as EINVAL since Node's
-  CVE-2024-27980 change). The probe always fails on Windows, so the npx launcher is
-  written on every init and every refresh. Verified below.
-- Replace the probe with a filesystem PATH lookup, not `shell: true`: a lookup costs a
-  few `stat` calls, needs no timeout, and is not fooled by a slow Node start
-  (`graft --version` takes 2.5 s here; with `shell: true` the 5 s probe timed out).
-  Honour `PATHEXT` on win32 (default `.COM;.EXE;.BAT;.CMD`) and the executable bit on
-  POSIX. Take `env` and `platform` as parameters so the test does not depend on the
-  machine.
-- Keep a bare command, never an absolute path, in repo-level files: upstream's reasoning
-  at `mcp-config.ts:40-44` stands (`.mcp.json` is committed and shared).
-- Assumption taken for the fallback (the operator may overrule, see Unresolved): when no
-  graft is on PATH, write `npx -y @nanonets/graft@<running version> mcp`, the version from
-  `runningVersion()` in `src/upkeep.ts`. npm never lets a published version be replaced,
-  so the pin removes "whatever the registry serves at that moment". A fork build that is
-  not on npm then fails visibly at session start, which beats silently running upstream's
-  code. Check for an import cycle before importing `upkeep.ts` from `mcp-config.ts`
-  (`upkeep.ts` imports `hosts/registry.js` and `hosts/sections.js`); if there is one,
-  move `runningVersion` into `src/cli-meta.ts`.
-- `GRAFT_MCP_NPX=1` keeps forcing the npx form; five test files set it.
-- The `graft init` epilogue names the launcher it wrote (`src/cli.ts:1347`), so the
-  choice is visible: `launcher: graft mcp` or `launcher: npx -y @nanonets/graft@x.y.z mcp`.
+- **Operator decision, 2026-10-15: option C.** Never write npx. Write `graft mcp` and
+  warn when graft is not on PATH. Options A (unpinned npx) and B (pinned npx) are closed.
+- Root cause of the npx form on this machine is `graftOnPath()` in
+  `src/hosts/mcp-config.ts:49`: `spawnSync('graft', ...)` without a shell. On Windows the
+  global `graft` is a `graft.cmd` shim, which a shell-less spawn reports as ENOENT (and
+  `graft.cmd` by name as EINVAL since Node's CVE-2024-27980 change), so the probe always
+  failed and the npx fallback was written on every init and refresh. Verified below.
+- `serverEntry()` becomes a constant `{ command: 'graft', args: ['mcp'] }`. `NPX_LAUNCH`,
+  the `GRAFT_MCP_NPX` override and the `onPath` option are removed; the five test files
+  that set `GRAFT_MCP_NPX=1` drop that line and assert the bare form.
+- PATH detection survives only for the warning: `findOnPath(name, env = process.env,
+  platform = process.platform)`, a filesystem lookup honouring `PATHEXT` on win32 (default
+  `.COM;.EXE;.BAT;.CMD`) and the executable bit on POSIX. No spawn, no shell, no timeout
+  (`graft --version` takes 2.5 s here; a `shell: true` probe timed out at 5 s). Exported
+  from `mcp-config.ts`, tested with a temp dir on an injected PATH.
+- The warning is printed once by the `init` command in `src/cli.ts`, after the MCP writes,
+  when `findOnPath('graft')` is null: graft is not on PATH, the MCP server will not start
+  until it is installed, `npm install -g @nanonets/graft`. Not printed by the silent
+  session-start refresh.
+- Keep a bare command, never an absolute path: `.mcp.json` is committed and shared, and
+  upstream's comment at `mcp-config.ts:40-44` records the scar of the alternative.
 - Bump the fork version to `0.21.1-nishadherath.1` (package.json and package-lock.json),
   so `reconcileWiring` sees a stamp mismatch and rewrites every wired repo's `.mcp.json`
   on its next session; `scripts/sync-global.mjs` accepts it (same base release).
-- Upstream branch `fix/windows-mcp-launcher` cut from `upstream/main`, carrying only
-  `src/`, `test/` and `CHANGELOG.md`; `git log upstream/main..fix/windows-mcp-launcher --stat`
-  checked before handing it over. The version bump stays on `main` only.
+- Upstream gets the bug fix only, not the policy: branch `fix/windows-mcp-launcher` from
+  `upstream/main` replaces the spawn probe with `findOnPath` and keeps upstream's npx
+  fallback, with `CHANGELOG.md`; `git log upstream/main..fix/windows-mcp-launcher --stat`
+  shows nothing else. The fork's `main` carries option C on top; the next upstream merge
+  will conflict in `serverEntry` and is resolved in favour of the fork.
+- `README.md:400` shows the `graft mcp` form; the fork's "This build" section gains one
+  line saying this build never writes an npx launcher, so `npx @nanonets/graft init` on a
+  machine without a global install needs `npm install -g` before the server starts.
+- Leave `src/claude/session-metrics.ts:82` (recognises `npx graft` in transcripts) and
+  `src/claude/settings-merge.ts:16` (`Bash(npx graft:*)` permission) as they are.
 
 ## Files and links that matter
 
 - `src/hosts/mcp-config.ts:46-66`: `NPX_LAUNCH`, `BIN_LAUNCH`, `graftOnPath`, `serverEntry`.
   The only place the launcher is built; `src/claude/init.ts:95`,
   `src/hosts/claude-global.ts:119` and `mcp-config.ts:172` all call `serverEntry()`.
-- `src/upkeep.ts:298` `reconcileWiring`, `src/upkeep-run.ts` `rewriteWiring` and `runInit`:
+- `src/upkeep.ts:298` `reconcileWiring`, `src/upkeep-run.ts` `rewriteWiring`, `runInit`:
   the per-session rewrite that overwrites a hand-edited `.mcp.json` entry whenever the
   stamp version differs from the running version.
-- `src/cli-meta.ts:81` `globalRoot()` already uses `shell: process.platform === "win32"`;
-  the pattern this bug missed.
-- `test/hosts-mcp-config.test.ts:93-112`: the existing launcher tests to extend.
-- `README.md:400` documents the npx form; `CHANGELOG.md` gets the entry under Fixed.
+- `src/cli.ts:1340-1350`: the init epilogue where the warning goes.
+- `test/hosts-mcp-config.test.ts:93-112` (launcher tests to rewrite); `GRAFT_MCP_NPX=1`
+  also set at the top of `test/claude-init.test.ts`, `test/hosts-claude-global.test.ts`,
+  `test/hosts-init.test.ts`, `test/hosts-retract.test.ts`.
 - Repos on this machine with the npx form: `D:\Code\OpenAI\Tensegrity\.mcp.json`,
-  `D:\Code\GLM\bewhole-accept\.mcp.json`. Hand-edited to absolute paths, and rewritten
-  to `graft mcp` by the next refresh: `D:\Code\Claude\Orchestrator\.mcp.json`
-  (also drops its `${CLAUDE_PROJECT_DIR:-.}` argument; the default is the cwd),
-  `D:\Code\GLM\BeWhole\.mcp.json` (points at the fork tree's `dist/cli.js`).
+  `D:\Code\GLM\bewhole-accept\.mcp.json`. Hand-edited to absolute paths, rewritten to
+  `graft mcp` by the next refresh: `D:\Code\Claude\Orchestrator\.mcp.json` (also drops its
+  `${CLAUDE_PROJECT_DIR:-.}` argument; the default is the cwd), `D:\Code\GLM\BeWhole\.mcp.json`.
 
 ## Verified facts (2026-10-15, Node 26.7.0, Windows 11)
 
 - `node_modules/.bin/tsx -e "import {serverEntry} from './src/hosts/mcp-config.ts'; console.log(JSON.stringify(serverEntry()))"`
-  prints `{"command":"npx","args":["-y","@nanonets/graft","mcp"]}` with graft installed and on PATH.
+  printed `{"command":"npx","args":["-y","@nanonets/graft","mcp"]}` with graft installed and on PATH.
 - `spawnSync('graft',['--version'])` gives `{status:null, error:'ENOENT'}`;
   `spawnSync('graft.cmd', ...)` gives EINVAL; with `shell:true` ETIMEDOUT at 5 s.
   `time graft --version` is 2.47 s.
 - Global shims `C:\nvm4w\nodejs\graft`, `graft.cmd`, `graft.ps1` run
   `node_modules/@nanonets/graft/dist/cli.js`; `graft --version` answers `0.21.1-nishadherath`.
-- `~/.claude.json` has no top-level `mcpServers` (checked with node), so the npx form is
-  not registered machine-wide.
-- `upstream/main` has the same `graftOnPath` (git grep, 2026-10-15); the bug is upstream's.
+- `~/.claude.json` has no top-level `mcpServers`, so the npx form is not registered machine-wide.
+- `upstream/main` has the same `graftOnPath` (git grep); the detection bug is upstream's.
 - Last gate (2026-10-14): `npm test` 1,552 tests, 1,547 pass, 0 fail, 5 skipped.
 
 ## Work completed
 
-- Assessment only; no source changed. This handoff.
+- Assessment; handoff `ff21675` (option B assumed), superseded by this revision.
 
 ## Unresolved questions
 
-- Operator: fallback when graft is not on PATH. A: unpinned npx (upstream today).
-  B: pinned npx (assumed). C: never npx, write `graft mcp` and warn. Recommendation B;
-  C as a fork-only rule diverges from upstream in a file upstream edits on every merge.
 - Whether Claude Code on Windows launches `command: "graft"` (a `.cmd` shim). It launches
   `npx` (also a `.cmd`) today, and the MCP SDK's stdio transport resolves shims through
-  cross-spawn, so it should. Verify by restarting Claude Code in Tensegrity after the
-  re-wire and checking that the `mcp__graft__*` tools appear.
+  cross-spawn, so it should. Operator verifies by restarting Claude Code in Tensegrity
+  after the sync and checking that the `mcp__graft__*` tools appear.
 
 ## Exact next action
 
-In `test/hosts-mcp-config.test.ts`, add the failing test: a temp dir holding `graft.cmd`
-(win32) or an executable `graft` (POSIX) passed as `PATH` makes `serverEntry()` return
-`{ command: 'graft', args: ['mcp'] }`; an empty dir makes it return the npx form. Then
-implement `findOnPath(name, env = process.env, platform = process.platform)` in
-`src/hosts/mcp-config.ts` and make `graftOnPath()` use it.
+In `test/hosts-mcp-config.test.ts`, replace the two launcher tests: `serverEntry()` is
+`{ command: 'graft', args: ['mcp'] }` with no environment variable set; `findOnPath('graft',
+{ PATH: dir, PATHEXT: '.CMD' }, 'win32')` finds a `graft.cmd` written into a temp dir and
+returns null for an empty dir (POSIX branch with an executable `graft`). Then make
+`serverEntry` constant and add `findOnPath` in `src/hosts/mcp-config.ts`.
 
 ## Cost projection
 

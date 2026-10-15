@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.21.1-nishadherath.1
+
+### Changed
+
+- **The MCP launcher this build writes is always `graft mcp`**, never
+  `npx -y @nanonets/graft mcp`, whether or not graft is on PATH: the `npx` form
+  fetches and runs whatever the registry serves at each session start. `graft init`
+  prints one warning when no `graft` executable is on PATH. The `GRAFT_MCP_NPX`
+  override is removed.
+
+### Fixed
+
+- **The PATH probe works on Windows.** It spawned `graft` without a shell, which cannot
+  see the `graft.cmd` shim, so it always reported graft missing and the `npx` form was
+  written on every init and session-start refresh. It is now a filesystem lookup
+  (honouring `PATHEXT` on Windows and the executable bit on POSIX): no spawn, no timeout.
+
 ## 0.21.1-nishadherath
 
 The operator's build on upstream 0.21.1 (git tag `v0.21.1-nishadherath`).

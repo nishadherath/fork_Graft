@@ -81,6 +81,7 @@ import { compactWrites, formatNonInteractiveHelp, formatPlan, runPicker } from "
 import { buildGraphWithProgress } from "./claude/build-progress.js";
 import { homedir } from "node:os";
 import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, runUpgrade } from "./cli-meta.js";
+import { findOnPath } from "./hosts/mcp-config.js";
 import { patchBuildConfig, readDocuments, readStructured, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
 import { latestSession, formatSessionStats, sessionInputRate } from "./claude/session-metrics.js";
@@ -1368,6 +1369,10 @@ function wireTarget(
       if (opts.global === false && selectedWrites(plan, ids).some((w) => w.scope === "global"))
         say("· skipped out-of-repo writes (--no-global)");
     }
+
+    // The launcher written above is the bare `graft`; say so when it will not resolve.
+    if (opts.mcp !== false && findOnPath("graft") === undefined)
+      say("⚠ graft is not on PATH: the MCP server will not start until it is installed (npm install -g @nanonets/graft)");
 
     // Record WHICH graft wrote this repo's agent files, and under which flags.
     // Every entry point compares this against the running binary and re-writes

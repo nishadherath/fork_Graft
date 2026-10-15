@@ -8,8 +8,7 @@
  * `registerMcpConfigs()` walks that same list to do the writing.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { dirname, join } from 'node:path';
+import { dirname, delimiter, join } from 'node:path';
 import { homedir } from 'node:os';
 import type { PlannedWrite } from './plan.js';
 import { readJsonObject, type ConfigWrite } from './config-write.js';
@@ -27,7 +26,7 @@ export interface McpTarget extends PlannedWrite {
 }
 
 /**
- * How to launch the MCP server, decided once at init time.
+ * How to launch the MCP server: always the installed binary, never `npx`.
  *
  * `npx -y` resolves the package before it can serve: measured at a 211 ms
  * spawn→`initialize` handshake against 80 ms for the installed binary, five runs
@@ -40,31 +39,45 @@ export interface McpTarget extends PlannedWrite {
  * Deliberately a bare command name, never an absolute path: these files get
  * committed and shared, and this repo already carries the scar of the alternative —
  * a checked-in hook shim with another machine's home directory baked into it. A
- * bare `graft` works on any machine that has it installed; `npx` remains the
- * fallback for machines that don't.
+ * bare `graft` works on any machine that has it installed. `npx -y` would also fetch
+ * and run whatever the registry serves at that moment on every session start, so
+ * this build never writes it; `graft init` warns when no graft is on PATH instead.
  */
-const NPX_LAUNCH = { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] };
 const BIN_LAUNCH = { command: 'graft', args: ['mcp'] };
-
-function graftOnPath(): boolean {
-  const r = spawnSync('graft', ['--version'], { stdio: 'ignore', timeout: 5000 });
-  return r.status === 0;
-}
+/** Windows' own default when PATHEXT is unset. */
+const DEFAULT_PATHEXT = '.COM;.EXE;.BAT;.CMD';
 
 /**
- * JSON hosts: `{ command, args }`.
- *
- * `GRAFT_MCP_NPX=1` forces the `npx` form — the escape hatch for a machine whose
- * global install is stale or shadowed, and what the tests set so their expectations
- * don't depend on whether the machine running them happens to have graft installed.
- * `opts.onPath` is the same override for direct unit tests of both branches.
+ * Filesystem PATH lookup. A spawn cannot do this on Windows: the global `graft` is
+ * a `graft.cmd` shim, which a shell-less spawn reports as ENOENT, so the old
+ * probe always failed there. Returns the first match, or undefined.
  */
-export function serverEntry(opts: { onPath?: boolean } = {}): { command: string; args: string[] } {
-  const forced = process.env.GRAFT_MCP_NPX;
-  if (forced !== undefined && forced !== '' && forced !== '0' && forced !== 'false') return NPX_LAUNCH;
-  return (opts.onPath ?? graftOnPath()) ? BIN_LAUNCH : NPX_LAUNCH;
+export function findOnPath(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): string | undefined {
+  const win = platform === 'win32';
+  const dirs = (win ? (env.PATH ?? env.Path ?? '') : (env.PATH ?? '')).split(win ? ';' : delimiter).filter(Boolean);
+  const exts = win
+    ? ['', ...(env.PATHEXT ?? DEFAULT_PATHEXT).split(';').filter(Boolean)].map((e) => e.toLowerCase())
+    : [''];
+  for (const dir of dirs) {
+    for (const ext of exts) {
+      const candidate = join(dir.replace(/^"|"$/g, ''), name + ext);
+      try {
+        const s = statSync(candidate);
+        if (s.isFile() && (win || (s.mode & 0o111) !== 0)) return candidate;
+      } catch { /* not here */ }
+    }
+  }
+  return undefined;
 }
 
+/** JSON hosts: `{ command, args }`. Always the bare installed binary; see {@link BIN_LAUNCH}. */
+export function serverEntry(): { command: string; args: string[] } {
+  return { command: BIN_LAUNCH.command, args: [...BIN_LAUNCH.args] };
+}
 
 function opencodeEntry(): object {
   const { command, args } = serverEntry();

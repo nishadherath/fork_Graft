@@ -84,6 +84,7 @@ This is a fork of upstream Graft 0.21.1 (`@nanonets/graft`, MIT), released as gi
 - **PDF, DOCX, ODT, EPUB, PPTX and ODP** (`--structured --documents`, or `GRAFT_DOCUMENTS=1`): each document is rendered once to a cached text file with a marker per page, slide or chapter, and indexed like Markdown, so a hit names its page and prints its lines. The converters (`pdfjs-dist`, `fflate`) are optional dependencies loaded lazily, and a missing one is named. `--deep` sends no document unless `--deep-documents` is given.
 - **`GRAFT_REASONING` / `--reasoning <level>`** sets the reasoning effort of every LLM call, in your provider's own words (`low`, `high`, `none`, ...). Unset sends nothing. A level the provider refuses stops the deep pass at once and names the variable.
 - **`graft build --deep` reports its token usage**: one `tokens:` line after the pass (calls, uncached and cached input, output with the reasoning share, model and level), also recorded as `deepUsage` in `graft/manifest.json`. Tokens only, no prices.
+- **The MCP launcher is always the installed `graft mcp`**, never `npx -y @nanonets/graft mcp`, which would fetch and run whatever the registry serves at each session start. `graft init` warns when no `graft` is on PATH, so `npx @nanonets/graft init` on a machine without a global install needs `npm install -g` before the server starts.
 - **Fixes**: a model that echoes a whole `TARGETS` descriptor line as the crux id no longer makes the pass report an empty reply; cards for files that share a stem (`config.json`, `config.yml`) no longer overwrite each other.
 
 Install this build from the packaged tarball, not from npm:
@@ -397,7 +398,7 @@ Both configs are user-level, so they apply to **every** repo you open with Codex
 Register it by hand if your agent needs it explicit:
 
 ```json
-{ "mcpServers": { "graft": { "command": "npx", "args": ["-y", "@nanonets/graft", "mcp"] } } }
+{ "mcpServers": { "graft": { "command": "graft", "args": ["mcp"] } } }
 ```
 
 Where a CLI agent supports user-level `hooks.json`, `init` also installs Graft's post-edit hook — blast-radius warnings and automatic `$0` graph re-sync after edits (skip with `--no-hooks`).

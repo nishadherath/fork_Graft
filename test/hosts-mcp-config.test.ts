@@ -1,13 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-// The MCP launch command is resolved from PATH at init time; pin it to the npx
-// form so these expectations are the same on every machine.
-process.env.GRAFT_MCP_NPX = '1';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { registerMcpConfigs, serverEntry } from '../src/hosts/mcp-config.js';
+import { registerMcpConfigs, serverEntry, findOnPath } from '../src/hosts/mcp-config.js';
 
 function fresh(): string { return mkdtempSync(join(tmpdir(), 'graft-mcpcfg-')); }
 
@@ -16,7 +13,7 @@ test('cursor/gemini/kiro get repo-local JSON entries', () => {
   const w = registerMcpConfigs(repo, ['cursor', 'gemini', 'kiro'], { home });
   assert.deepEqual(w.map((x) => x.action), ['created', 'created', 'created']);
   const cursor = JSON.parse(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf8'));
-  assert.deepEqual(cursor.mcpServers.graft, { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] });
+  assert.deepEqual(cursor.mcpServers.graft, { command: 'graft', args: ['mcp'] });
   assert.ok(existsSync(join(repo, '.gemini', 'settings.json')));
   assert.ok(existsSync(join(repo, '.kiro', 'settings', 'mcp.json')));
 });
@@ -51,7 +48,7 @@ test('agents id: codex TOML + opencode JSON, gated on home dirs', () => {
   assert.equal(w.length, 2);
   const toml = readFileSync(join(home, '.codex', 'config.toml'), 'utf8');
   assert.match(toml, /^\[mcp_servers\.graft\]$/m);
-  assert.match(toml, /"@nanonets\/graft"/);
+  assert.match(toml, /^command = "graft"\nargs = \["mcp"\]$/m);
   const oc = JSON.parse(readFileSync(join(repo, 'opencode.json'), 'utf8'));
   assert.equal(oc.mcp.graft.type, 'local');
   const again = registerMcpConfigs(repo, ['agents'], { home });
@@ -75,7 +72,7 @@ test('grok gets a repo-local TOML MCP section', () => {
   assert.deepEqual(w.map((x) => x.action), ['created']);
   const toml = readFileSync(join(repo, '.grok', 'config.toml'), 'utf8');
   assert.match(toml, /^\[mcp_servers\.graft\]$/m);
-  assert.match(toml, /"@nanonets\/graft"/);
+  assert.match(toml, /^command = "graft"\nargs = \["mcp"\]$/m);
   const again = registerMcpConfigs(repo, ['grok'], { home });
   assert.deepEqual(again.map((x) => x.action), ['unchanged']);
 });
@@ -90,23 +87,44 @@ test('JSON with non-object mcpServers value is skipped', () => {
   assert.equal(readFileSync(join(repo, '.cursor', 'mcp.json'), 'utf8'), badJson);
 });
 
-// The launch command: bare binary when graft is installed, npx otherwise. Never an
-// absolute path — these files are committed and shared between machines.
-test('serverEntry prefers the installed binary and falls back to npx', () => {
-  const saved = process.env.GRAFT_MCP_NPX;
-  delete process.env.GRAFT_MCP_NPX;
+// The launch command is always the bare installed binary, whether or not graft is on
+// PATH, and never an absolute path: these files are committed and shared between
+// machines. The npx form is never written.
+test('serverEntry is the bare graft command regardless of PATH or environment', () => {
+  const saved = { npx: process.env.GRAFT_MCP_NPX, path: process.env.PATH, Path: process.env.Path };
+  const empty = fresh();
+  process.env.GRAFT_MCP_NPX = '1';
+  process.env.PATH = empty;
+  process.env.Path = empty;
   try {
-    assert.deepEqual(serverEntry({ onPath: true }), { command: 'graft', args: ['mcp'] });
-    assert.deepEqual(serverEntry({ onPath: false }), { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] });
-    for (const e of [serverEntry({ onPath: true }), serverEntry({ onPath: false })]) {
-      assert.ok(!e.command.startsWith('/'), 'never an absolute path — configs get shared');
-    }
+    const e = serverEntry();
+    assert.deepEqual(e, { command: 'graft', args: ['mcp'] });
+    assert.ok(!/^([/\]|[A-Za-z]:)/.test(e.command), 'never an absolute path: configs get shared');
   } finally {
-    if (saved !== undefined) process.env.GRAFT_MCP_NPX = saved;
+    for (const [k, v] of [['GRAFT_MCP_NPX', saved.npx], ['PATH', saved.path], ['Path', saved.Path]] as const) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
   }
 });
 
-test('GRAFT_MCP_NPX overrides an installed binary', () => {
-  process.env.GRAFT_MCP_NPX = '1';
-  assert.equal(serverEntry({ onPath: true }).command, 'npx', 'the escape hatch wins');
+// The PATH probe is a filesystem lookup, not a spawn: on Windows the global `graft` is
+// a `graft.cmd` shim that a shell-less spawn cannot see.
+test('findOnPath finds a graft.cmd shim on win32 and honours PATHEXT', () => {
+  const dir = fresh();
+  const empty = fresh();
+  writeFileSync(join(dir, 'graft.cmd'), '@echo off\r\n');
+  assert.equal(findOnPath('graft', { PATH: dir, PATHEXT: '.CMD' }, 'win32'), join(dir, 'graft.cmd'));
+  assert.equal(findOnPath('graft', { PATH: dir, PATHEXT: '.EXE' }, 'win32'), undefined);
+  assert.equal(findOnPath('graft', { PATH: empty }, 'win32'), undefined);
+  assert.equal(findOnPath('graft', { Path: dir }, 'win32'), join(dir, 'graft.cmd'), 'Windows spells it Path');
+});
+
+test('findOnPath requires the executable bit on POSIX', () => {
+  const dir = fresh();
+  writeFileSync(join(dir, 'graft'), '#!/bin/sh\n');
+  chmodSync(join(dir, 'graft'), 0o644);
+  assert.equal(findOnPath('graft', { PATH: dir }, 'linux'), undefined, 'not executable');
+  chmodSync(join(dir, 'graft'), 0o755);
+  // chmod is a no-op on Windows, where every file reads as non-executable here.
+  if (process.platform !== 'win32') assert.equal(findOnPath('graft', { PATH: dir }, 'linux'), join(dir, 'graft'));
 });

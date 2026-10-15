@@ -1,9 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-// Pin the MCP launch form so expectations don't depend on whether the machine
-// running the tests happens to have graft on PATH.
-process.env.GRAFT_MCP_NPX = '1';
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';

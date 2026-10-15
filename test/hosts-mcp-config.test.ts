@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // The MCP launch command is resolved from PATH at init time; pin it to the npx
 // form so these expectations are the same on every machine.
 process.env.GRAFT_MCP_NPX = '1';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { registerMcpConfigs, serverEntry } from '../src/hosts/mcp-config.js';
@@ -103,6 +103,27 @@ test('serverEntry prefers the installed binary and falls back to npx', () => {
     }
   } finally {
     if (saved !== undefined) process.env.GRAFT_MCP_NPX = saved;
+  }
+});
+
+// A global install on Windows is a `graft.cmd` shim, which a spawn without a shell
+// cannot see; the probe is a PATH lookup, so the shim resolves to the bare binary.
+test('serverEntry finds a graft shim on PATH without spawning', () => {
+  const saved = { npx: process.env.GRAFT_MCP_NPX, path: process.env.PATH };
+  delete process.env.GRAFT_MCP_NPX;
+  const bin = fresh();
+  try {
+    const win = process.platform === 'win32';
+    const shim = join(bin, win ? 'graft.cmd' : 'graft');
+    writeFileSync(shim, win ? '@echo off\r\n' : '#!/bin/sh\n');
+    if (!win) chmodSync(shim, 0o755);
+    process.env.PATH = bin;
+    assert.deepEqual(serverEntry(), { command: 'graft', args: ['mcp'] });
+    process.env.PATH = fresh();
+    assert.deepEqual(serverEntry(), { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] });
+  } finally {
+    if (saved.npx === undefined) delete process.env.GRAFT_MCP_NPX; else process.env.GRAFT_MCP_NPX = saved.npx;
+    if (saved.path === undefined) delete process.env.PATH; else process.env.PATH = saved.path;
   }
 });
 

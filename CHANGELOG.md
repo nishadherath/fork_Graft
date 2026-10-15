@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The MCP launcher finds graft on Windows.** `graft init` wrote
+  `npx -y @nanonets/graft mcp` even with graft installed, because the probe
+  spawned `graft` without a shell and could not see the `graft.cmd` shim. It
+  now looks graft up on PATH the way `trail` is looked up: a few stats, no
+  spawn, no timeout.
+
 ## 0.22.0
 
 graft is now **Trail-code**. The same build ships as two packages:

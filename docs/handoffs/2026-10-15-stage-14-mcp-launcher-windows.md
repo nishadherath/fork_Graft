@@ -2,7 +2,7 @@
 stage: "Stage 14: the MCP launcher is always the installed graft"
 model: claude-sonnet-5-5
 effort: medium
-status: in-progress
+status: done
 created: 2026-10-15
 from: "Fable 5.1 assessment session, 2026-10-15; option C chosen by the operator the same day"
 ---
@@ -88,7 +88,11 @@ converges on the next session.
 
 ## Work completed
 
-- Assessment; handoff `ff21675` (option B assumed), superseded by this revision.
+- Commit c4d4120 on main: option C. serverEntry() is the constant graft mcp; findOnPath added; GRAFT_MCP_NPX and the onPath option removed; the init command warns when graft is not on PATH; README and CHANGELOG updated; version 0.21.1-nishadherath.1.
+- Gate (Node 26.7.0): npm run build && npm test, 1,553 tests, 1,548 pass, 0 fail, 5 skipped.
+- sync-global ran; graft --version answers 0.21.1-nishadherath.1.
+- Branch fix/windows-mcp-launcher (from upstream/main, one commit, CHANGELOG.md, src/, test/ only): findOnPath fix, upstream npx fallback kept and unpinned. 71 tests pass across the four affected test files; the full suite was not run on this branch.
+- Advisory draft, untracked: docs/security/2026-10-15-graft-mcp-npx-launcher-advisory.txt. Its inline patch also pins the npx fallback, which differs from the branch.
 
 ## Unresolved questions
 

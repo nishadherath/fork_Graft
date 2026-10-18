@@ -8,7 +8,7 @@
 
 graft indexes code through three tiers today: a depth tier with hand-written extractors, a container tier for `.vue` files, and a breadth tier that loads WebAssembly grammars. Text files that agents read whole, such as the Markdown instruction files, JSON and YAML configuration, HTML templates, stylesheets, Android and Maven XML, Gradle and shell scripts, produce no nodes. We propose a fourth tier, `structured`, that gives each of them one node per addressable unit, with an exact line span, behind `graft build --structured`. A later, separate option would index binary documents (PDF, DOCX, ODT, EPUB, PPTX, ODP) through a cached text rendering.
 
-We would like the shape agreed before we open the code pull requests.
+We would like the shape agreed before we open the code pull requests. The CLI keeps the `graft` name and every graft command; release 0.23.0 also ships it as `trail`, which has a new layout (`.trail/cache/`). This proposal is for the graft tier set.
 
 ### What we propose
 
@@ -35,4 +35,4 @@ Embeddings or a vector index (lexical ranking already finds section text), image
 
 ### Shape of the pull requests
 
-Four stacked pull requests, each opened against the one before it: the structured core, then markup and build files, then edges, then documents. The core is based on `upstream/main`. A separate fix to the crux pass, which does not depend on any of them, goes in its own pull request. Each stacked pull request adds its changelog entry and README lines in the same commit as the feature, and each is checked with `npm run build && npm test`, which upstream CI runs on Node 20.
+Four stacked pull requests, each opened against the one before it: the structured core, then markup and build files, then edges, then documents. The core is based on `upstream/main`, which is release 0.23.0, and the branches will be rebased onto 0.23.0 before they are opened. A separate fix to the crux pass (issue #542), which does not depend on any of them, goes in its own pull request. Each stacked pull request adds its changelog entry and README lines in the same commit as the feature, and each is checked with `npm run build && npm test`, which upstream CI runs on Node 20.

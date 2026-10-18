@@ -2,9 +2,10 @@ Subject: [Advisory] @nanonets/graft: "graft init" writes an unpinned "npx -y" MC
 
 Date:     2026-10-15
 Product:  @nanonets/graft (Graft), MIT licence
-Upstream: https://github.com/NanoNets/context-graph-engine
-Versions: 0.21.1, and upstream main at commit fe30ead (checked 2026-10-15).
-          Earlier versions were not tested.
+Upstream: https://github.com/trailhq/Trail-Code (renamed from NanoNets/context-graph-engine)
+Versions: 0.21.1 through 0.23.0 (the probe is unchanged at the 0.22.0,
+          0.22.1 and 0.23.0 release commits, and at upstream main ead585b,
+          checked 2026-10-18). Earlier versions were not tested.
 Class:    Supply-chain exposure (CWE-1357, reliance on insufficiently
           trustworthy component; CWE-829, inclusion of functionality from
           untrusted control sphere), plus a logic fault (CWE-754, improper
@@ -42,6 +43,8 @@ at the start of each agent session.
 - All platforms: the fallback entry has no version pin.
 - Windows: the entry is the default, because the check always fails.
 - POSIX systems: the entry is written only when "graft" is not on PATH.
+- Trail brand (@trailhq/trail-code, release 0.23.0): upstream writes
+  "npx -y @trailhq/trail-code mcp" in the same way when the probe fails.
 
 Files that Graft writes with this entry include:
 

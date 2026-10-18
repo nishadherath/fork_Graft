@@ -91,6 +91,12 @@ that every session applies without being asked:
    English, no em-dashes, none of the persona's banned vocabulary.
    Upstream's own prose (README, comments) is left as it is unless the
    change touches the line.
+8. **The standing analysis brief.** The operator's six-question project
+   analysis instructions are recorded verbatim in the protocol, section
+   1.1. A session asked to analyse the project answers them in a dated
+   `docs/assessment-YYYY-MM-DD.md`. The newest is
+   `docs/assessment-2026-10-18.md`; the staged roadmap in its section 6
+   is the current plan, and its section 7 holds the open decisions.
 
 ## Daily commands
 

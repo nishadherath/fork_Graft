@@ -11,9 +11,13 @@ is binding.
 
 ## 1. Standing instructions, verbatim
 
-Recorded exactly as given. The one-off analysis request that accompanied
-them (six questions about the project) is answered in
-`docs/assessment-2026-10-11.md` and is not repeated here.
+Recorded exactly as given. The six-question analysis request that
+accompanies them in the operator's standard onboarding message is recorded
+in section 1.1 below. For this fork it was answered on 2026-10-13 by
+`docs/plan-file-type-indexing-2026-10-13.md` and on 2026-10-18 by
+`docs/assessment-2026-10-18.md`; the 2026-10-11 assessment an earlier
+version of this paragraph named belongs to the repository this protocol was
+seeded from and does not exist here.
 
 > You are a world leading engineer, architect, cloud engineer and AI research engineer. You have worked at Google, Google DeepMind, Anthropic, OpenAI, Amazon AWS and Microsoft at an L7 Principal Engineer and L8 Director Level. Over the last 4 decades, you have engineered and reverse engineered everything from hardware, device firmware, applications, operating systems, computers, phones, networks, cloud infrastructure and data centers. Your output code is clean, highly optimized, easy to read, easily extendable, well documented inside the source code and very easy to maintain. Beautiful, intuitive and user friendly UI/UX design is your passion. But your apps also provide a lot of technical and diagnostic information to the advanced users and developers. Your academic background in economics, psychology, neuroscience and behavioral sciences heavily influence your design approach. Your expertise in modern AI design, implementation and operation such as prompt caching and model switching dynamics, helps you design and build extremely token efficient systems using the cheapest AI models for the best quality output and spending the least tokens to achieve the best results.
 >
@@ -36,6 +40,36 @@ them (six questions about the project) is answered in
 > Automatically create a new session with the correct model and reasoning effort level set to take over every handoff without asking me to do it manually.  Make sure to write this to the project configuration so you don't forget in the future.
 >
 > Please record these instructions in the project directory, in a way that every new session in the project will automatically load these instructions.
+
+### 1.1 The project analysis brief, verbatim (recorded 2026-10-18)
+
+Given on 2026-10-18 with the instruction to record it so that every new
+session loads it; `AGENTS.md` rule 8 points here. A session asked to
+analyse the project answers the six questions in a dated
+`docs/assessment-YYYY-MM-DD.md`, with question 6's roadmap staged by model
+class and priced by section 6 of this document; the newest assessment is
+the current plan. The first paragraph's question (the project directory or
+`seed/`) is asked each time; this repository has no `seed/` directory.
+
+> Please deeply analyze the project directory or the seed/ directory. Ask me which one I want you to analyze.
+>
+> Please record these instructions in the project directory, in a way that every new session in the project will automatically load these instructions.
+>
+> Describe your understanding of:
+>
+> 1. What are this project's deliverables?
+>
+> 2. How does it all work?
+>
+> 3. What is your assessment of this project?
+>
+> 4. What is the status of this project?
+>
+> 5. What improvements do you propose?
+>
+> 6. Deeply contemplate and give me a list of improvements you recommend, prioritized as stages based on which AI model to use to do the work.
+>
+> Write your analysis into a markdown document at an appropriate location in the project repository, for posterity.
 
 ## 2. Model tiering on this project
 

@@ -39,17 +39,29 @@ them (six questions about the project) is answered in
 
 ## 2. Model tiering on this project
 
-The persona's section 3 applies. Prices are the Anthropic API list as
-snapshotted by the `claude-api` reference on 2026-10-06, in USD per
-million tokens; re-check them before quoting a projection older than a
-month. Cache reads are what a long Claude Code session mostly pays for.
+The persona's section 3 applies. Prices are the Anthropic API list from
+the live pricing page (`https://platform.claude.com/docs/en/about-claude/pricing.md`),
+fetched 2026-10-18, in USD per million tokens; re-check them before
+quoting a projection older than a month. Cache reads are what a long
+Claude Code session mostly pays for.
+
+Correction of 2026-10-18: the 2026-10-11 version of this table took its
+prices from the `claude-api` skill cache (2026-10-06). That cache listed
+the Sonnet 5.5 cache read at $0.20. The live page lists $0.10 (0.05x
+input), and states Haiku 5.5's cache read and its long-context tier.
+Do not use the skill cache alone for prices.
 
 | Class | Model id | Input | Output | Cache read | Use on this project for |
 |---|---|---|---|---|---|
-| Haiku | `claude-haiku-5-5` | 0.10 | 0.50 | assume 0.01 | Checklists with the harness as the oracle: dependency bumps, snapshot and fixture cleanup, doc drift, typo-class content fixes |
-| Sonnet | `claude-sonnet-5-5` | 2.00 | 10.00 | 0.20 | Scoped features inside one module: a new preflight check, a build-info endpoint, font self-hosting, structured data, test suites |
+| Haiku | `claude-haiku-5-5` | 0.10 (0.50 over 100K) | 0.50 (2.50 over 100K) | 0.01 (0.05 over 100K) | Checklists with the harness as the oracle: dependency bumps, snapshot and fixture cleanup, doc drift, typo-class content fixes |
+| Sonnet | `claude-sonnet-5-5` | 2.00 | 10.00 | 0.10 | Scoped features inside one module: a new preflight check, a build-info endpoint, font self-hosting, structured data, test suites |
 | Opus | `claude-opus-5-5` | 4.00 | 20.00 | 0.20 | Cross-module design and copy craft: hero and about restructure, deploy pipeline, major dependency migrations, admin extensions |
 | Fable | `claude-fable-5-1` | 10.00 | 50.00 | 0.25 | Whole-project assessment, adversarial acceptance one tier above the author, cost-model and tiering decisions |
+
+Haiku 5.5 is priced by prompt length. A request whose whole prompt is
+over 100,000 tokens (cache reads, cache writes and fresh input all
+count) pays the higher rates, shown in parentheses, for everything in that
+request. The other classes have one price at any length.
 
 Effort defaults: Haiku `medium`, Sonnet `medium` (raise to `high` for
 anything touching the admin server), Opus `high`, Fable `high`
@@ -130,8 +142,12 @@ Defaults for this repository, from the 2026-10-11 assessment session
 (240k context after about 60 tool calls on a read-heavy task): C grows
 roughly linearly from 30k to 150k over a 60-turn stage (average 90k),
 F about 3k, O about 1.5k. With the prices in section 2 that gives, per
-60-turn stage: Haiku about $0.10 to $0.30, Sonnet $2 to $4, Opus $4 to
-$8, Fable $8 to $16. Double the turns, double the cost. The session
+60-turn stage: Haiku about $0.40 to $0.80, Sonnet $2 to $4, Opus $4 to
+$8, Fable $8 to $16. The central values are Haiku $0.38, Sonnet $1.89,
+Opus $3.78 and Fable $8.10 (a per-turn simulation, 2026-10-18; the script
+is `scripts/project-cost.cjs` in the Malkovich repository). The Haiku
+range of 2026-10-11 ($0.10 to $0.30) left out its higher tier, which
+27 of the 60 turns pay. Double the turns, double the cost. The session
 usage tool reports the real context size; use it to replace C when
 projecting from inside a session.
 

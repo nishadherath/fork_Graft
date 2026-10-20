@@ -1,0 +1,1515 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>graft system map</title>
+<meta name="description" content="Interactive map of the graft fork: how a repository becomes a code graph and reaches coding agents, with every part tied to its source file.">
+<style>
+:root{
+  --bg:#f5f4f0;--panel:#fffefb;--node:#ffffff;--fg:#16181d;--muted:#454a53;--faint:#5f646d;
+  --line:#d6d3ca;--lane:#ecebe5;--focus:#1747c8;--fork:#16181d;--fork-ink:#fffefb;
+  --shadow:0 1px 2px rgba(22,24,29,.06),0 10px 28px rgba(22,24,29,.12);
+  --c-inputs:#4b5563;--c-select:#0f766e;--c-parse:#1d4ed8;--c-cache:#6d28d9;--c-artefacts:#a16207;
+  --c-refresh:#15803d;--c-deep:#be123c;--c-retrieval:#0e7490;--c-surfaces:#a21caf;--c-agents:#c2410c;--c-savings:#4d7c0f;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#101217;--panel:#171a21;--node:#1a1e26;--fg:#ecebe6;--muted:#b4b9c2;--faint:#9aa0ab;
+    --line:#2e333e;--lane:#14171d;--focus:#8fb3ff;--fork:#ecebe6;--fork-ink:#101217;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45);
+    --c-inputs:#a3aab5;--c-select:#2dd4bf;--c-parse:#7aa7ff;--c-cache:#b49cfc;--c-artefacts:#f5b83d;
+    --c-refresh:#4ade80;--c-deep:#fb7185;--c-retrieval:#22d3ee;--c-surfaces:#ea86f7;--c-agents:#fb923c;--c-savings:#a3e635;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101217;--panel:#171a21;--node:#1a1e26;--fg:#ecebe6;--muted:#b4b9c2;--faint:#9aa0ab;
+  --line:#2e333e;--lane:#14171d;--focus:#8fb3ff;--fork:#ecebe6;--fork-ink:#101217;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.45);
+  --c-inputs:#a3aab5;--c-select:#2dd4bf;--c-parse:#7aa7ff;--c-cache:#b49cfc;--c-artefacts:#f5b83d;
+  --c-refresh:#4ade80;--c-deep:#fb7185;--c-retrieval:#22d3ee;--c-surfaces:#ea86f7;--c-agents:#fb923c;--c-savings:#a3e635;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;display:grid;grid-template-rows:auto auto 1fr;height:100vh;overflow:hidden}
+::selection{background:var(--fg);color:var(--bg)}
+code,.mono{font-family:ui-monospace,"Cascadia Mono","Cascadia Code",Consolas,"SFMono-Regular",Menlo,monospace}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:14px 20px 8px}
+.brand h1{margin:0;font-size:20px;font-weight:680;letter-spacing:-.015em;line-height:1.2}
+.brand p{margin:3px 0 0;color:var(--muted);font-size:13.5px;max-width:72ch}
+.head-tools{display:flex;gap:8px;align-items:center;flex:none}
+.search{position:relative}
+.search input{width:270px;font:inherit;font-size:13.5px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-height:32px}
+.search input::placeholder{color:var(--faint);opacity:1}
+.search input:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.search ul{position:absolute;right:0;top:calc(100% + 6px);z-index:20;width:340px;margin:0;padding:6px;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:360px;overflow:auto}
+.search li{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+.search li[aria-selected="true"],.search li:hover{background:var(--lane)}
+.search li .ll{margin-left:auto;color:var(--faint);font-size:12px;white-space:nowrap}
+.search li.none{color:var(--muted);cursor:default}
+button{font:inherit;font-size:12.5px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 10px;min-height:30px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;line-height:1.2}
+button:hover{border-color:var(--faint)}
+button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+button:disabled{cursor:not-allowed;color:var(--faint);border-style:dashed}
+button svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:6px 20px 10px;border-bottom:1px solid var(--line)}
+.chips{display:contents}
+.bar{column-gap:6px}
+.toggles{padding-left:12px}
+.chips .lbl,.toggles .lbl{font-size:12px;color:var(--muted);margin-right:2px}
+.chip{border-radius:999px;padding:2px 9px 2px 7px;min-height:26px;font-size:12px}
+.chip[aria-pressed="false"]{color:var(--muted);background:transparent;text-decoration:line-through;text-decoration-color:var(--faint)}
+.chip[aria-pressed="false"] .sw{background:transparent;box-shadow:inset 0 0 0 1.5px var(--c)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
+.toggles{display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.toggle[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.zoom{display:inline-flex;gap:4px}
+.zoom button{padding:4px 8px}
+main.stage{position:relative;overflow:hidden;min-height:0}
+#canvas{position:absolute;inset:0;outline:none;cursor:grab}
+#canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--focus)}
+#canvas.dragging{cursor:grabbing}
+#svg{width:100%;height:100%;display:block;touch-action:none;-webkit-user-select:none;user-select:none}
+.dotgrid{fill:var(--line)}
+.lane{fill:var(--lane);opacity:.55}
+.lane-title{font-size:12.5px;font-weight:650;fill:var(--fg)}
+.group-box{fill:var(--c);fill-opacity:.045;stroke:var(--c);stroke-opacity:.55;stroke-width:1.2;stroke-dasharray:5 4}
+.group-title{font-size:12.5px;font-weight:650;fill:var(--fg)}
+.group-note{font-size:11px;fill:var(--faint)}
+.node{cursor:pointer;transition:opacity .2s cubic-bezier(.16,1,.3,1)}
+.node:focus{outline:none}
+.node .body{fill:var(--node);stroke:var(--c);stroke-width:1.25;transition:stroke-width .15s}
+.node .tint{fill:var(--c);opacity:.075;pointer-events:none}
+.node .dot{fill:var(--c)}
+.node .ring{fill:none;stroke:var(--focus);stroke-width:2.5;opacity:0}
+.node:focus-visible .ring{opacity:1}
+.node:hover .body{stroke-width:2}
+.node.sel .body{stroke-width:2.75}
+.node .t{font-size:13.5px;font-weight:620;fill:var(--fg)}
+.node .t.mono{font-size:12.5px;font-weight:600}
+.node.tool .t.mono{font-size:11.75px}
+.node .s{font-size:11.25px;fill:var(--faint)}
+.node .s.mono{font-size:10.5px}
+.node .m{font-size:11px;fill:var(--faint);font-weight:600}
+.node .fk{fill:none;stroke:var(--fork);stroke-width:1.2;stroke-dasharray:3 3;opacity:.6}
+.ftag rect{fill:var(--fork)}
+.ftag text{fill:var(--fork-ink);font-size:9px;font-weight:750;letter-spacing:.07em}
+.edge{transition:opacity .2s cubic-bezier(.16,1,.3,1)}
+.edge .ln{fill:none;stroke:var(--c);stroke-width:1.35;opacity:.5}
+.edge.c .ln{stroke-dasharray:5 4}
+.edge.on .ln{stroke-width:2.3;opacity:1}
+.elabel{display:none;font-size:10.5px;font-weight:550;fill:var(--fg);paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
+.elabel.on{display:inline}
+svg.focusing .node:not(.on){opacity:.26}
+svg.focusing .edge:not(.on){opacity:.07}
+svg.searching .node:not(.match){opacity:.3}
+.node.match .ring{opacity:1;stroke:var(--fg);stroke-dasharray:3 3}
+svg.forkmode .node:not(.fork){opacity:.18}
+svg.forkmode .edge:not(.fe){opacity:.05}
+svg.forkmode .node.fork .fk{opacity:1;stroke-width:2.2}
+.node.off,.edge.off{opacity:.06 !important;pointer-events:none}
+svg.flowing .edge .ln{stroke-dasharray:4 7;animation:flow 1.15s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-22}}
+.card{position:absolute;top:12px;right:12px;bottom:12px;width:min(372px,calc(100% - 24px));background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:auto;padding:16px 20px 22px;scrollbar-color:var(--line) transparent;animation:cardIn .26s cubic-bezier(.16,1,.3,1)}
+@keyframes cardIn{from{opacity:0;transform:translateX(14px)}}
+.card .close{position:sticky;top:0;float:right;margin:-4px -8px 0 8px;padding:4px 6px;background:var(--panel)}
+.card .tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:2px}
+.lchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.fchip{font-size:10.5px;font-weight:750;letter-spacing:.06em;background:var(--fork);color:var(--fork-ink);border-radius:999px;padding:2px 8px}
+.card h2{font-size:19px;line-height:1.25;margin:8px 0 2px;letter-spacing:-.012em;outline:none;overflow-wrap:anywhere}
+.card .sub{margin:0;color:var(--muted);font-size:13px}
+.card h3{font-size:12.5px;font-weight:650;color:var(--muted);margin:18px 0 6px}
+.card p{margin:0}
+.card ul{margin:0;padding-left:18px}
+.card li{margin:5px 0}
+.card li::marker{color:var(--faint)}
+.card code{font-size:.86em;background:var(--lane);border-radius:4px;padding:1px 4px;overflow-wrap:anywhere}
+.card ul.files{list-style:none;padding:0}
+.card ul.conn{list-style:none;padding:0}
+.card ul.conn li{margin:4px 0}
+.card ul.conn button{width:100%;justify-content:flex-start;text-align:left;border-radius:8px;padding:6px 8px;gap:8px}
+.card ul.conn .cl{color:var(--faint);font-size:11.5px;margin-left:auto;text-align:right}
+.legend{position:absolute;left:12px;bottom:12px;max-width:320px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:8px 14px 10px;font-size:12.5px}
+.legend summary{cursor:pointer;font-weight:650;padding:2px 0}
+.legend summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+.legend ul{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.legend li{display:flex;align-items:center;gap:6px}
+.legend .keys{margin:10px 0 0;display:grid;gap:6px}
+.legend .keys div{display:flex;align-items:center;gap:8px}
+.legend .keys svg{flex:none}
+.legend .help{margin:10px 0 0;color:var(--muted)}
+.legend .meta{margin:8px 0 0;color:var(--faint);font-size:11.5px}
+@media (max-width:1180px){
+  .brand p{max-width:52ch}
+  .search input{width:220px}
+  .card{width:340px}
+}
+@media (prefers-reduced-motion:reduce){
+  svg.flowing .edge .ln{animation:none}
+  .node,.edge,.node .body{transition:none}
+  .card{animation:none}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>graft system map</h1>
+    <p>How this fork of graft turns a repository into a code graph and hands it to coding agents. Select a part for its source file, facts and limits.</p>
+  </div>
+  <div class="head-tools">
+    <div class="search" role="search">
+      <label for="q" class="sr-only">Find a part by name</label>
+      <input id="q" type="text" placeholder="Find a part  ( / )" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="q-list" aria-autocomplete="list">
+      <ul id="q-list" role="listbox" aria-label="Matching parts" hidden></ul>
+    </div>
+    <button id="theme" type="button" aria-pressed="false">Dark theme</button>
+  </div>
+</header>
+<nav class="bar" aria-label="Diagram controls">
+  <div class="chips" role="group" aria-label="Filter by layer" id="chips"><span class="lbl" aria-hidden="true">Layers</span></div>
+  <div class="toggles">
+    <button id="forkBtn" class="toggle" type="button" aria-pressed="false">Fork additions only</button>
+    <button id="flowBtn" class="toggle" type="button" aria-pressed="false">Animate data flow</button>
+    <div class="zoom" role="group" aria-label="Zoom">
+      <button id="zout" type="button" aria-label="Zoom out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10"/></svg></button>
+      <button id="zin" type="button" aria-label="Zoom in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M8 3v10"/></svg></button>
+      <button id="zfit" type="button" aria-label="Fit the whole diagram"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>Fit</button>
+    </div>
+  </div>
+</nav>
+<main class="stage">
+  <div id="canvas" tabindex="0" role="group" aria-label="System diagram. Arrow keys pan, plus and minus zoom, 0 fits the width. Tab into the parts; on a part, arrow keys move to the nearest part and Enter opens its detail card.">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg" aria-label="graft system diagram">
+      <defs id="defs">
+        <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle class="dotgrid" cx="1" cy="1" r="1"/></pattern>
+      </defs>
+      <g id="vp">
+        <rect x="-3000" y="-3000" width="9000" height="8000" fill="url(#dots)" aria-hidden="true"/>
+        <g id="gBack" aria-hidden="true"></g>
+        <g id="gEdges" aria-hidden="true"></g>
+        <g id="gNodes"></g>
+        <g id="gLabels" aria-hidden="true"></g>
+      </g>
+    </svg>
+  </div>
+  <details class="legend" id="legend" open>
+    <summary>Legend</summary>
+    <ul id="legend-layers"></ul>
+    <div class="keys">
+      <div><svg width="40" height="10" aria-hidden="true"><path d="M2 5h32" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M32 1l6 4-6 4z" fill="currentColor"/></svg><span>Data, from producer to consumer</span></div>
+      <div><svg width="40" height="10" aria-hidden="true"><path d="M2 5h32" stroke="currentColor" stroke-width="1.6" stroke-dasharray="5 4" fill="none"/><path d="M32 1l6 4-6 4z" fill="currentColor"/></svg><span>Trigger or call</span></div>
+      <div><svg width="40" height="18" aria-hidden="true"><rect x="3" y="3" width="34" height="12" rx="4" fill="none" stroke="currentColor" stroke-dasharray="3 3"/><rect x="18" y="0" width="20" height="8" rx="4" fill="currentColor"/></svg><span>Fork addition, tagged FORK</span></div>
+    </div>
+    <p class="help">Drag or use arrow keys to pan; wheel, pinch or <kbd>+</kbd> <kbd>-</kbd> to zoom; <kbd>0</kbd> fits the width; <kbd>/</kbd> searches; <kbd>Esc</kbd> closes the card.</p>
+    <p class="meta" id="legend-meta"></p>
+  </details>
+  <aside id="card" class="card" aria-labelledby="card-title" hidden>
+    <button class="close" id="cardClose" type="button" aria-label="Close the detail card"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+    <div id="card-body"></div>
+  </aside>
+  <p id="live" class="sr-only" aria-live="polite"></p>
+</main>
+<script>
+(function () {
+"use strict";
+
+/* ---------------------------------------------------------------------------
+ * The model. Every node carries the source files its facts come from. Facts were
+ * read from those files on 2026-10-21 (fork version 0.21.1-nishadherath.1, main
+ * 6e46fce) and from docs/assessment-2026-10-18.md sections 2 and 8.
+ * Backticks in a string mark code; the card renders them as <code>.
+ * ------------------------------------------------------------------------- */
+
+var LAYERS = [
+  { id: "inputs", name: "Inputs" },
+  { id: "select", name: "File selection" },
+  { id: "parse", name: "Parse tiers" },
+  { id: "cache", name: "Caches and freshness" },
+  { id: "artefacts", name: "Graph artefacts" },
+  { id: "refresh", name: "Refresh loop" },
+  { id: "deep", name: "Deep pass" },
+  { id: "retrieval", name: "Retrieval" },
+  { id: "surfaces", name: "Surfaces" },
+  { id: "agents", name: "Agents" },
+  { id: "savings", name: "Token savings" }
+];
+var LAYER = {};
+LAYERS.forEach(function (l) { LAYER[l.id] = l; });
+
+function N(id, layer, title, sub, files, resp, facts, limits, opts) {
+  var n = { id: id, layer: layer, title: title, sub: sub, files: files, resp: resp, facts: facts || [], limits: limits || [] };
+  if (opts) for (var k in opts) n[k] = opts[k];
+  return n;
+}
+var FORK = { fork: true };
+
+var NODES = [
+  /* Inputs */
+  N("I1", "inputs", "Repository files", "the working tree, read as text", ["src/ingest/fs.ts", "src/util/source.ts"],
+    "The bytes graft indexes: every file in the working tree that the walk admits. Each build reads and hashes every admitted file; only the parse is skipped when the bytes are unchanged.",
+    ["`graft build [dir]` takes the repository root, default `.`",
+     "A file in an unsupported encoding (UTF-16BE) is skipped and recorded, never an error",
+     "Drift is measured against bytes in the working tree, so uncommitted, staged and committed edits look the same",
+     "`ask --source` and `check` read these files directly"],
+    ["Symbolic links inside the tree are not followed; a symlinked root is unwrapped once"]),
+  N("I2", "inputs", "Git visibility", "git ls-files", ["src/ingest/fs.ts"],
+    "Decides which paths exist as far as graft is concerned. In a Git worktree the list comes from Git, so ignore files, negation and global excludes apply exactly as Git applies them.",
+    ["Command: `git ls-files --cached --others --exclude-standard -z`",
+     "Tracked files are included even when an ignore rule matches them",
+     "Outside Git, a plain filesystem walk applies the same skip rules",
+     "`--follow-submodules` and `--follow-nested-repos` cross the repository boundary; both are off by default"],
+    ["`--include-dir` lifts only graft's own skip list, never Git's ignore rules",
+     "Uninitialised submodules and ignored nested clones stay absent either way"]),
+  N("I3", "inputs", "Flags and env twins", "CLI flags, GRAFT_* variables", ["src/cli.ts", "src/util/state.ts"],
+    "The user's switches. Most build flags have an environment twin, so hooks and the MCP server, which never see a flag, behave like the build that set them.",
+    ["`--structured` or `GRAFT_STRUCTURED=1`",
+     "`--documents` or `GRAFT_DOCUMENTS=1`, with `GRAFT_DOCUMENT_MAX_BYTES`",
+     "`--reasoning <level>` or `GRAFT_REASONING`",
+     "`--no-refresh` or `GRAFT_NO_REFRESH=1`; `GRAFT_REFRESH=hash` distrusts stat",
+     "`--deep`, `--deep-documents` or `GRAFT_DEEP_DOCUMENTS=1`, `--lsp`, `-e`",
+     "`GRAFT_DIR` moves the output directory"],
+    ["An extension given with `-e` that no tier claims is ignored with a warning that lists the supported set"]),
+  N("I4", "inputs", "Persisted choices", ".graft/config.json", ["src/util/state.ts", "src/graph/source-files.ts"],
+    "Remembers the walk choices of the last explicit build, so the freshness probe, `check` and the automatic refresh enumerate the same files the build did.",
+    ["Holds the structured and documents opt-ins, `--include-dir` names, and the submodule and nested-repository choices",
+     "An environment twin wins over the persisted value when it is set",
+     "`--only-dir` is recorded in the fingerprint instead, never in the source repository"],
+    [], { monoSub: true }),
+
+  /* File selection */
+  N("S1", "select", "Walk", "walkDir, one enumeration", ["src/ingest/fs.ts", "src/graph/build.ts"],
+    "Enumerates candidate paths once per build. Source extraction, scope discovery and Go module resolution all read the same list, so they cannot disagree.",
+    ["Git list when available, filesystem walk otherwise",
+     "The same walk runs in the build, the freshness probe and `check`",
+     "A symlinked input root is unwrapped once; emitted paths stay on the requested root"],
+    ["A file deleted from the working tree but still in the index is dropped"]),
+  N("S2", "select", "Skip directories", "SKIP_DIRS", ["src/ingest/fs.ts"],
+    "Drops dependency and build output, which is never hand-written source.",
+    ["`node_modules`, `dist`, `build`, `_build`, `out`, `target`, `vendor`, `coverage`, `__pycache__`, `venv`",
+     "Any path segment with one of these names skips the whole path",
+     "`_build` joined the list after one repository indexed 4,484 vendored files against 121 hand-written ones"],
+    ["`--include-dir <name>` removes a name from the list for this repository"]),
+  N("S3", "select", "Dot-path rule", ".github/workflows admitted", ["src/ingest/fs.ts"],
+    "Every dot-file and dot-directory is skipped. The fork adds one admission: YAML under `.github/workflows` when the structured tier is on.",
+    ["The skip rule is upstream's; the admission is the fork's (operator decision D7)",
+     "`STRUCTURED_DOT_PATHS` holds `.github/workflows` only",
+     "Only `.yml` and `.yaml` files below the prefix are admitted; segments below it follow the ordinary rules"],
+    ["A dot-directory is never overridable, not even with `--include-dir`",
+     "The rest of `.github/` stays out"], FORK),
+  N("S4", "select", "1 MB file cap", "MAX_FILE_BYTES", ["src/ingest/fs.ts"],
+    "Files above 1,000,000 bytes are treated as generated or vendored and dropped by the walk.",
+    ["`MAX_FILE_BYTES = 1_000_000`",
+     "Checked per file by its `lstat` size, after the path rules"],
+    ["An oversized code file is dropped without a warning; only documents are named"]),
+  N("S5", "select", "25 MB documents cap", "GRAFT_DOCUMENT_MAX_BYTES", ["src/ingest/fs.ts", "src/graph/source-files.ts", "src/graph/build.ts"],
+    "Documents get their own cap, because a PDF or a deck is routinely past 1 MB and still worth indexing.",
+    ["`DOCUMENT_MAX_BYTES = 25_000_000`; `GRAFT_DOCUMENT_MAX_BYTES` overrides it",
+     "Applies only when the documents tier is on; every other file keeps the 1 MB cap",
+     "Each skipped document gets a warning line naming its size and the cap"],
+    ["A value that is not a positive whole number is ignored with a warning"], FORK),
+  N("S6", "select", "Key-material denylist", "never indexed as content", ["src/graph/source-files.ts"],
+    "Makes “never index secrets as content” a checked fact, whichever tier would otherwise claim the extension.",
+    ["Denied: `.pem`, `.key`, `.p12`, `.pfx`, `.jks`, `.keystore`, `.crt`, `.cer`",
+     "No tier claims these today; the rule guards future tiers and `-e` choices",
+     "A structured key whose name suggests a credential keeps no value in its signature or search text"],
+    [], FORK),
+  N("S7", "select", "Lockfiles, minified assets", "kept out of the structured tier", ["src/graph/structured/index.ts"],
+    "Keeps machine-written files out of the structured tier: their units are noise and a bundle's spans would all be line 1.",
+    ["Lockfiles by name: `package-lock.json`, `npm-shrinkwrap.json`, `pnpm-lock.yaml`",
+     "Minified: `.min.css`, `.min.json`, `.min.html`, `.min.htm`, `.min.svg`",
+     "`.min.js` stays with the depth tier, whose behaviour is unchanged"],
+    [], FORK),
+  N("S8", "select", "Directory scope", "--only-dir, --include-dir", ["src/graph/source-files.ts", "src/ingest/fs.ts"],
+    "Narrows or widens the walk for one repository.",
+    ["`--only-dir <path>` keeps files at or under the prefix; repeatable; honoured by the wiring walk and the deep concept pass",
+     "The `--only-dir` list is stored in the fingerprint, so the query-path probe walks the same set",
+     "`--include-dir <name>` lifts a `SKIP_DIRS` entry and is persisted"],
+    ["Dot-directories cannot be included"]),
+  N("S9", "select", "Opt-in tiers", "--structured, --documents", ["src/graph/source-files.ts", "src/util/state.ts"],
+    "A file is a source file only when some tier claims its extension. Structured and document extensions join the claim only when their tier is on.",
+    ["Depth, container and breadth extensions are always claimed",
+     "Structured extensions only with `--structured`; documents only with `--structured --documents`",
+     "`supportedExtensions` is the single answer to what `-e` supports"],
+    ["Documents need the structured tier on as well"], FORK),
+  N("S10", "select", "Source set", "path, size and mtime per file", ["src/graph/source-files.ts"],
+    "The final file list with each file's `(size, mtimeMs)`: the currency of both the freshness probe and the extraction cache.",
+    ["Paths are repo-relative POSIX (`relPosix`) on every platform, the same form node ids use",
+     "The output directory `graft/` is excluded",
+     "Files that vanish between the walk and the stat are dropped"]),
+
+  /* Parse tiers */
+  N("P0", "parse", "Tier dispatch", "first tier that claims wins", ["src/graph/build.ts"],
+    "Sends each file to exactly one tier in a fixed order, after warming the WebAssembly grammars the repository needs.",
+    ["Order: documents (converted before the loop), then depth, container, breadth, structured",
+     "Every file is read and hashed on every build; only the parse is memoised",
+     "A parse failure is recorded with the file's hash, so the probe does not flag the file on every query"],
+    ["The parse loop is synchronous; grammar loading and document conversion happen before it"]),
+  N("P1", "parse", "Document converters", "six formats to text renderings", ["src/graph/structured/documents/index.ts", "src/graph/structured/documents/cache.ts"],
+    "Turns a binary document (PDF, DOCX, ODT, EPUB, PPTX or ODP) into a deterministic text rendering with a marker line per page, slide or chapter; the Markdown scanner then indexes it as sections.",
+    ["`pdfjs-dist` for PDF; `fflate` plus a hand-written XML scanner for the zip formats",
+     "Both are optional dependencies loaded lazily; a missing one is named once per package",
+     "Converted one at a time, before the synchronous loop",
+     "A document with no text layer gets a warning; only its page markers are indexed"],
+    ["Opt-in twice: `--structured` and `--documents`",
+     "Pages come only from what the file records"], FORK),
+  N("P2", "parse", "Depth tier", "native tree-sitter, hand-written", ["src/graph/extract.ts"],
+    "Full-fidelity extraction for the main languages: definitions, scope-aware bindings, calls, imports and inheritance.",
+    ["TypeScript, JavaScript, Python, Go, Java, Kotlin, Swift, PHP and R",
+     "Nodes carry `origin: \"ast\"`",
+     "`extract.ts` is 2,605 lines (2026-10-18)"],
+    ["Native grammars need a compiled binding; on this machine the Kotlin one is copied from the global install"]),
+  N("P3", "parse", "Container tier", ".vue script blocks", ["src/graph/container.ts", "src/graph/build.ts"],
+    "A wrapper grammar locates the embedded script block, which goes to the depth-tier extractor with spans shifted back to the host file.",
+    ["Checked before the breadth tier, so a later grammar claiming `.vue` cannot shadow it",
+     "Wrapper grammars are warmed once before the loop"]),
+  N("P4", "parse", "Breadth tier", "tags.scm over WASM grammars", ["src/graph/generic.ts"],
+    "The long tail of languages: a generic `tags.scm` query over a grammar shipped in `tree-sitter-wasm`.",
+    ["Signature-only nodes and bare edges, no scope-aware binding",
+     "Emits the tags vocabulary kinds, including `module`, `constant` and `variable`",
+     "Nodes carry `origin: \"generic\"`"],
+    ["Edges are name-based, so they resolve less precisely than the depth tier's"]),
+  N("P5", "parse", "Structured tier", "13 families, exact spans", ["src/graph/structured/index.ts"],
+    "Documents and configuration as addressable units: a section per Markdown heading, a key per dotted path, elements, selectors and build tasks, each with an exact line span.",
+    ["Families: Markdown, JSON, YAML, TOML, INI, CSS, HTML, XML, Gradle, Make, Dockerfile, CMake, shell",
+     "Markdown and TOML use hand-written scanners; JSON, YAML, INI and the others use bundled WASM grammars",
+     "Keys go four levels deep, at most 500 per file, shallowest first",
+     "New node kinds: `section`, `key`, `element`, `selector`, `task`"],
+    ["Opt-in: `--structured` or `GRAFT_STRUCTURED=1`, persisted",
+     "XML has no grammar (the bundled one crashes on every input), so a scanner reads it"], FORK),
+  N("P6", "parse", "Edge resolution", "a unique match or nothing", ["src/graph/resolve.ts", "src/graph/build.ts"],
+    "Turns the raw edges every tier recorded into edges between node ids, after all files are extracted, because a target usually lives in another file. The build then writes the graph, the cards, the index and the ask sidecar.",
+    ["Relations: `contains`, `calls`, `imports`, `references`, `implements`, `extends`",
+     "Confidence: `extracted` or `inferred`; opt-in `--lsp` can promote an edge to `lsp_resolved` or `lsp_dispatch`",
+     "Go imports resolve against the repository's `go.mod` modules"],
+    ["An ambiguous or absent target produces no edge: a wrong edge is worse than none"]),
+  N("P7", "parse", "Structured edges", "code to config and docs", ["src/graph/resolve-structured.ts", "src/graph/code-refs.ts"],
+    "Deterministic edges between the structured tier and code, so `blast` and `ask` can follow a key or a section to what uses it.",
+    ["A TypeScript, JavaScript or Python member chain or string literal that spells a key path of 2 or more segments references the key (`inferred`)",
+     "Markdown links reference the section or file they name",
+     "HTML `src` and stylesheet `href` import the file; `class` references the rule `.class`",
+     "`npm run x`, `npm test` and `node scripts/x.mjs` reference the nearest `package.json` script key or the file"],
+    ["A key path matches as written or with its file's root segment removed, never as a deeper suffix",
+     "Ambiguous matches produce no edge"], FORK),
+
+  /* Caches and freshness */
+  N("C1", "cache", "Fingerprint probe", "one stat per file", ["src/graph/fingerprint.ts"],
+    "The cheap “has the working tree moved?” check that gates every query's rebuild: a walk plus one stat per source file, no parsing.",
+    ["About 3 ms for 280 files (measured, per the source comment)",
+     "Only files whose `(size, mtimeMs)` changed are read and hashed, so a touch or an identical checkout costs nothing",
+     "Reports `changed`, `added` and `removed`",
+     "Documents are hashed as bytes, never decoded"],
+    ["A same-length edit inside one mtime tick is invisible to stat; `GRAFT_REFRESH=hash` hashes every file",
+     "No fingerprint means unknown, which is treated as a rebuild"]),
+  N("C2", "cache", "Extraction cache", "keyed by content hash", ["src/graph/extract-cache.ts"],
+    "Per-file memo of Tier-1 output. An unchanged file replays its last parse instead of re-running tree-sitter, which makes a rebuild cheap enough to run before every query.",
+    ["Entry: `size`, `mtimeMs`, sha256 `hash`, `nodes`, `rawEdges`, optional `error`",
+     "Parsing costs about 4.6 ms per file; reading about 0.05 ms",
+     "Written before enrichment, so it only ever holds pristine Tier-1 output",
+     "An incremental build must produce a byte-identical `wiring.json` to a cold one"],
+    ["`--no-reuse` re-parses every file",
+     "Without an extractor stamp there is no memo at all: slow, never wrong"]),
+  N("C3", "cache", "Extractor stamp", "hash of the extractor code", ["src/graph/extract-cache.ts"],
+    "Identity of the code that produced the cached parses. A change to any extraction code moves the stamp and empties the memo.",
+    ["sha256 over every module in `graph/`, `graph/structured/` and `graph/structured/documents/`, plus the package version; first 16 hex characters",
+     "The stamp is in the file name, so two graft versions on one repository keep separate memos",
+     "Older sidecars are pruned to the newest 2"],
+    ["Editing any `graph/` module costs one cold rebuild, always in the safe direction"]),
+  N("C4", "cache", "Rendering cache", "keyed by the binary's hash", ["src/graph/structured/documents/cache.ts"],
+    "Converts each document whose rendering is missing or whose extraction is not cached, writes the rendering atomically, and deletes renderings no current binary hashes to.",
+    ["Rendering and extraction share one key, the binary's sha256, so a replayed extraction always has its rendering",
+     "A converter change moves the extractor stamp, which refreshes every rendering",
+     "Never reads a binary as text"],
+    ["With the documents tier off, every rendering is pruned"], FORK),
+
+  /* Graph artefacts */
+  N("A1", "artefacts", "wiring.json", "graft/.graph/", ["src/graph/write.ts", "src/graph/types.ts"],
+    "The machine-only wiring graph every retrieval command reads. Agents reach it through graft, never by opening it.",
+    ["Node: `id`, `name`, `kind`, `path`, `span`, `signature`, `body_hash`, `summary`, `crux`",
+     "Edge: `source`, `target`, `relation`, `confidence`",
+     "Sorted and written atomically (temporary file, then rename); `body_text` is stripped",
+     "This repository on 2026-10-18: 2,882 nodes after a refresh"],
+    ["Doubles as the meaning cache: an unchanged `body_hash` keeps its summary"], { mono: true, monoSub: true }),
+  N("A2", "artefacts", "Per-file cards", "graft/<path>.md", ["src/graph/cards.ts"],
+    "One small Markdown card per source file, mirroring the source tree, listing each symbol with its `L<start>-L<end>` span and a one-line description.",
+    ["The one-liner is the deep-pass summary when present, otherwise the deterministic signature",
+     "A grep or a cat lands on the card: about 150 tokens instead of the whole file",
+     "A pure projection, no model work",
+     "Fork fix: files sharing a stem keep their extension (`config.yml.md`)"],
+    ["Edges are not in the cards; `graft ask` reaches them"], { h: 40, monoSub: true }),
+  N("A3", "artefacts", "INDEX.md", "graft/", ["src/graph/cards.ts", "src/claude/hooks.ts"],
+    "The index of cards and concepts. The SessionStart hook reads it to give the agent its opening orientation.",
+    ["Written by an explicit `graft build` or the Stop-hook rebuild, not by the query-path refresh"],
+    [], { h: 40, mono: true, monoSub: true }),
+  N("A4", "artefacts", "ask-index.json", "graft/.cache/", ["src/ask/index-file.ts"],
+    "Build-time sidecar for `ask`: token count bags per node plus corpus document frequencies, so a query reads counts instead of re-tokenising every node.",
+    ["Re-tokenisation was about 45% of query time at 32k nodes (profiled)",
+     "Build and query call the same `tokenize`, so the sidecar cannot drift from `ask`'s own maths",
+     "Concept documents are tokenised live at query time"],
+    [], { h: 40, mono: true, monoSub: true }),
+  N("A5", "artefacts", "extract.*.json", "graft/.cache/", ["src/graph/extract-cache.ts"],
+    "The extraction cache on disk, one file per extractor stamp.",
+    ["Multi-megabyte on a large repository",
+     "Keeps `body_text`, which `wiring.json` strips, so the ask sidecar has a body for every node"],
+    ["Gitignored and regenerable at any time"], { h: 40, mono: true, monoSub: true }),
+  N("A6", "artefacts", "fingerprint.*.json", "graft/.cache/", ["src/graph/fingerprint.ts"],
+    "The probe's sidecar: a projection of the extraction cache without the parse results.",
+    ["Positional `[size, mtimeMs, hash]` per file: about 10 KB against the multi-megabyte parse cache",
+     "Records the extractor stamp and the `--only-dir` list"],
+    ["A missing file degrades to a rebuild, never to a wrong answer"], { h: 40, mono: true, monoSub: true }),
+  N("A7", "artefacts", "<sha256>.txt", "graft/.graph/docs/", ["src/graph/structured/documents/cache.ts"],
+    "Cached text renderings of documents. Spans and pointers are lines of the rendering, so `ask --source` and `grep` print them verbatim.",
+    ["Named by the sha256 of the binary",
+     "A marker line per page, slide or chapter",
+     "The node keeps the binary's path; its signature names the page or slide and the rendering"],
+    [], { h: 40, mono: true, monoSub: true, fork: true }),
+  N("A8", "artefacts", "Concept nodes", "graft/<slug>.md", ["src/context/build.ts", "src/context/node-file.ts"],
+    "Curated Markdown nodes from the deep pass: subsystems, notable files and cross-cutting concepts, each attributed to its source files.",
+    ["Human notes in an existing node are preserved when it is rewritten",
+     "Ranked by `ask` alongside wiring symbols"],
+    ["Exist only after `graft build --deep`"], { h: 40, monoSub: true }),
+  N("A9", "artefacts", "manifest.json", "graft/", ["src/context/node-file.ts", "src/ai/llm/metered.ts"],
+    "Records the deep pass: the source files and their hashes, the nodes and the sources each rests on, and in the fork the pass's token usage.",
+    ["Fields: `version`, model label, `repoDigest`, `files`, `nodes`",
+     "Fork: `deepUsage` holds calls, uncached and cached input, output and the reasoning share",
+     "Tokens only, no prices"],
+    [], { h: 40, mono: true, monoSub: true }),
+  N("A10", "artefacts", "summaries.json", "graft/.cache/", ["src/context/build.ts"],
+    "Caches per-file summaries and synthesis batches by content, so an unchanged file or batch costs no call.",
+    ["Two maps: `summaries` and `synth`",
+     "Written atomically, so a kill mid-write cannot leave it unparseable"],
+    [], { h: 40, mono: true, monoSub: true }),
+  N("A11", "artefacts", "stats.json", "graft/.cache/", ["src/util/state.ts", "src/claude/statusline.ts", "src/claude/sync-run.ts"],
+    "Hook-maintained state: whether the graph is dirty, whether a sync is running, and the counts the statusline shows.",
+    ["The PostToolUse edit hook sets `dirty`; the Stop-hook rebuild clears it",
+     "The statusline's fast path; it falls back to `wiring.json` when this file is absent",
+     "The query-path refresh leaves it alone, so the Stop hook still rebuilds the cards"],
+    [], { h: 40, mono: true, monoSub: true }),
+  N("A12", "artefacts", "wiring-stamp.json", "graft/.cache/", ["src/upkeep.ts"],
+    "The graft version, and the options, that last wrote this repository's hooks, skills and rule files.",
+    ["Compared with the running version at session start and at MCP server boot",
+     "A missing stamp means one idempotent refresh"],
+    [], { h: 40, mono: true, monoSub: true }),
+
+  /* Refresh loop */
+  N("F1", "refresh", "Freshness gate", "ensureFreshGraph", ["src/graph/refresh.ts", "src/cli.ts", "src/mcp/tools.ts"],
+    "Every retrieval call probes the working tree first and, when something moved, rebuilds the structural graph before answering.",
+    ["Runs before `ask`, `grep`, `skeleton`, `callers`, `map` and `blast`, and inside the MCP tools",
+     "Tier-1 only, never the deep pass: no money, no network",
+     "Writes only what a query reads: the graph, the ask sidecar and the freshness record",
+     "Takes `graft/.cache/.sync.lock`; waits at most 2,000 ms for another rebuild",
+     "In a fresh git worktree, copies the parent checkout's graph in first"],
+    ["Never fatal: a failed refresh answers from the graph on disk",
+     "`--no-refresh` or `GRAFT_NO_REFRESH=1` turns it off",
+     "Measured 2026-10-18: `ask -n 1` took 65.47 s when the refresh rebuilt a four-day-old graph, 7.69 s with `--no-refresh`"]),
+  N("F2", "refresh", "Stop-hook rebuild", "background graft build", ["src/claude/hooks.ts", "src/claude/sync-run.ts"],
+    "At the end of a turn, if an edit marked the graph dirty, starts a detached `graft build` that also rewrites the cards and `INDEX.md`.",
+    ["Money guard: a plain `graft build` only, never `--deep`",
+     "Child timeout 120,000 ms",
+     "On success it clears `dirty` and records the counts in `stats.json`; on failure it stays dirty and retries next turn"],
+    ["Takes the same lock as the freshness gate, so rebuilds never pile up"]),
+  N("F3", "refresh", "Upkeep", "re-wires on a version change", ["src/upkeep.ts", "src/claude/hooks.ts", "src/mcp/server.ts"],
+    "Keeps an installed graft and the wiring it wrote current: when the wiring stamp and the running version differ, it re-runs the writes `graft init` made.",
+    ["Called by the SessionStart hook and at MCP server boot",
+     "Update nudge from a cached registry answer in `~/.graft/update-check.json`, current for 24 hours",
+     "The registry is only read from cache; refreshing it runs in a detached child"],
+    ["Fail-soft by construction: it runs inside hooks and server boot, where a throw breaks the session"]),
+
+  /* Deep pass */
+  N("D1", "deep", "build --deep", "the concept pass", ["src/context/build.ts", "src/cli.ts"],
+    "Runs the paid meaning layer: summarises files, synthesises a curated set of concept nodes, resolves their links and writes them with a manifest.",
+    ["Pipeline: walk, summarise each file, synthesise in batches, resolve names to slugs, write nodes and the manifest",
+     "`-j` sets how many files are summarised in parallel",
+     "Honours `--only-dir`; documents only with `--deep-documents`",
+     "No deep pass has been run on this repository (2026-10-18)"],
+    ["Needs a key for the configured provider",
+     "A degraded pass exits 1 unless `--allow-partial` is given"], { mono: true }),
+  N("D2", "deep", "File summaries", "one call per file", ["src/ai/summarize.ts", "src/context/build.ts"],
+    "Turns one source file into a 3 to 8 sentence plain-English summary: purpose, key exports, dependencies and design decisions.",
+    ["Code sent per file is capped at 24,000 characters",
+     "Cached by content hash in `summaries.json`"]),
+  N("D3", "deep", "Concept synthesis", "curated nodes, batched", ["src/ai/synthesize.ts", "src/context/build.ts"],
+    "Groups per-file summaries into system, API, file and concept nodes, deciding granularity instead of emitting one node per identifier.",
+    ["Each node lists the source files it rests on, so staleness stays exact",
+     "Batches of summaries up to 48,000 characters per call, cached by content"]),
+  N("D4", "deep", "Symbol summaries, crux", "one request per file", ["src/graph/enrich.ts", "src/ai/crux.ts"],
+    "Attaches a one-sentence summary and a crux excerpt to each definition. One request covers every definition in a file, so N symbols cost one call.",
+    ["The crux is the smallest line range a reviewer must read, cut verbatim from source, at most 12 lines",
+     "Cache hit: same id, same `body_hash`, state `ready`; a changed body marks the summary `stale`",
+     "At most 40 units per structured file; the rest stay `pending`",
+     "Recovers the tool payload from gateways that ignore a forced tool choice"],
+    ["Without a summariser only the cache bookkeeping runs: no calls, no cost"]),
+  N("D5", "deep", "Crux id echo fix", "upstream issue #542", ["src/ai/crux.ts", "test/crux-id-echo.test.ts"],
+    "A reply can echo the whole TARGETS descriptor line as the id. The fork cuts the id at the first ` | `, which real ids never contain, so a good reply is no longer reported as empty.",
+    ["Covered by `test/crux-id-echo.test.ts`, which failed before the fix",
+     "Retires the old `patch/patch_graft_crux.py` workflow"],
+    [], FORK),
+  N("D6", "deep", "Provider adapter", "four wire formats", ["src/ai/llm/factory.ts"],
+    "One place that turns resolved configuration into a chat model. The provider setting names a wire format, not a vendor: adding a vendor is a base URL, adding a wire format is one adapter.",
+    ["Provider kinds: `openai` (OpenAI-compatible), `anthropic` (native Messages), and `litellm` and `orcarouter`, conveniences over the OpenAI-compatible format",
+     "The reasoning level is checked before any call is made"],
+    ["An unknown provider kind throws at construction"]),
+  N("D7", "deep", "Reasoning and usage", "GRAFT_REASONING, tokens: line", ["src/ai/providers.ts", "src/ai/llm/metered.ts", "src/ai/llm/types.ts"],
+    "Sets the reasoning effort of every call, and meters every response so `build --deep` ends with one `tokens:` line.",
+    ["`--reasoning <level>` or `GRAFT_REASONING`, in the provider's own words; unset sends nothing",
+     "Sent as `reasoning_effort` on the OpenAI-compatible formats and as `output_config.effort` on the native one",
+     "A refused value stops the pass at once, naming the variable",
+     "Usage: calls, uncached and cached input, cache writes, output and its reasoning share, calls run with reasoning off; recorded as `deepUsage` in `manifest.json`"],
+    ["Tokens only, never prices"], FORK),
+  N("D8", "deep", "The configured provider", "external endpoint, needs a key", ["src/ai/providers.ts", "src/ai/llm/factory.ts"],
+    "Whatever endpoint the configuration names. It is the only network step in a build, and only `--deep` reaches it.",
+    ["Configured through environment variables or `.env`",
+     "A call that throws is not counted in usage: no usage came back"],
+    ["Structural builds, queries and refreshes never call it"]),
+
+  /* Retrieval */
+  N("R1", "retrieval", "ask", "ranked pack with file:line", ["src/ask/ask.ts", "src/ask/graphrank.ts"],
+    "The active channel: routes a plain-words query to the graph and returns a lean, ranked context pack with exact `file:line` pointers, never whole files.",
+    ["Structural intent (“what calls X”) walks edges; everything else ranks lexically over names, signatures, summaries and capped body text",
+     "A personalised PageRank re-rank over the wiring; `--no-graph-rank` turns it off",
+     "`--source` inlines each span: crux excerpts of at most 8 lines by default, whole spans with `--full`",
+     "A document's span prints from its rendering",
+     "8 results by default; `--in` narrows by path prefix; `ask.ts` is 1,589 lines"],
+    ["Deterministic and keyless: term overlap, no embeddings"], { mono: true }),
+  N("R2", "retrieval", "grep", "regex, grouped by symbol", ["src/search/grep.ts"],
+    "A regex over the indexed files with hits grouped by their innermost enclosing symbol and ranked by incoming-edge count, so the hit that matters sorts first.",
+    ["Line text capped at 160 characters",
+     "Hits outside every symbol are grouped at file level",
+     "A document's lines come from its rendering"], [], { mono: true }),
+  N("R3", "retrieval", "skeleton", "signatures of one file", ["src/ask/ask.ts", "src/cli.ts"],
+    "A signatures-only view of one file from the wiring graph: the cheapest way to see a file's API.",
+    ["Takes a repo-relative path or a unique basename",
+     "As the MCP tool `graft_file_api` it is described as about 10 times cheaper than reading the file"], [], { mono: true }),
+  N("R4", "retrieval", "callers", "edge walk, in or out", ["src/graph/traverse.ts"],
+    "Walks incoming edges (who depends on a symbol) or outgoing edges (what it calls), one hop or breadth-first to any depth.",
+    ["Resolves bare names, qualified `Class.method`, id suffixes and a last-segment fallback, with `--in` narrowing",
+     "Shared by `callers`, `graft_trace_calls` and the structural path of `ask`"], [], { mono: true }),
+  N("R5", "retrieval", "map", "clusters, hubs, hotspots", ["src/graph/map.ts"],
+    "A token-budgeted orientation computed from the wiring: directory clusters, per-directory hubs and global hotspots.",
+    ["Groups by first path segment, splitting one level deeper when one segment holds most of the repository",
+     "Ranks by incoming edges, never by lines of code",
+     "`graft_repo_map` shows 16 directories by default"], [], { mono: true }),
+  N("R6", "retrieval", "blast", "dependents of a diff", ["src/blast/blast.ts"],
+    "Joins Git's changed line ranges with incoming edges: each changed line seeds its innermost symbol, and the walk reports what depends on it.",
+    ["Seeds by symbol, so a one-line edit in a 400-line file reports that function's dependents",
+     "The file node is seeded too, so importers are found",
+     "Fork: follows structured edges, so a changed key or section reports the code and documents that name it"], [], { mono: true }),
+  N("R7", "retrieval", "check", "drift report for CI", ["src/graph/check.ts", "src/cli.ts"],
+    "Re-runs Tier-1 extraction and diffs the fresh node set against the graph by `id` and `body_hash`; exits non-zero on drift.",
+    ["Categories: added, removed, changed, and stale (a summary older than its body)",
+     "`pending` is not drift",
+     "Does not refresh first; it always re-hashes"], [], { mono: true }),
+  N("R8", "retrieval", "stats", "session usage mix", ["src/cli.ts", "src/claude/state.ts"],
+    "Shows this agent session's graft-versus-source usage mix and the tokens saved.",
+    ["Reads local session files under `graft/.cache/session/`",
+     "No graph, no network; works under `DO_NOT_TRACK`"], [], { mono: true }),
+  N("R9", "retrieval", "viz", "local viewer server", ["src/viz/serve.ts", "src/cli.ts"],
+    "Serves upstream's prebuilt viewer bundle with two JSON endpoints and a server-sent events channel that pings the browser on change.",
+    ["`/api/context-graph`, `/api/code-graph`, `/events`",
+     "File watching debounced at 300 ms; default port 4400, up to 10 port attempts",
+     "`--export <dir>` writes one self-contained page instead"],
+    ["A separate thing from this diagram, which does not reuse it"], { mono: true }),
+
+  /* Surfaces */
+  N("U1", "surfaces", "CLI", "graft <command>", ["src/cli.ts"],
+    "The command-line entry point: `build`, `ask`, `grep`, `skeleton`, `callers`, `map`, `blast`, `check`, `stats`, `viz`, `mcp`, `init`, `uninstall` and more.",
+    ["2,000 lines and 48 imports (2026-10-18)",
+     "Measured start-up: `node <global>/dist/cli.js --version` 6.33 to 6.50 s; through the Windows shim 7.78 to 7.88 s",
+     "Agents run it through their shell tool"],
+    ["Start-up time dominates short queries on this machine"]),
+  N("U2", "surfaces", "MCP server", "stdio JSON-RPC 2.0", ["src/mcp/server.ts", "src/mcp/tools.ts", "src/mcp/tool-names.ts"],
+    "A minimal MCP server over stdio: newline-delimited JSON-RPC 2.0, stdout for protocol messages only, diagnostics to stderr.",
+    ["Exposes six tools; a repository with no graft index is told there is nothing to call",
+     "Runs upkeep at boot",
+     "Older tool names (`graft_ask`, `graft_grep` and so on) map to the current ones",
+     "Module import measured at 4,507 ms (2026-10-18)"],
+    ["Tool errors come back as soft `isError` content, never a throw"]),
+  N("U3", "surfaces", "graft_find_code", "MCP tool", ["src/mcp/tools.ts"],
+    "Plain-words query: ranked nodes with exact spans and the source inlined.",
+    ["Calls the `ask` core; 5 results by default", "Options: `query`, `limit`, `full`, `in`", "Refreshes the graph first"], [], { h: 30, mono: true, meta: "ask" }),
+  N("U4", "surfaces", "graft_find_all", "MCP tool", ["src/mcp/tools.ts"],
+    "Every occurrence of a regex, grouped by enclosing symbol and ranked by coupling.",
+    ["Calls the `grep` core", "Options: `pattern`, `in`, `ignore_case`, `fixed`"], [], { h: 30, mono: true, meta: "grep" }),
+  N("U5", "surfaces", "graft_trace_calls", "MCP tool", ["src/mcp/tools.ts"],
+    "Callers or callees to any depth: the blast radius before a refactor.",
+    ["Calls the traversal core", "`direction` is `in` or `out`; `depth` is a number or `all`"], [], { h: 30, mono: true, meta: "callers" }),
+  N("U6", "surfaces", "graft_file_api", "MCP tool", ["src/mcp/tools.ts"],
+    "One file's signatures and spans.", ["Calls the `skeleton` core"], [], { h: 30, mono: true, meta: "skeleton" }),
+  N("U7", "surfaces", "graft_repo_map", "MCP tool", ["src/mcp/tools.ts"],
+    "Orientation for an unfamiliar repository.", ["Calls the `map` core", "`max_dirs` defaults to 16"], [], { h: 30, mono: true, meta: "map" }),
+  N("U8", "surfaces", "graft_check_freshness", "MCP tool", ["src/mcp/tools.ts"],
+    "Whether the graph is in sync with the code.", ["Calls the `check` core"], [], { h: 30, mono: true, meta: "check" }),
+  N("U9", "surfaces", "UserPromptSubmit", "Claude Code hook", ["src/claude/settings-merge.ts", "src/claude/hooks.ts"],
+    "On each prompt, runs `graft ask <prompt> . --json -n 3` and injects a small retrieval pack of pointers.",
+    ["Budget 15,000 ms; the ask child gets the installed budget minus 2,000 ms, never under 4,000 ms",
+     "Pointers only, no inlined code: injected tokens are fresh input on every turn",
+     "Dropped when the prompt barely overlaps the top hit or every hit was already injected this session"],
+    ["A repository wired before the 15 s budget keeps its old 8 s until `graft init` runs again"], { h: 34, meta: "15 s" }),
+  N("U10", "surfaces", "SessionStart", "Claude Code hook", ["src/claude/settings-merge.ts", "src/claude/hooks.ts"],
+    "Runs upkeep, then emits the orientation from `INDEX.md`, with a staleness banner when the graph is behind.",
+    ["Budget 8,000 ms",
+     "Its one network call is a Trail check, made only when a Trail link exists and capped at 3,000 ms"], [], { h: 34, meta: "8 s" }),
+  N("U11", "surfaces", "PostToolUse", "Claude Code hooks", ["src/claude/settings-merge.ts", "src/claude/hooks.ts"],
+    "Two handlers. After Write, Edit or MultiEdit it marks the graph dirty; after Bash, the graft MCP tools, Read, Grep or Glob it sums the savings footers and classifies the read.",
+    ["`post-edit` budget 10,000 ms; `tool-savings` budget 8,000 ms",
+     "The savings handler returns at once when there is nothing to record"], [], { h: 34, meta: "10 s, 8 s" }),
+  N("U12", "surfaces", "Stop", "Claude Code hook", ["src/claude/settings-merge.ts", "src/claude/hooks.ts"],
+    "Checks whether the reply stated the savings tally, samples the turn's cost, and starts the background rebuild when the graph is dirty.",
+    ["Budget 8,000 ms", "The rebuild is detached, so the hook returns at once"], [], { h: 34, meta: "8 s" }),
+  N("U13", "surfaces", "Statusline", "graft-statusline.cjs", ["src/claude/statusline.ts", "src/claude/settings-merge.ts"],
+    "Claude Code's status bar: graph state, sync state and tokens saved.",
+    ["Command: `node .claude/helpers/graft-statusline.cjs`",
+     "Reads `stats.json`, falling back to `wiring.json`; a pure read, no subprocess",
+     "An existing statusLine is left untouched, because a session allows only one"], [], { h: 40, monoSub: true }),
+  N("U14", "surfaces", "Instruction files", "graft init, per host", ["src/hosts/registry.ts"],
+    "Writes each detected host's instruction file, so the agent knows to ask graft before reading source.",
+    ["Ten host entries in the registry",
+     "`section` kind upserts a fenced block into a file the user owns, such as `AGENTS.md` or `.github/copilot-instructions.md`",
+     "`owned` kind overwrites a file graft owns, such as `.cursor/rules/graft.mdc`, `.kiro/steering/graft.md`, `.windsurf/rules/graft.md` and skill files",
+     "Claude Code gets a skill file, hooks and the statusline"],
+    ["Hosts are detected by their configuration directories in the home or repository folder"]),
+  N("U15", "surfaces", "MCP entries, launcher", "graft mcp, never npx", ["src/hosts/mcp-config.ts"],
+    "Registers the server in each host's MCP configuration. The fork's launcher is always the installed `graft mcp`, never `npx`, and its PATH probe works on Windows.",
+    ["Entry `{ command: \"graft\", args: [\"mcp\"] }`: a bare name, so committed files work on any machine",
+     "JSON hosts get a keyed merge that keeps other servers, and an unparseable file is never rewritten; TOML hosts get an appended section",
+     "Targets include `.cursor/mcp.json`, `.kiro/settings/mcp.json`, `opencode.json`, `~/.codex/config.toml`, and for Claude Code `.mcp.json` or `~/.claude.json`",
+     "Measured handshake: 211 ms through `npx -y` against 80 ms for the installed binary",
+     "The PATH probe is a filesystem lookup honouring `PATHEXT`; a shell-less spawn cannot see `graft.cmd`"],
+    ["`graft init` warns once when no `graft` is on PATH"], FORK),
+
+  /* Agents */
+  N("G1", "agents", "Claude Code", "hooks, MCP, CLI, statusline", ["src/claude/hooks.ts", "src/claude/settings-merge.ts"],
+    "The host with the deepest wiring: an opening orientation, a retrieval pack per prompt, the MCP tools, the CLI through its shell tool, and the statusline.",
+    ["This repository itself is wired only through `.claude/skills/graft/SKILL.md`: no `.mcp.json` and no graft hooks (2026-10-18)"]),
+  N("G2", "agents", "Other hosts", "MCP and instruction files", ["src/hosts/registry.ts", "src/hosts/mcp-config.ts"],
+    "Cursor, Codex-style command-line agents, GitHub Copilot, Kiro, Windsurf, opencode and the other registry entries read the instruction file and, where supported, call the MCP server.",
+    ["Cursor also has hook events of its own in `hooks.ts`",
+     "Copilot, Windsurf and a few others get no MCP entry in this phase"]),
+
+  /* Token savings */
+  N("T1", "savings", "A span, not the file", "the saving itself", ["src/graph/cards.ts", "src/ask/ask.ts"],
+    "The mechanism: hand the agent a card, a signature list or an exact span instead of the whole file, so it reads hundreds of tokens instead of thousands.",
+    ["A card is about 150 tokens",
+     "`ask --source` is substitutive: the span is the answer, so no file read follows",
+     "Every span is exact, from the file itself or from a document rendering"],
+    ["A plausible but wrong line costs more than it saves, which is why ambiguous edges are dropped"]),
+  N("T2", "savings", "Savings estimate", "baseline minus output", ["src/context/savings.ts"],
+    "Tokens saved: the whole size of the distinct files a result covers, minus what graft printed, using the file sizes the build stored on file nodes.",
+    ["About 4 characters per token",
+     "Printed as a footer: `[graft] tokens saved ≈ N`",
+     "Omitted, never invented, when no file in the baseline has a known size"]),
+  N("T3", "savings", "Savings tally", "summed per session", ["src/claude/hooks.ts", "src/claude/tally.ts", "src/claude/state.ts"],
+    "The PostToolUse hook sums every footer into the session total; the Stop hook checks whether the reply told the user.",
+    ["Session state lives in `graft/.cache/session/<id>.json`",
+     "The tally check reads only the last 1 MB of the transcript and keeps a count, nothing else",
+     "Shown by the statusline and by `graft stats`"]),
+  N("T4", "savings", "Price lookup", "input rate per model family", ["src/context/price.ts"],
+    "Turns saved tokens into money only when the session's model has a known input rate, weighted by the session's measured cache mix.",
+    ["The rates are a small table in source, keyed by model family; this diagram shows none of them",
+     "No default rate and no environment override",
+     "Cache writes and cache reads are weighted, so a long session's measured rate sits far below the list rate"],
+    ["An unknown model gets the token count alone, never a guessed dollar figure"])
+];
+
+/* Edges: [from, to, label, kind, route, track]. kind d = data, c = trigger or call.
+ * route: auto (side to side), v (straight vertical), br / bl (bracket on the right
+ * or left side), top (over the top track, for the refresh loop's return path). */
+var EDGES = [
+  ["I1", "S1", "working tree", "d"],
+  ["I2", "S1", "Git's file list", "d"],
+  ["I3", "I4", "persisted by the build", "d", "v"],
+  ["I4", "S1", "walk options", "c"],
+  ["I3", "S8", "--only-dir, --include-dir", "c"],
+  ["I3", "S9", "--structured, --documents", "c"],
+  ["S1", "S2", "then", "d", "v"], ["S2", "S3", "then", "d", "v"], ["S3", "S4", "then", "d", "v"],
+  ["S4", "S5", "then", "d", "v"], ["S5", "S6", "then", "d", "v"], ["S6", "S7", "then", "d", "v"],
+  ["S7", "S8", "then", "d", "v"], ["S8", "S9", "then", "d", "v"], ["S9", "S10", "then", "d", "v"],
+  ["S10", "P0", "source set with stats", "d"],
+  ["P0", "P1", "documents first", "d", "v"], ["P1", "P2", "else", "d", "v"], ["P2", "P3", "else", "d", "v"],
+  ["P3", "P4", "else", "d", "v"], ["P4", "P5", "else, when opted in", "d", "v"],
+  ["P0", "C2", "hash, then replay or parse", "d"],
+  ["C3", "C2", "names the memo", "c", "v"],
+  ["P1", "C4", "convert once", "d"],
+  ["C4", "A7", "writes the rendering", "d"],
+  ["C2", "A5", "writes the memo", "d"],
+  ["C2", "A6", "projected as prints", "d"],
+  ["A6", "C1", "prints compared", "d"],
+  ["P1", "P6", "nodes, raw edges", "d"], ["P2", "P6", "nodes, raw edges", "d"], ["P3", "P6", "nodes, raw edges", "d"],
+  ["P4", "P6", "nodes, raw edges", "d"], ["P5", "P6", "nodes, raw edges", "d"],
+  ["P6", "P7", "refs to structured units", "d", "v"],
+  ["P6", "A1", "nodes and edges", "d"],
+  ["P7", "A1", "code to config and docs", "d"],
+  ["P6", "A2", "one card per file", "d"],
+  ["P6", "A3", "index", "d"],
+  ["P6", "A4", "token counts", "d"],
+  ["P6", "D4", "with --deep", "c", "br"],
+  ["D1", "D2", "each file", "d", "v"],
+  ["D2", "D3", "summaries", "d", "v"],
+  ["D1", "D4", "symbol pass", "c", "bl"],
+  ["D2", "D6", "chat call", "c"], ["D3", "D6", "chat call", "c"], ["D4", "D6", "chat call", "c"],
+  ["D5", "D4", "id cut at the first “ | ”", "d"],
+  ["D7", "D6", "reasoning level, metering", "c"],
+  ["D6", "D8", "HTTPS request", "c", "v"],
+  ["D1", "A8", "concept nodes", "d"],
+  ["D1", "A9", "manifest", "d"],
+  ["D2", "A10", "cached summaries", "d"],
+  ["D3", "A10", "cached batches", "d"],
+  ["D4", "A1", "summary and crux", "d"],
+  ["A1", "D4", "prior meaning by body_hash", "d"],
+  ["D7", "A9", "deepUsage", "d"],
+  ["A1", "R1", "graph", "d"], ["A4", "R1", "token counts", "d"], ["A8", "R1", "concepts", "d"], ["A7", "R1", "rendering spans", "d"],
+  ["A1", "R2", "symbols for grouping", "d"], ["A7", "R2", "rendering lines", "d"],
+  ["A1", "R3", "signatures", "d"], ["A1", "R4", "edges", "d"], ["A1", "R5", "edges", "d"],
+  ["A1", "R6", "incoming edges", "d"], ["A1", "R7", "nodes and body hashes", "d"],
+  ["A1", "R9", "code graph", "d"], ["A8", "R9", "context graph", "d"],
+  ["R1", "F1", "probe first", "c", "br"], ["R2", "F1", "probe first", "c", "br"], ["R3", "F1", "probe first", "c", "br"],
+  ["R4", "F1", "probe first", "c", "br"], ["R5", "F1", "probe first", "c", "br"], ["R6", "F1", "probe first", "c", "br"],
+  ["F1", "C1", "probe for drift", "c", "top", 0],
+  ["F1", "S1", "rebuild on drift, graph only", "c", "top", 1],
+  ["F2", "S1", "graft build, never --deep", "c", "top", 2],
+  ["R1", "U1", "graft ask", "d"], ["R2", "U1", "graft grep", "d"], ["R3", "U1", "graft skeleton", "d"],
+  ["R4", "U1", "graft callers", "d"], ["R5", "U1", "graft map", "d"], ["R6", "U1", "graft blast", "d"],
+  ["R7", "U1", "graft check", "d"], ["R8", "U1", "graft stats", "d"], ["R9", "U1", "graft viz", "d"],
+  ["R1", "U3", "ask core", "d"], ["R2", "U4", "grep core", "d"], ["R4", "U5", "traversal core", "d"],
+  ["R3", "U6", "skeleton core", "d"], ["R5", "U7", "map core", "d"], ["R7", "U8", "check core", "d"],
+  ["R1", "U9", "graft ask --json -n 3", "d"],
+  ["U3", "U2", "tool", "d", "br"], ["U4", "U2", "tool", "d", "br"], ["U5", "U2", "tool", "d", "br"],
+  ["U6", "U2", "tool", "d", "br"], ["U7", "U2", "tool", "d", "br"], ["U8", "U2", "tool", "d", "br"],
+  ["U12", "F2", "when stats.json is dirty", "c", "br"],
+  ["U10", "F3", "runs upkeep", "c", "br"],
+  ["U2", "F3", "runs upkeep at boot", "c", "br"],
+  ["F3", "U14", "re-runs init writes", "c", "bl"],
+  ["F3", "U15", "re-runs init writes", "c", "bl"],
+  ["A3", "U10", "orientation", "d"],
+  ["A11", "U13", "counts and sync state", "d"],
+  ["U1", "G1", "shell tool", "d"], ["U1", "G2", "shell tool", "d"],
+  ["U2", "G1", "MCP tools", "d"], ["U2", "G2", "MCP tools", "d"],
+  ["U9", "G1", "retrieval pack", "d"],
+  ["U10", "G1", "orientation", "d"],
+  ["U13", "G1", "status bar", "d"],
+  ["U14", "G1", "skill file", "d"], ["U14", "G2", "instructions", "d"],
+  ["U15", "G1", "server entry", "c"], ["U15", "G2", "server entry", "c"],
+  ["U1", "T1", "spans and cards", "d"], ["U2", "T1", "spans and cards", "d"],
+  ["T1", "T2", "measured as", "d", "v"],
+  ["T2", "T3", "footer", "d", "v"],
+  ["T3", "T4", "turn input mix", "d", "v"],
+  ["U11", "T3", "sums footers", "c"],
+  ["U12", "T3", "tally check", "c"],
+  ["T3", "U13", "session total", "d"],
+  ["T4", "U13", "dollar figure, model known", "d"]
+].map(function (r, i) {
+  return { i: i, a: r[0], b: r[1], label: r[2], kind: r[3], route: r[4] || "auto", t: r[5] || 0 };
+});
+
+/* ---------------------------------------------------------------------------
+ * Layout. Eight columns run from inputs to agents; the refresh loop sits in a
+ * band above retrieval and surfaces, and the deep pass sits below the parse and
+ * cache columns.
+ * ------------------------------------------------------------------------- */
+
+var W = 192, X0 = 40, PITCH = 226, Y0 = 256;
+var BYID = {};
+NODES.forEach(function (n) { BYID[n.id] = n; n.w = W; n.h = n.h || 52; });
+function colX(c) { return X0 + c * PITCH; }
+function stack(col, y, gap, ids) {
+  ids.forEach(function (id) { var n = BYID[id]; n.x = colX(col); n.y = y; n.col = col; y += n.h + gap; });
+}
+function place(id, col, y) { var n = BYID[id]; n.x = colX(col); n.y = y; n.col = col; }
+
+stack(0, Y0, 14, ["I1", "I2", "I3", "I4"]);
+stack(1, Y0, 18, ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10"]);
+stack(2, Y0, 18, ["P0", "P1", "P2", "P3", "P4", "P5"]);
+stack(2, 722, 14, ["D5", "D6", "D8"]);
+stack(3, Y0, 12, ["C1", "C2", "C3", "C4"]);
+stack(3, 532, 12, ["P6", "P7"]);
+stack(3, 708, 12, ["D1", "D2", "D3", "D4", "D7"]);
+stack(4, Y0, 10, ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12"]);
+stack(5, Y0, 12, ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9"]);
+stack(6, Y0, 12, ["U1", "U2"]);
+stack(6, 384, 8, ["U3", "U4", "U5", "U6", "U7", "U8"]);
+stack(6, 622, 8, ["U9", "U10", "U11", "U12"]);
+stack(6, 800, 12, ["U13", "U14", "U15"]);
+stack(7, Y0, 12, ["G1", "G2"]);
+stack(7, 456, 12, ["T1", "T2", "T3", "T4"]);
+place("F1", 5, 82);
+place("F2", 6, 82);
+place("F3", 6, 146);
+
+var COLS = [
+  { layer: "inputs", title: "Inputs" },
+  { layer: "select", title: "File selection" },
+  { layer: "parse", title: "Parse tiers" },
+  { layer: "cache", title: "Caches and resolution" },
+  { layer: "artefacts", title: "Graph artefacts in graft/" },
+  { layer: "retrieval", title: "Retrieval" },
+  { layer: "surfaces", title: "Surfaces" },
+  { layer: "agents", title: "Agents" }
+];
+
+var WORLD = { w: 0, h: 0 };
+NODES.forEach(function (n) {
+  WORLD.w = Math.max(WORLD.w, n.x + n.w + 40);
+  WORLD.h = Math.max(WORLD.h, n.y + n.h + 40);
+});
+
+/* ---------------------------------------------------------------------------
+ * Rendering
+ * ------------------------------------------------------------------------- */
+
+var NS = "http://www.w3.org/2000/svg";
+var svg = document.getElementById("svg");
+var vp = document.getElementById("vp");
+var gBack = document.getElementById("gBack");
+var gEdges = document.getElementById("gEdges");
+var gNodes = document.getElementById("gNodes");
+var gLabels = document.getElementById("gLabels");
+var defs = document.getElementById("defs");
+
+function el(tag, attrs, parent) {
+  var e = document.createElementNS(NS, tag);
+  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function text(parent, attrs, s) { var t = el("text", attrs, parent); t.textContent = s; return t; }
+function fit(t, max) {
+  if (max <= 0 || t.getComputedTextLength() <= max) return;
+  var s = t.textContent;
+  while (s.length > 1 && t.getComputedTextLength() > max) {
+    s = s.slice(0, -1);
+    t.textContent = s.replace(/\s+$/, "") + "…";
+  }
+}
+
+LAYERS.forEach(function (l) {
+  var m = el("marker", { id: "mk-" + l.id, viewBox: "0 0 10 10", refX: "9.5", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse", markerUnits: "userSpaceOnUse" }, defs);
+  el("path", { d: "M0,0.8 L10,5 L0,9.2 z", style: "fill:var(--c-" + l.id + ")" }, m);
+});
+/* markerUnits userSpaceOnUse needs a size in user units */
+Array.prototype.forEach.call(defs.querySelectorAll("marker"), function (m) { m.setAttribute("markerWidth", "8"); m.setAttribute("markerHeight", "8"); });
+
+function bounds(ids, pad) {
+  var x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  ids.forEach(function (id) { var n = BYID[id]; x1 = Math.min(x1, n.x); y1 = Math.min(y1, n.y); x2 = Math.max(x2, n.x + n.w); y2 = Math.max(y2, n.y + n.h); });
+  return { x: x1 - pad, y: y1 - pad, w: x2 - x1 + pad * 2, h: y2 - y1 + pad * 2 };
+}
+function groupBox(ids, layer, title, note, padTop) {
+  var b = bounds(ids, 14);
+  b.y -= padTop; b.h += padTop;
+  var g = el("g", { style: "--c:var(--c-" + layer + ")" }, gBack);
+  el("rect", { class: "group-box", x: b.x, y: b.y, width: b.w, height: b.h, rx: 14 }, g);
+  var t = text(g, { class: "group-title", x: b.x + 14, y: b.y + 20 }, title);
+  fit(t, b.w - 28);
+  if (note) { var n = text(g, { class: "group-note", x: b.x + 14, y: b.y + 35 }, note); fit(n, b.w - 28); }
+}
+
+(function drawBackground() {
+  var mainBottom = WORLD.h - 18;
+  COLS.forEach(function (c, i) {
+    var x = colX(i);
+    el("rect", { class: "lane", x: x - 16, y: 222, width: W + 32, height: mainBottom - 222, rx: 16 }, gBack);
+    el("rect", { x: x, y: 230, width: 10, height: 10, rx: 3, style: "fill:var(--c-" + c.layer + ")" }, gBack);
+    var t = text(gBack, { class: "lane-title", x: x + 16, y: 240 }, c.title);
+    fit(t, W - 16);
+  });
+  groupBox(["F1", "F2", "F3"], "refresh", "Refresh loop", "every query, and every turn's end", 26);
+  groupBox(["D1", "D2", "D3", "D4", "D7"], "deep", "Deep pass, opt-in (build --deep)", null, 18);
+  groupBox(["D5", "D6", "D8"], "deep", "Deep pass, provider side", null, 18);
+  groupBox(["T1", "T2", "T3", "T4"], "savings", "Token-saving mechanism", null, 18);
+})();
+
+var nodeEl = {};
+function ariaFor(n) {
+  return n.title + ". " + LAYER[n.layer].name + (n.fork ? ". Fork addition" : "") + ". " + n.sub + ".";
+}
+NODES.forEach(function (n) {
+  var g = el("g", {
+    class: "node" + (n.fork ? " fork" : "") + (n.h === 30 ? " tool" : ""), "data-id": n.id, transform: "translate(" + n.x + " " + n.y + ")",
+    tabindex: "0", role: "button", "aria-label": ariaFor(n), style: "--c:var(--c-" + n.layer + ")"
+  }, gNodes);
+  el("rect", { class: "ring", x: -5, y: -5, width: n.w + 10, height: n.h + 10, rx: 12 }, g);
+  if (n.fork) el("rect", { class: "fk", x: -3, y: -3, width: n.w + 6, height: n.h + 6, rx: 10.5 }, g);
+  el("rect", { class: "body", width: n.w, height: n.h, rx: 8 }, g);
+  el("rect", { class: "tint", width: n.w, height: n.h, rx: 8 }, g);
+  var compact = n.h <= 36;
+  var cy = compact ? n.h / 2 : (n.h >= 52 ? 19 : 15);
+  el("circle", { class: "dot", cx: 14, cy: cy, r: 4 }, g);
+  var t = text(g, { class: "t" + (n.mono ? " mono" : ""), x: 25, y: cy + 4.5 }, n.title);
+  if (compact) {
+    var room = n.w - 25 - 10;
+    if (n.meta) {
+      var m = text(g, { class: "m", x: n.w - 10, y: cy + 4, "text-anchor": "end" }, n.meta);
+      var withMeta = room - m.getComputedTextLength() - 8;
+      /* The title wins: a meta label that would cut it is dropped (the card has it). */
+      if (t.getComputedTextLength() > withMeta) g.removeChild(m); else room = withMeta;
+    }
+    fit(t, room);
+  } else {
+    fit(t, n.w - 35);
+    var s = text(g, { class: "s" + (n.monoSub ? " mono" : ""), x: 14, y: n.h >= 52 ? 39 : 31 }, n.sub);
+    fit(s, n.w - 24);
+  }
+  if (n.fork) {
+    var f = el("g", { class: "ftag", transform: "translate(" + (n.w - 46) + " -8)", "aria-hidden": "true" }, g);
+    el("rect", { width: 38, height: 16, rx: 8 }, f);
+    text(f, { x: 19, y: 11.5, "text-anchor": "middle" }, "FORK");
+  }
+  nodeEl[n.id] = g;
+});
+
+/* Edge routing with ports spread along each node side. */
+var ports = {};
+function addPort(id, side, ref) { var k = id + "|" + side; (ports[k] = ports[k] || []).push(ref); }
+EDGES.forEach(function (e) {
+  var a = BYID[e.a], b = BYID[e.b];
+  if (e.route === "auto") {
+    if (b.x >= a.x + a.w) { e.sa = "R"; e.sb = "L"; }
+    else if (b.x + b.w <= a.x) { e.sa = "L"; e.sb = "R"; }
+    else { e.route = "br"; }
+  }
+  if (e.route === "br") { e.sa = "R"; e.sb = "R"; }
+  if (e.route === "bl") { e.sa = "L"; e.sb = "L"; }
+  if (e.sa) {
+    addPort(a.id, e.sa, { e: e, end: "a", oy: b.y + b.h / 2 });
+    addPort(b.id, e.sb, { e: e, end: "b", oy: a.y + a.h / 2 });
+  }
+});
+Object.keys(ports).forEach(function (k) {
+  var parts = k.split("|"), n = BYID[parts[0]], side = parts[1], list = ports[k];
+  list.sort(function (p, q) { return p.oy - q.oy; });
+  list.forEach(function (p, i) {
+    var pt = { x: side === "R" ? n.x + n.w : n.x, y: n.y + n.h * (i + 1) / (list.length + 1), side: side };
+    if (p.end === "a") p.e.pa = pt; else p.e.pb = pt;
+  });
+});
+function pathFor(e) {
+  var a = BYID[e.a], b = BYID[e.b];
+  if (e.route === "v") {
+    var down = b.y > a.y;
+    var x1 = a.x + a.w / 2, x2 = b.x + b.w / 2;
+    return "M" + x1 + "," + (down ? a.y + a.h : a.y) + " L" + x2 + "," + (down ? b.y : b.y + b.h);
+  }
+  if (e.route === "top") {
+    var T = 22 + e.t * 9, r = 8, off = (e.t % 2) * 10;
+    var sx = a.x + a.w - 24 - off, tx = b.x + b.w - 24 - off;
+    return "M" + sx + "," + a.y + " V" + (T + r) + " Q" + sx + "," + T + " " + (sx - r) + "," + T +
+      " H" + (tx + r) + " Q" + tx + "," + T + " " + tx + "," + (T + r) + " V" + b.y;
+  }
+  var p = e.pa, q = e.pb;
+  if (e.route === "br" || e.route === "bl") {
+    var s = e.route === "br" ? 1 : -1;
+    var edgeX = s > 0 ? Math.max(p.x, q.x) : Math.min(p.x, q.x);
+    var bx = edgeX + s * (14 + Math.min(44, Math.abs(q.y - p.y) * 0.06));
+    return "M" + p.x + "," + p.y + " C" + bx + "," + p.y + " " + bx + "," + q.y + " " + q.x + "," + q.y;
+  }
+  var c = Math.max(24, Math.abs(q.x - p.x) * 0.5);
+  var c1 = p.side === "R" ? c : -c, c2 = q.side === "R" ? c : -c;
+  return "M" + p.x + "," + p.y + " C" + (p.x + c1) + "," + p.y + " " + (q.x + c2) + "," + q.y + " " + q.x + "," + q.y;
+}
+
+var edgeEl = [], labelEl = [];
+var ADJ = {};
+NODES.forEach(function (n) { ADJ[n.id] = { out: [], inn: [] }; });
+EDGES.forEach(function (e) {
+  var a = BYID[e.a], b = BYID[e.b];
+  ADJ[e.a].out.push(e); ADJ[e.b].inn.push(e);
+  e.fork = !!(a.fork || b.fork);
+  var g = el("g", { class: "edge " + e.kind + (e.fork ? " fe" : ""), style: "--c:var(--c-" + a.layer + ")" }, gEdges);
+  var path = el("path", { class: "ln", d: pathFor(e), "marker-end": "url(#mk-" + a.layer + ")" }, g);
+  edgeEl[e.i] = g;
+  var len = path.getTotalLength();
+  var mid = path.getPointAtLength(len / 2);
+  labelEl[e.i] = text(gLabels, { class: "elabel", x: mid.x, y: mid.y + 3.5, "text-anchor": "middle" }, e.label);
+});
+
+/* ---------------------------------------------------------------------------
+ * View: pan and zoom
+ * ------------------------------------------------------------------------- */
+
+var canvas = document.getElementById("canvas");
+var card = document.getElementById("card");
+var cardBody = document.getElementById("card-body");
+var live = document.getElementById("live");
+var MIN_S = 0.25, MAX_S = 2.6;
+var view = { s: 1, tx: 0, ty: 0 };
+var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function apply() {
+  vp.setAttribute("transform", "translate(" + view.tx.toFixed(1) + " " + view.ty.toFixed(1) + ") scale(" + view.s.toFixed(4) + ")");
+}
+function crect() { return canvas.getBoundingClientRect(); }
+function cardSpace() { return card.hidden ? 0 : card.offsetWidth + 24; }
+var anim = 0;
+function animateTo(target) {
+  cancelAnimationFrame(anim);
+  if (reduceMotion.matches) { view = target; apply(); return; }
+  var from = { s: view.s, tx: view.tx, ty: view.ty }, t0 = performance.now(), dur = 260;
+  (function step(now) {
+    var k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    view = { s: from.s + (target.s - from.s) * e, tx: from.tx + (target.tx - from.tx) * e, ty: from.ty + (target.ty - from.ty) * e };
+    apply();
+    if (k < 1) anim = requestAnimationFrame(step);
+  })(t0);
+}
+function fitWidth(animate) {
+  var r = crect();
+  var s = clamp((r.width - 40) / WORLD.w, MIN_S, 1.1);
+  var target = { s: s, tx: (r.width - WORLD.w * s) / 2, ty: 4 };
+  if (animate) animateTo(target); else { view = target; apply(); }
+}
+function fitAll() {
+  var r = crect();
+  var s = clamp(Math.min((r.width - 40) / WORLD.w, (r.height - 40) / WORLD.h), MIN_S, 1.1);
+  animateTo({ s: s, tx: (r.width - WORLD.w * s) / 2, ty: (r.height - WORLD.h * s) / 2 });
+}
+function zoomAt(f, cx, cy) {
+  cancelAnimationFrame(anim);
+  var ns = clamp(view.s * f, MIN_S, MAX_S), k = ns / view.s;
+  view.tx = cx - (cx - view.tx) * k; view.ty = cy - (cy - view.ty) * k; view.s = ns;
+  apply();
+}
+function zoomCentre(f) { var r = crect(); zoomAt(f, (r.width - cardSpace()) / 2, r.height / 2); }
+function centreOn(n) {
+  var r = crect();
+  var s = Math.max(view.s, 0.8);
+  animateTo({ s: s, tx: (r.width - cardSpace()) / 2 - (n.x + n.w / 2) * s, ty: r.height / 2 - (n.y + n.h / 2) * s });
+}
+function ensureVisible(n) {
+  var r = crect(), right = r.width - cardSpace();
+  var sx = n.x * view.s + view.tx, sy = n.y * view.s + view.ty;
+  var ex = (n.x + n.w) * view.s + view.tx, ey = (n.y + n.h) * view.s + view.ty;
+  if (sx < 12 || sy < 12 || ex > right - 12 || ey > r.height - 12) centreOn(n);
+}
+
+var pts = new Map(), moved = false, pinch = null, suppressClick = false;
+svg.addEventListener("pointerdown", function (e) {
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
+  if (pts.size === 1) moved = false;
+  if (pts.size === 2) {
+    var v = Array.from(pts.values()), r = crect();
+    pinch = { d: Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y) || 1, mx: (v[0].x + v[1].x) / 2 - r.left, my: (v[0].y + v[1].y) / 2 - r.top };
+  }
+});
+svg.addEventListener("pointermove", function (e) {
+  var p = pts.get(e.pointerId);
+  if (!p) return;
+  if (pts.size === 1) {
+    if (!moved && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) < 4) return;
+    if (!moved) {
+      moved = true;
+      canvas.classList.add("dragging");
+      try { svg.setPointerCapture(e.pointerId); } catch (err) { /* capture is optional */ }
+    }
+    cancelAnimationFrame(anim);
+    view.tx += e.clientX - p.x; view.ty += e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    apply();
+  } else if (pts.size === 2 && pinch) {
+    moved = true;
+    p.x = e.clientX; p.y = e.clientY;
+    var v = Array.from(pts.values()), r = crect();
+    var d = Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y) || 1;
+    var mx = (v[0].x + v[1].x) / 2 - r.left, my = (v[0].y + v[1].y) / 2 - r.top;
+    view.tx += mx - pinch.mx; view.ty += my - pinch.my;
+    zoomAt(d / pinch.d, mx, my);
+    pinch.d = d; pinch.mx = mx; pinch.my = my;
+  }
+});
+function endPointer(e) {
+  if (!pts.has(e.pointerId)) return;
+  pts.delete(e.pointerId);
+  if (pts.size < 2) pinch = null;
+  if (pts.size === 0) {
+    canvas.classList.remove("dragging");
+    if (moved) { suppressClick = true; setTimeout(function () { suppressClick = false; }, 0); }
+  }
+}
+svg.addEventListener("pointerup", endPointer);
+svg.addEventListener("pointercancel", endPointer);
+svg.addEventListener("wheel", function (e) {
+  e.preventDefault();
+  var r = crect();
+  var unit = e.deltaMode === 1 ? 0.05 : 0.0015;
+  zoomAt(Math.exp(-e.deltaY * unit), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+
+/* ---------------------------------------------------------------------------
+ * Highlighting, selection and the detail card
+ * ------------------------------------------------------------------------- */
+
+var hoverId = null, selectedId = null;
+function refreshActive() {
+  var id = hoverId || selectedId;
+  svg.classList.toggle("focusing", !!id);
+  NODES.forEach(function (n) { nodeEl[n.id].classList.remove("on"); });
+  EDGES.forEach(function (e) { edgeEl[e.i].classList.remove("on"); labelEl[e.i].classList.remove("on"); });
+  if (!id) return;
+  nodeEl[id].classList.add("on");
+  ADJ[id].out.concat(ADJ[id].inn).forEach(function (e) {
+    if (edgeEl[e.i].classList.contains("off")) return;
+    edgeEl[e.i].classList.add("on");
+    labelEl[e.i].classList.add("on");
+    nodeEl[e.a].classList.add("on");
+    nodeEl[e.b].classList.add("on");
+  });
+}
+function setHover(id) { if (hoverId === id) return; hoverId = id; refreshActive(); }
+function nodeOf(target) { return target && target.closest ? target.closest(".node") : null; }
+
+svg.addEventListener("pointerover", function (e) { var g = nodeOf(e.target); if (g) setHover(g.getAttribute("data-id")); });
+svg.addEventListener("pointerout", function (e) {
+  var g = nodeOf(e.target);
+  if (g && !(e.relatedTarget && g.contains(e.relatedTarget))) setHover(null);
+});
+gNodes.addEventListener("focusin", function (e) {
+  var g = nodeOf(e.target);
+  if (!g) return;
+  setHover(g.getAttribute("data-id"));
+  ensureVisible(BYID[g.getAttribute("data-id")]);
+});
+gNodes.addEventListener("focusout", function () { setHover(null); });
+svg.addEventListener("click", function (e) {
+  if (suppressClick) return;
+  var g = nodeOf(e.target);
+  if (g) select(g.getAttribute("data-id"), false);
+  else closeCard(false);
+});
+
+function rich(parent, s) {
+  s.split("`").forEach(function (part, i) {
+    if (!part) return;
+    if (i % 2) { var c = document.createElement("code"); c.textContent = part; parent.appendChild(c); }
+    else parent.appendChild(document.createTextNode(part));
+  });
+}
+function h(tag, cls, parent, s) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (s != null) rich(e, s);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function section(title, items, parent, cls) {
+  if (!items.length) return;
+  h("h3", null, parent, title);
+  var ul = h("ul", cls || null, parent);
+  items.forEach(function (it) { h("li", null, ul, it); });
+}
+function connList(title, list, other, parent) {
+  if (!list.length) return;
+  h("h3", null, parent, title);
+  var ul = h("ul", "conn", parent);
+  list.forEach(function (e) {
+    var o = BYID[e[other]];
+    var li = h("li", null, ul);
+    var b = h("button", null, li);
+    b.type = "button";
+    var sw = h("span", "sw", b); sw.style.setProperty("--c", "var(--c-" + o.layer + ")");
+    h("span", null, b, o.title);
+    h("span", "cl", b, e.label);
+    b.setAttribute("aria-label", o.title + ", " + e.label);
+    b.addEventListener("click", function (ev) {
+      select(o.id, ev.detail === 0);
+      centreOn(o);
+    });
+  });
+}
+function openCard(n, kb) {
+  cardBody.textContent = "";
+  var tags = h("div", "tags", cardBody);
+  var lc = h("span", "lchip", tags);
+  var sw = h("span", "sw", lc); sw.style.setProperty("--c", "var(--c-" + n.layer + ")");
+  lc.appendChild(document.createTextNode(LAYER[n.layer].name));
+  if (n.fork) h("span", "fchip", tags, "FORK ADDITION");
+  var title = h("h2", null, cardBody, n.title);
+  title.id = "card-title";
+  title.tabIndex = -1;
+  h("p", "sub", cardBody, n.sub);
+  h("h3", null, cardBody, "Responsibility");
+  h("p", null, cardBody, n.resp);
+  section(n.files.length > 1 ? "Source files" : "Source file", n.files.map(function (f) { return "`" + f + "`"; }), cardBody, "files");
+  section("Key facts", n.facts, cardBody);
+  section("Limits", n.limits, cardBody);
+  connList("Feeds", ADJ[n.id].out, "b", cardBody);
+  connList("Fed by", ADJ[n.id].inn, "a", cardBody);
+  card.hidden = false;
+  card.scrollTop = 0;
+  if (kb) title.focus();
+}
+function select(id, kb) {
+  if (selectedId) nodeEl[selectedId].classList.remove("sel");
+  selectedId = id;
+  nodeEl[id].classList.add("sel");
+  openCard(BYID[id], kb);
+  refreshActive();
+  ensureVisible(BYID[id]);
+  live.textContent = BYID[id].title + " selected. Detail card open.";
+}
+function closeCard(returnFocus) {
+  var prev = selectedId;
+  card.hidden = true;
+  if (prev) nodeEl[prev].classList.remove("sel");
+  selectedId = null;
+  refreshActive();
+  if (returnFocus && prev) nodeEl[prev].focus();
+}
+document.getElementById("cardClose").addEventListener("click", function () { closeCard(true); });
+card.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); closeCard(true); } });
+
+/* ---------------------------------------------------------------------------
+ * Keyboard
+ * ------------------------------------------------------------------------- */
+
+function visible(n) { return !nodeEl[n.id].classList.contains("off"); }
+function moveFocus(id, key) {
+  var a = BYID[id], ax = a.x + a.w / 2, ay = a.y + a.h / 2, best = null, bestScore = Infinity;
+  NODES.forEach(function (n) {
+    if (n.id === id || !visible(n)) return;
+    var dx = n.x + n.w / 2 - ax, dy = n.y + n.h / 2 - ay, main, cross;
+    if (key === "ArrowRight") { main = dx; cross = dy; }
+    else if (key === "ArrowLeft") { main = -dx; cross = dy; }
+    else if (key === "ArrowDown") { main = dy; cross = dx; }
+    else { main = -dy; cross = dx; }
+    if (main <= 4) return;
+    var score = main + Math.abs(cross) * 2.5;
+    if (score < bestScore) { bestScore = score; best = n; }
+  });
+  if (best) nodeEl[best.id].focus();
+}
+canvas.addEventListener("keydown", function (e) {
+  var g = nodeOf(e.target), k = e.key;
+  if (k === "+" || k === "=") { e.preventDefault(); zoomCentre(1.2); }
+  else if (k === "-" || k === "_") { e.preventDefault(); zoomCentre(1 / 1.2); }
+  else if (k === "0") { e.preventDefault(); fitWidth(true); }
+  else if (k.indexOf("Arrow") === 0) {
+    e.preventDefault();
+    if (g) moveFocus(g.getAttribute("data-id"), k);
+    else {
+      cancelAnimationFrame(anim);
+      var step = 60;
+      if (k === "ArrowLeft") view.tx += step;
+      if (k === "ArrowRight") view.tx -= step;
+      if (k === "ArrowUp") view.ty += step;
+      if (k === "ArrowDown") view.ty -= step;
+      apply();
+    }
+  }
+  else if ((k === "Enter" || k === " ") && g) { e.preventDefault(); select(g.getAttribute("data-id"), true); }
+  else if (k === "Escape") { if (!card.hidden) { e.preventDefault(); closeCard(true); } }
+});
+document.addEventListener("keydown", function (e) {
+  var tag = (e.target && e.target.tagName) || "";
+  if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") { e.preventDefault(); q.focus(); }
+});
+
+/* ---------------------------------------------------------------------------
+ * Search
+ * ------------------------------------------------------------------------- */
+
+var q = document.getElementById("q");
+var qList = document.getElementById("q-list");
+var results = [], activeIdx = -1;
+function haystack(n) { return (n.title + " " + n.sub + " " + n.files.join(" ") + " " + LAYER[n.layer].name).toLowerCase(); }
+function runSearch() {
+  var s = q.value.trim().toLowerCase();
+  NODES.forEach(function (n) { nodeEl[n.id].classList.remove("match"); });
+  svg.classList.toggle("searching", !!s);
+  results = [];
+  if (s) {
+    NODES.forEach(function (n) {
+      var t = n.title.toLowerCase(), rank = t.indexOf(s) === 0 ? 0 : t.indexOf(s) >= 0 ? 1 : haystack(n).indexOf(s) >= 0 ? 2 : -1;
+      if (rank >= 0) results.push({ n: n, rank: rank });
+    });
+    results.sort(function (a, b) { return a.rank - b.rank || a.n.title.length - b.n.title.length || a.n.title.localeCompare(b.n.title); });
+    results.forEach(function (r) { nodeEl[r.n.id].classList.add("match"); });
+    results = results.slice(0, 8);
+  }
+  activeIdx = results.length ? 0 : -1;
+  renderList(!!s);
+}
+function renderList(show) {
+  qList.textContent = "";
+  if (!show) { qList.hidden = true; q.setAttribute("aria-expanded", "false"); q.removeAttribute("aria-activedescendant"); return; }
+  if (!results.length) {
+    var none = h("li", "none", qList, "No part matches");
+    none.setAttribute("role", "option");
+    none.setAttribute("aria-disabled", "true");
+    none.setAttribute("aria-selected", "false");
+  }
+  results.forEach(function (r, i) {
+    var li = h("li", null, qList);
+    li.id = "opt-" + i;
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", i === activeIdx ? "true" : "false");
+    var sw = h("span", "sw", li); sw.style.setProperty("--c", "var(--c-" + r.n.layer + ")");
+    h("span", null, li, r.n.title);
+    h("span", "ll", li, LAYER[r.n.layer].name);
+    li.addEventListener("mousedown", function (ev) { ev.preventDefault(); });
+    li.addEventListener("click", function () { pick(r.n.id); });
+  });
+  qList.hidden = false;
+  q.setAttribute("aria-expanded", "true");
+  if (activeIdx >= 0) q.setAttribute("aria-activedescendant", "opt-" + activeIdx); else q.removeAttribute("aria-activedescendant");
+}
+function pick(id) {
+  q.value = "";
+  runSearch();
+  var n = BYID[id];
+  if (!visible(n)) { filters[n.layer] = true; applyFilters(); }
+  select(id, false);
+  centreOn(n);
+  nodeEl[id].focus({ preventScroll: true });
+}
+q.addEventListener("input", runSearch);
+q.addEventListener("keydown", function (e) {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (!results.length) return;
+    e.preventDefault();
+    activeIdx = (activeIdx + (e.key === "ArrowDown" ? 1 : results.length - 1)) % results.length;
+    renderList(true);
+  } else if (e.key === "Enter") {
+    if (activeIdx >= 0) { e.preventDefault(); pick(results[activeIdx].n.id); }
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    q.value = "";
+    runSearch();
+  }
+});
+q.addEventListener("blur", function () { setTimeout(function () { qList.hidden = true; q.setAttribute("aria-expanded", "false"); }, 120); });
+q.addEventListener("focus", function () { if (q.value.trim()) runSearch(); });
+
+/* ---------------------------------------------------------------------------
+ * Layer filter, fork toggle, flow toggle, theme
+ * ------------------------------------------------------------------------- */
+
+var filters = {};
+LAYERS.forEach(function (l) { filters[l.id] = true; });
+var chips = document.getElementById("chips");
+var chipEl = {};
+LAYERS.forEach(function (l) {
+  var b = h("button", "chip", chips);
+  b.type = "button";
+  b.setAttribute("aria-pressed", "true");
+  var sw = h("span", "sw", b); sw.style.setProperty("--c", "var(--c-" + l.id + ")");
+  b.appendChild(document.createTextNode(l.name));
+  b.style.setProperty("--c", "var(--c-" + l.id + ")");
+  b.addEventListener("click", function () { filters[l.id] = !filters[l.id]; applyFilters(); });
+  chipEl[l.id] = b;
+});
+var allBtn = h("button", "chip", chips, "Show all");
+allBtn.type = "button";
+allBtn.addEventListener("click", function () { LAYERS.forEach(function (l) { filters[l.id] = true; }); applyFilters(); });
+function applyFilters() {
+  var shown = 0;
+  LAYERS.forEach(function (l) { chipEl[l.id].setAttribute("aria-pressed", filters[l.id] ? "true" : "false"); });
+  NODES.forEach(function (n) {
+    var off = !filters[n.layer];
+    var g = nodeEl[n.id];
+    g.classList.toggle("off", off);
+    g.setAttribute("tabindex", off ? "-1" : "0");
+    if (off) g.setAttribute("aria-hidden", "true"); else g.removeAttribute("aria-hidden");
+    if (!off) shown++;
+  });
+  EDGES.forEach(function (e) { edgeEl[e.i].classList.toggle("off", !filters[BYID[e.a].layer] || !filters[BYID[e.b].layer]); });
+  if (selectedId && !filters[BYID[selectedId].layer]) closeCard(false);
+  refreshActive();
+  live.textContent = "Showing " + shown + " of " + NODES.length + " parts.";
+}
+
+var forkBtn = document.getElementById("forkBtn");
+var forkCount = NODES.filter(function (n) { return n.fork; }).length;
+forkBtn.addEventListener("click", function () {
+  var on = !svg.classList.contains("forkmode");
+  svg.classList.toggle("forkmode", on);
+  forkBtn.setAttribute("aria-pressed", on ? "true" : "false");
+  live.textContent = on ? forkCount + " fork additions highlighted." : "Fork highlighting off.";
+});
+
+var flowBtn = document.getElementById("flowBtn");
+function syncFlow() {
+  if (reduceMotion.matches) {
+    svg.classList.remove("flowing");
+    flowBtn.setAttribute("aria-pressed", "false");
+    flowBtn.disabled = true;
+    flowBtn.title = "Off because your system asks for reduced motion";
+  } else {
+    flowBtn.disabled = false;
+    flowBtn.title = "";
+  }
+}
+flowBtn.addEventListener("click", function () {
+  if (reduceMotion.matches) return;
+  var on = !svg.classList.contains("flowing");
+  svg.classList.toggle("flowing", on);
+  flowBtn.setAttribute("aria-pressed", on ? "true" : "false");
+});
+if (reduceMotion.addEventListener) reduceMotion.addEventListener("change", syncFlow);
+syncFlow();
+
+var themeBtn = document.getElementById("theme");
+var darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+var THEME_KEY = "graft-system-map-theme";
+function effectiveTheme() {
+  var t = document.documentElement.getAttribute("data-theme");
+  return t || (darkQuery.matches ? "dark" : "light");
+}
+function syncThemeBtn() {
+  var dark = effectiveTheme() === "dark";
+  themeBtn.setAttribute("aria-pressed", dark ? "true" : "false");
+  themeBtn.textContent = dark ? "Light theme" : "Dark theme";
+}
+try {
+  var stored = localStorage.getItem(THEME_KEY);
+  if (stored === "light" || stored === "dark") document.documentElement.setAttribute("data-theme", stored);
+} catch (err) { /* storage unavailable: follow the system theme */ }
+themeBtn.addEventListener("click", function () {
+  var next = effectiveTheme() === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem(THEME_KEY, next); } catch (err) { /* not remembered, still applied */ }
+  syncThemeBtn();
+});
+if (darkQuery.addEventListener) darkQuery.addEventListener("change", syncThemeBtn);
+syncThemeBtn();
+
+document.getElementById("zin").addEventListener("click", function () { zoomCentre(1.25); });
+document.getElementById("zout").addEventListener("click", function () { zoomCentre(1 / 1.25); });
+document.getElementById("zfit").addEventListener("click", fitAll);
+
+/* Legend */
+var legendList = document.getElementById("legend-layers");
+LAYERS.forEach(function (l) {
+  var li = h("li", null, legendList);
+  var sw = h("span", "sw", li); sw.style.setProperty("--c", "var(--c-" + l.id + ")");
+  li.appendChild(document.createTextNode(l.name));
+});
+document.getElementById("legend-meta").textContent =
+  NODES.length + " parts, " + EDGES.length + " connections, " + forkCount +
+  " fork additions. Facts read from the source on 2026-10-21 (version 0.21.1-nishadherath.1, main 6e46fce).";
+
+/* Until the reader pans or zooms, keep the diagram fitted to the window width. */
+var userMoved = false;
+["pointerdown", "wheel"].forEach(function (t) { svg.addEventListener(t, function () { userMoved = true; }, { passive: true }); });
+canvas.addEventListener("keydown", function () { userMoved = true; });
+document.querySelector(".zoom").addEventListener("click", function () { userMoved = true; });
+var resizeTimer = 0;
+function refit() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function () { if (!userMoved && !selectedId) fitWidth(false); }, 80);
+}
+if (window.ResizeObserver) new ResizeObserver(refit).observe(canvas);
+window.addEventListener("resize", refit);
+
+/* The legend starts open only where it leaves room for the diagram. */
+if (canvas.getBoundingClientRect().height < 760) document.getElementById("legend").open = false;
+
+fitWidth(false);
+})();
+</script>
+</body>
+</html>

@@ -96,6 +96,8 @@ graft --version        # 0.21.1-nishadherath
 
 `graft version` and `graft upgrade` compare against the `@nanonets/graft` release on npm, which is upstream's, so `graft upgrade` would replace this build with upstream's. Details of each change are in [CHANGELOG.md](CHANGELOG.md).
 
+Two living documents under `docs/architecture/` describe the whole system and are kept current with the code: [system-reference.md](docs/architecture/system-reference.md) lists every command, MCP tool, hook and indexed file type with the limits that apply, in Simplified Technical English; [system-diagram.html](docs/architecture/system-diagram.html) is an interactive single-file diagram of the system (open it in a browser from a local checkout). The assessment that set the current roadmap is [docs/assessment-2026-10-18.md](docs/assessment-2026-10-18.md).
+
 ---
 
 ## Quick start

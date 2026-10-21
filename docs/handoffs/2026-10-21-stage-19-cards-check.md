@@ -57,7 +57,8 @@ is green with its counts, the global install is synced, the work is committed on
   `.graft/config.json` did not exist (assessment section 8). Not re-checked since the merge
   and the defaults-on change; re-check with `git status --short` and a read of the files.
 - `.trail/cache/` is where upstream's `mapDirFor` puts this checkout's map (operator
-  decision D12 recommended keeping it); the cards the assessment names are under `graft/`.
+  decision D12, decided A on 2026-10-21: keep it there); the cards the assessment names
+  are under `graft/`.
   Confirm which folder holds the stale cards before writing the test.
 
 ## Work completed

@@ -91,7 +91,8 @@ Done on 2026-10-21: gate 1,665 tests, 1,653 passed, 0 failed, 12 skipped.
   ignores `.trail/learnings/` under graft (a new seam against upstream's design).
   Blast radius: this checkout's cache path for A and B; every repository with
   upstream-style learnings for C. Recommended: A; the cache is regenerable and the
-  layout D9 protects is tested. Nothing waits on it.
+  layout D9 protects is tested. Decided: A (operator, 2026-10-21); the generated
+  `.trail/.gitignore` is committed so the tree stays clean.
 - Operator: was `.claude/settings.json` in this checkout only the operator-protocol
   hook before 2026-10-21? The reset assumed so.
 - Upstream: `hooks.ts` line 170 runs `check . --json`, which is the team check under

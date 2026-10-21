@@ -2,7 +2,7 @@
 stage: "Stage 17: merge upstream 0.23.0 (trailhq/Trail-Code) into main"
 model: claude-opus-5-5
 effort: high
-status: in-progress
+status: done
 created: 2026-10-18
 from: "Fable 5.1 assessment session, 2026-10-18 (docs/assessment-2026-10-18.md, section 6)"
 ---
@@ -11,102 +11,99 @@ from: "Fable 5.1 assessment session, 2026-10-18 (docs/assessment-2026-10-18.md, 
 
 ## Goal
 
-`main` carries upstream `ead585b` (Trail-code 0.23.0, 2026-10-15) with every fork
-feature intact: the structured and documents tiers, `GRAFT_REASONING` and the
-deep-pass `tokens:` line, the crux id fix, and the constant `graft mcp` launcher.
-The twelve conflicting files are resolved, the fork's `findOnPath` is replaced by
-upstream's `commandOnPath`, the upstream name is recorded in `AGENTS.md` and
-`docs/operator-protocol.md` section 10, the gate is green with its counts quoted,
-the global install is synced, and two measurements are recorded in the handoff:
-`graft --version` wall time before and after (three runs each), and whether a
-clean `npm ci --ignore-scripts` now loads Kotlin through upstream's WASM fallback
-without the hand-copied binary.
+`main` carries upstream 0.23.0 with every fork feature intact, the conflicts
+resolved, the upstream name recorded, the gate green with its counts quoted, the
+global install synced, and the `--version` timings and the Kotlin fallback measured.
+Done on 2026-10-21: gate 1,665 tests, 1,653 passed, 0 failed, 12 skipped.
 
 ## Decisions already made
 
 - Keep the `graft` command, the `@nanonets/graft` package and the `graft/` layout
-  (assessment D9, option A). Upstream's `.trail/cache/` layout applies only under
-  the `trail` brand; verify the graft brand still writes `graft/` and keep it so.
-- A merge never drops a fork feature. Where upstream and the fork both changed a
-  seam, the fork's behaviour wins and upstream's new code is adapted around it,
-  as Stage 9 did (`955e73d`).
-- `serverEntry()` stays the constant `{ command: 'graft', args: ['mcp'] }`
-  (operator decision of 2026-10-15, option C). Upstream's `NPX_LAUNCH`,
-  `TRAIL_NPX_LAUNCH`, `GRAFT_MCP_NPX` and `graftOnPath` do not come in. The
-  warning path in `init` uses upstream's `commandOnPath` from `src/brand.ts`;
-  `findOnPath` and its tests go.
-- Upstream removed the brain client and its tests (`b92c22e`); take the deletions.
-- A merge commit, not a rebase, in a worktree off `main`, then `main` fast-forwards
-  to it (the Stage 9 pattern). No fork-only file (`AGENTS.md`, the persona, the
-  protocol, `docs/`, `patch/`) is touched by conflict resolution except the two
-  named name updates.
-- Prose conventions of `AGENTS.md` rule 7 in every line this stage writes.
+  (assessment D9, option A). Held by `test/graft-brand-layout.test.ts`.
+- A merge never drops a fork feature; where both sides changed a seam, the fork's
+  behaviour wins and upstream's code is adapted around it.
+- `serverEntry()` is a constant per brand: `graft mcp`, or `trail mcp` under the
+  trail brand. Never npx, no PATH probe, no `GRAFT_MCP_NPX` (operator decision of
+  2026-10-15, option C, extended to upstream's new brand).
+- `findOnPath` moved to `src/graph/lsp/registry.ts` instead of being deleted:
+  Stage 18 made the LSP lookup depend on it (PATHEXT, a returned path), which
+  `commandOnPath` does not give. `graft init` warns through `commandOnPath`.
+- Merged `upstream/main` at `0c750cc` (0.23.0 plus two later fixes), not `ead585b`:
+  the handoff's next action said `upstream/main`, and both fixes are small.
+- The global install is a `--ignore-scripts` install of the fork's own tarball:
+  `sync-global` refuses across base releases, and `openai` moved from 6 to 7.
 
 ## Files and links that matter
 
-- Conflicts (from `git merge-tree --write-tree --name-only main upstream/main`,
-  2026-10-18): `CHANGELOG.md`, `README.md`, `package-lock.json`, `package.json`,
-  `src/cli.ts`, `src/graph/build.ts`, `src/graph/check.ts`, `src/graph/container.ts`,
-  `src/graph/extract.ts`, `src/graph/workspace-cli.ts`, `src/hosts/mcp-config.ts`,
-  `src/util/state.ts`.
-- Upstream's new dispatch: `src/graph/native.ts` (lazy native grammars, WASM
-  stand-ins), `tierOf` and `warmGrammarsFor` shared by build and check
-  (`c4411a6`). The fork's structured branch in `build.ts:285-347` and the
-  documents preparation at `build.ts:233` must join that dispatch, and
-  `check.ts` must enumerate the same set.
-- `src/brand.ts` upstream: `commandOnPath(name, env)`; `src/hosts/mcp-config.ts`
-  fork: constant `serverEntry`, `findOnPath`; `test/hosts-mcp-config.test.ts`.
-- `scripts/sync-global.mjs`: the target stays `@nanonets/graft` (upstream's
-  `package.json` keeps that name at 0.23.0); the version guard compares base
-  releases, so the fork version becomes `0.23.0-nishadherath`.
-- `docs/handoffs/2026-10-14-stage-9-merge-upstream-into-main.md`: the previous
-  merge's method and its gate counts.
-- `docs/assessment-2026-10-18.md` section 8: the startup timings to compare with.
-- Memory note `upstream-moved-to-trailhq`: pull requests target
-  `trailhq/Trail-Code`; the `upstream` remote follows the redirect.
+- Merge commit `a1e3f50` on `main`. Seams: `src/graph/build.ts` (`FileTier`,
+  `tierOf`, `warmGrammarsFor` now carry the structured tier), `src/graph/check.ts`,
+  `src/graph/container.ts` (`extractEmbedded` takes the WASM fallback),
+  `src/hosts/mcp-config.ts`, `src/graph/lsp/registry.ts`, `src/cli.ts`.
+- Tests changed: `test/hosts-mcp-config.test.ts`, `test/hosts-trail.test.ts`
+  (installed-binary entries), new `test/graft-brand-layout.test.ts`.
+- `docs/operator-protocol.md` section 10: the upstream name, the reinstall
+  procedure, the Kotlin fallback, the smoke-test trap.
+- `docs/architecture/system-reference.md` sections 1 to 5 and 9 re-verified.
 
-## Verified facts (2026-10-18)
+## Verified facts (2026-10-21, Node 26.7.0)
 
-- `git log main..upstream/main --oneline | wc -l` printed 14 after
-  `git fetch upstream --tags`; `git diff main...upstream/main --stat | tail -1`
-  printed 182 files, 15,137 insertions, 9,532 deletions.
-- `npm view @nanonets/graft version` printed 0.23.0 (modified 2026-10-15), as did
-  `@trailhq/trail-code`.
-- `git show upstream/main:src/hosts/mcp-config.ts` still spawns `graft --version`
-  at line 57; the Windows probe bug is live upstream.
-- Startup before: `node <global>/dist/cli.js --version` 6.50, 6.35, 6.33 s;
-  `node -e 0` 0.35 s.
-- Last gate on `main` (Stage 14, 2026-10-15): 1,553 tests, 1,548 passed, 0 failed,
-  5 skipped. The assessment session's own gate is quoted in the Stage 15 handoff.
+- `git fetch upstream --tags`: `upstream/main` was `0c750cc`, 16 commits ahead of
+  `main`. `git merge` conflicted in the same 12 files the dry run named.
+- Gate after the merge: 1,665 tests, 1,653 passed, 0 failed, 12 skipped, 531 s.
+  The skips are Windows platform skips and tests upstream marks skip.
+- `--version`, three runs each, bash wall clock. Before, fork `dist/` 1.44, 1.37,
+  1.63 s; global (0.21.1-nishadherath.1) 3.08, 3.03, 3.16 s. After, fork `dist/`
+  1.53, 1.52, 1.46 s; global through node 2.15, 2.07, 2.06 s; through `graft.cmd`
+  2.52, 3.03, 2.35 s. `node -e 0` 0.38 s. `ask --no-refresh -n 1` through the shim
+  2.38, 2.61, 2.24 s. The assessment's 6.3 s of 2026-10-18 did not reproduce.
+- Kotlin with `node_modules/tree-sitter-kotlin/build` moved aside:
+  `nativeReady("kotlin")` false, the build succeeds through the WASM stand-in and
+  prints one fix line. Same spans as native on a fixture; `open` is a `function`
+  not a `method`, 1 edge instead of 4. The binary copy is still made.
+- `sync-global` after the reinstall: 0 changed, 0 stale removed, 859 unchanged;
+  `graft --version` printed `0.23.0-nishadherath`; the global `pdfjs-dist` loads.
+- The global `graft mcp` answered `initialize` in 2.2 s as `serverInfo.name: graft`.
+- Under the graft brand `graft init` creates no `.trail/` and the map is `graft/`.
 
 ## Work completed
 
-None.
+- Merge `a1e3f50` (twelve conflicts resolved as above; brain fields and imports
+  dropped with upstream's deletion; version `0.23.0-nishadherath`; README and
+  CHANGELOG carry both histories; AGENTS.md and protocol section 10 updated).
+- Global install backed up to the session scratchpad, reinstalled from the fork's
+  tarball, Kotlin binary restored, synced. The main checkout reinstalled and rebuilt;
+  its `dist/` matches the global install byte for byte.
+- Worktree `fork_graft-stage17-main` and branch `stage-17/merge-upstream` removed.
+- Incident: a smoke test ran `graft mcp` in this checkout, and upkeep rewrote the
+  agent files. Undone: tracked files restored from git, `.mcp.json` and the new
+  wiring stamp removed, the ignored `.claude/settings.json` reset to the
+  operator-protocol hook alone (this session's start ran only that hook).
+- Not pushed to `origin`.
 
 ## Unresolved questions
 
-- Whether `tree-sitter-kotlin` still needs the hand-copied binary: upstream's fix
-  acts at load time, not install time; a clean install without the copy answers it.
-- Whether upstream's `.trail/` session-start hooks fire under the graft brand in a
-  repo wired by this fork (they should not; a test in `test/trail-*.test.ts` may
-  say). Operator, if the merge changes any wired repo's behaviour.
+- Operator: was `.claude/settings.json` in this checkout only the operator-protocol
+  hook before 2026-10-21? The reset assumed so.
+- Upstream: `hooks.ts` line 170 runs `check . --json`, which is the team check under
+  the trail brand, so the stale count reads 0 there (system reference section 9).
+- Later stage: `docs/architecture/system-diagram.html` and reference sections 6 to 8
+  were not re-checked against the merge.
 
 ## Exact next action
 
-`git worktree add ../fork_graft-stage17-main -b stage-17/merge-upstream main`, then
-in it `npm ci --ignore-scripts`, copy `node_modules/tree-sitter-kotlin/build/Release`
-from the global install, `npm run build`, record three timings of
-`node dist/cli.js --version`, then `git merge upstream/main`.
+Roadmap Stage 18 (startup by per-command loading), as Stage 18r:
+`docs/handoffs/2026-10-21-stage-18r-startup.md`.
 
 ## Cost projection
 
-Opus 5.5, high ($4.00 in, $20.00 out, $0.20 cache read per million). 100 turns,
-average context 100k, 3k fresh input and 1.5k output per turn. Cache 10.0M x $0.20
-= $2.00; fresh 300k x $4.00 x 1.25 = $1.50; output 150k x $20.00 = $3.00. About
-$6.50; quote $5 to $10 (a third gate or a conflict in the lockfile adds turns).
+Projected $6.50 ($5 to $10). Actual, by the same method: about 90 turns, context
+growing to 290k (average about 180k): cache 16.2M x $0.20 = $3.24; fresh 270k x
+$5.00 = $1.35; output 135k x $20.00 = $2.70. About $7.30, plus about $1 of Sonnet
+subagent work on the reference. About $8.30.
 
 ## Time projection
 
-Wall clock 90 to 150 minutes, including two gates of about eight minutes each run
-one at a time. Operator review about 30 minutes, plus one Claude Code restart in a
-wired repository to confirm the MCP server still starts.
+Projected 90 to 150 minutes. Actual about 50 minutes of session wall clock plus the
+531 s gate and a two-minute global install inside it. Operator review about 30
+minutes, plus one Claude Code restart in a wired repository to see the MCP server
+start under 0.23.0.

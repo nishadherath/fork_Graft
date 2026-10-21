@@ -1,7 +1,8 @@
 # graft system reference
 
 Last verified: 2026-10-21. Sections 1 to 5 were checked by Stage 17 against the merge
-of upstream `0c750cc` (0.23.0). Sections 6 to 8 are from Stage 15b, at `6e46fce`.
+of upstream `0c750cc` (0.23.0). Stage 18r updated the startup facts in sections 1, 3
+and 7.4. Sections 6 to 8 are from Stage 15b, at `6e46fce`.
 
 This is a living reference for the operator's fork of graft. It states what the
 tool does today, as the source code defines it. Section 8 says how to keep it
@@ -66,18 +67,18 @@ What the fork adds to upstream (assessment section 1, `CHANGELOG.md`):
 
 What is open (assessment sections 0, 4 and 7):
 
-- Startup. On 2026-10-21 `graft --version` took 2.1 s through node and 2.3 to
-  3.0 s through the shim from the global install, and 1.5 s from the fork's own
-  `dist/`. The assessment measured 6.3 s on 2026-10-18. `ask --no-refresh -n 1`
-  took 2.2 to 2.6 s through the shim.
+- Startup is no longer open. Stage 18r (2026-10-21) cut `graft --version` from
+  about 510 loaded modules to 81, and from 2.3 to 3.0 s to 1.2 to 1.4 s through
+  the shim (section 7.4 has the runs). `ask --no-refresh -n 1` took 1.8 to 2.0 s
+  through the shim, so a query is still above 1.5 s there.
 - The graph of this repository had no structured nodes and no summaries on
   2026-10-18.
 - The design issue for upstream was not opened.
 - Decisions D8 to D11 are open. They cover the fork's purpose, the `trail`
   name, the advisory, and `GRAFT_REASONING`.
 - The staged roadmap is in assessment section 6. Its Stage 18 (startup by
-  per-command loading) is the next code stage, named Stage 18r in
-  `docs/handoffs/` because the defaults-on work took the number 18.
+  per-command loading) was done as Stage 18r (`docs/handoffs/`), because the
+  defaults-on work took the number 18.
 
 ## 2. Terms and files on disk
 
@@ -194,6 +195,22 @@ Source: `src/graph/workspace.ts` lines 1 to 23.
 Sources: `src/cli.ts` (line numbers below), `src/brand.ts`.
 The list comes from `grep -n '\.command("' src/cli.ts`. It has 30 entries. They
 include hidden commands, the `skills` subcommands and `workspace add`.
+
+Line numbers into `src/cli.ts` in this section and the later ones are from the
+Stage 17 merge (`a1e3f50`). Stage 18r moved code in that file by up to about 30
+lines (the global options now start at line 133), so use them as a guide and
+re-find a line with `grep -n`.
+
+Loading rule (Stage 18r): `src/cli.ts` imports statically only what a bare
+`--version` and the hooks need. The engine (`Graft`), the init and uninstall
+machinery (`loadWiring()`), the workspace command bodies (`workspaceCli()`), the
+graph refresher, the check formatters and the extension registry load inside the
+command that uses them. `ask` calls the ranker and `notes/ask-notes.js` directly
+instead of through the engine. `Graft` loads the LLM factory, and so the OpenAI
+and Anthropic SDKs, when a model is first needed. The workspace index readers live
+in `src/graph/workspace-index.ts`; `workspace.ts` re-exports them.
+`test/startup-imports.test.ts` fails if `--version` loads an SDK, the MCP server,
+the Claude hooks, the engine or the graph builder.
 
 The program runs under two names. `dist/bin/graft.js` sets the graft brand and
 `dist/bin/trail.js` sets the trail brand (`src/bin/`, `src/brand.ts` lines 24 to 37).
@@ -1343,8 +1360,16 @@ Where the rate appears:
   The hook pack and `ask` without `--source` claim none.
 - No harness in this repository measures retrieval quality. The assessment says so
   (section 3). A saving in tokens does not prove an answer was as good.
-- Graft also adds cost. On this machine, startup took 6.3 s in the assessment.
-  A query that had to rebuild took 65 s (assessment section 8). The MCP tool
+- Graft also adds cost. Startup on this machine, bash wall clock, Node 26.7.0,
+  three runs each, 2026-10-21. `node -e 0` took 0.5 to 0.65 s. Before Stage 18r,
+  `--version` loaded 514 resolved modules (350 of them the two LLM SDKs): 1.5 to
+  1.9 s from `dist/` and 2.35 to 3.0 s through the shim (Stage 17 runs; a loaded
+  machine gave 4 to 7 s). After, 81 modules: 0.97, 1.05, 1.09 s from `dist/` and
+  1.21, 1.29, 1.41 s through the shim. `ask --no-refresh -n 1` in a one-file
+  repository: before 2.5 to 2.7 s from `dist/` and 2.24 to 2.61 s through the
+  shim; after 0.82, 1.01, 1.08 s from `dist/` and 1.75, 1.78, 2.02 s through the
+  shim. The 6.3 s of the assessment (2026-10-18) did not reproduce. A query that
+  had to rebuild took 65 s (assessment section 8, not re-run). The MCP tool
   schemas use context on every turn (`mcp/server.ts` lines 41 to 49).
 - A `--deep` build spends tokens. It prints a `tokens:` line. A keyless build
   spends none.
@@ -1435,8 +1460,9 @@ call.
 - Stage 17 re-ran the global install version, the test counts, the upstream
   commit distance and the section 1 timings on 2026-10-21. The open pull-request
   count comes from the assessment and was not re-run.
-- The timings in section 7.4 come from assessment section 8. They were not
-  re-measured.
+- The startup timings in section 7.4 were re-measured by Stage 18r on
+  2026-10-21. The rebuild time (65 s) comes from assessment section 8 and was not
+  re-run.
 - The upstream benchmark figures were not reproduced.
 - `src/telemetry/`, `src/app/`, `src/blast/`, `src/viz/` and upstream's
   learnings and workspace modules (`src/notes/`, `src/cloud/`) were read at the

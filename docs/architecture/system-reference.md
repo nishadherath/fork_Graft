@@ -46,7 +46,7 @@ Sources: `package.json`, `docs/handoffs/2026-10-18-stage-17-merge-upstream-0.23.
 | Node | `engines` says `>=20`. The operator runs 26.7.0 |
 | Upstream | `trailhq/Trail-Code`. It publishes 0.23.0 as `@nanonets/graft` and as `@trailhq/trail-code` (with a `trail` command) |
 | Distance from upstream | 0 commits behind `upstream/main` (`0c750cc`) on 2026-10-21 |
-| Brand | This build runs as `graft` and writes its map to `graft/`. It installs no `trail` command. `test/graft-brand-layout.test.ts` holds this |
+| Brand | This build runs as `graft` and writes its map to `graft/`. It installs no `trail` command. `test/graft-brand-layout.test.ts` holds this. Exception: a repository with a `.trail/learnings/` folder is on trail for the map whatever the brand. Upstream tracks one, so this checkout's own map is in `.trail/cache/` (decision D12 in the Stage 17 handoff) |
 | Last full gate | `npm run build && npm test` on 2026-10-21 (Node 26.7.0), after the merge: 1,665 tests, 1,653 passed, 0 failed, 12 skipped, 531 s. The 12 skips are Windows platform skips and tests that upstream marks skip |
 | Stages done | Stages 0 to 18 have `status: done` in `docs/handoffs/`. Stage 17 is the upstream merge |
 | Upstream pull requests | None opened. The operator's one upstream item is issue 542 |

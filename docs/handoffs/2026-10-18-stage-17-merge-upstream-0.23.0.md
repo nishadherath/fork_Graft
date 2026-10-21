@@ -41,9 +41,8 @@ Done on 2026-10-21: gate 1,665 tests, 1,653 passed, 0 failed, 12 skipped.
   `src/hosts/mcp-config.ts`, `src/graph/lsp/registry.ts`, `src/cli.ts`.
 - Tests changed: `test/hosts-mcp-config.test.ts`, `test/hosts-trail.test.ts`
   (installed-binary entries), new `test/graft-brand-layout.test.ts`.
-- `docs/operator-protocol.md` section 10: the upstream name, the reinstall
-  procedure, the Kotlin fallback, the smoke-test trap.
-- `docs/architecture/system-reference.md` sections 1 to 5 and 9 re-verified.
+- Protocol section 10 (upstream name, reinstall, Kotlin fallback, smoke-test trap);
+  `docs/architecture/system-reference.md` sections 1 to 5 and 9 re-verified.
 
 ## Verified facts (2026-10-21, Node 26.7.0)
 
@@ -74,14 +73,25 @@ Done on 2026-10-21: gate 1,665 tests, 1,653 passed, 0 failed, 12 skipped.
   tarball, Kotlin binary restored, synced. The main checkout reinstalled and rebuilt;
   its `dist/` matches the global install byte for byte.
 - Worktree `fork_graft-stage17-main` and branch `stage-17/merge-upstream` removed.
-- Incident: a smoke test ran `graft mcp` in this checkout, and upkeep rewrote the
-  agent files. Undone: tracked files restored from git, `.mcp.json` and the new
-  wiring stamp removed, the ignored `.claude/settings.json` reset to the
+- Incident: a smoke test ran `graft mcp` here and upkeep rewrote the agent files,
+  and the user-level `~/.claude/helpers/graft-hooks.cjs` (that one any first graft
+  command after the upgrade would rewrite). Undone here: tracked files from git,
+  `.mcp.json` and the stamp removed, `.claude/settings.json` reset to the
   operator-protocol hook alone (this session's start ran only that hook).
-- Not pushed to `origin`.
+  Not pushed to `origin`.
 
 ## Unresolved questions
 
+- Operator decision D12, this checkout's map folder. Upstream `0c750cc` tracks two
+  files in `.trail/learnings/`, so upstream's `mapDirFor` treats this repository as
+  on trail: a graft command moved `graft/` to `.trail/cache/` and wrote an untracked
+  `.trail/.gitignore` (19:11). Repositories this build wires are not affected
+  (`test/graft-brand-layout.test.ts`). A: keep it so (no code, no divergence). B:
+  delete upstream's learnings on `main` (re-added by every merge). C: `mapDirFor`
+  ignores `.trail/learnings/` under graft (a new seam against upstream's design).
+  Blast radius: this checkout's cache path for A and B; every repository with
+  upstream-style learnings for C. Recommended: A; the cache is regenerable and the
+  layout D9 protects is tested. Nothing waits on it.
 - Operator: was `.claude/settings.json` in this checkout only the operator-protocol
   hook before 2026-10-21? The reset assumed so.
 - Upstream: `hooks.ts` line 170 runs `check . --json`, which is the team check under
@@ -96,10 +106,9 @@ Roadmap Stage 18 (startup by per-command loading), as Stage 18r:
 
 ## Cost projection
 
-Projected $6.50 ($5 to $10). Actual, by the same method: about 90 turns, context
-growing to 290k (average about 180k): cache 16.2M x $0.20 = $3.24; fresh 270k x
-$5.00 = $1.35; output 135k x $20.00 = $2.70. About $7.30, plus about $1 of Sonnet
-subagent work on the reference. About $8.30.
+Projected $6.50 ($5 to $10). Actual: about 90 turns, context to 290k (average
+180k): cache 16.2M x $0.20 = $3.24; fresh 270k x $5.00 = $1.35; output 135k x $20.00
+= $2.70; plus about $1 of Sonnet subagent work. About $8.30.
 
 ## Time projection
 

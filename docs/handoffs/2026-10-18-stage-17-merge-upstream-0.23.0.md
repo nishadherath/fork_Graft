@@ -2,7 +2,7 @@
 stage: "Stage 17: merge upstream 0.23.0 (trailhq/Trail-Code) into main"
 model: claude-opus-5-5
 effort: high
-status: ready
+status: in-progress
 created: 2026-10-18
 from: "Fable 5.1 assessment session, 2026-10-18 (docs/assessment-2026-10-18.md, section 6)"
 ---

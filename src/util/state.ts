@@ -102,16 +102,21 @@ export interface BuildConfig {
    * checkout someone parked in the tree. Absent/false keeps the historical
    * boundary. */
   followNestedRepos?: boolean;
-  /** Whether the structured tier (Markdown, JSON, YAML, TOML, INI) is part of
-   * this repo's graph (`graft build --structured`). Persisted so the freshness
+  /** Whether the structured tier (Markdown, JSON, YAML, TOML, INI and the markup
+   * and build families) is part of this repo's graph. On unless `false`:
+   * `graft build --no-structured` saves `false`. Persisted so the freshness
    * probe, `check` and the automatic refresh enumerate the same files as the build
-   * that chose it. Absent/false keeps code-only indexing. */
+   * that chose it. */
   structured?: boolean;
   /** Whether PDF, DOCX, ODT, EPUB, PPTX and ODP files are indexed through a cached
-   * text rendering (`graft build --documents`). Only takes effect with the
-   * structured tier on, whose Markdown scanner reads the rendering. Absent/false
-   * keeps them out. */
+   * text rendering. On unless `false`: `graft build --no-documents` saves `false`.
+   * Only takes effect with the structured tier on, whose Markdown scanner reads
+   * the rendering. */
   documents?: boolean;
+  /** Whether `graft build` adds compiler-grade call edges from a language server
+   * found on PATH. On unless `false`: `graft build --no-lsp` saves `false`. Only
+   * `build` runs it; the automatic refresh does not. */
+  lsp?: boolean;
   /** The Trail brain this repo's rules come from: the brain id and the token to
    * read it with. Persisted here — in the git-ignored `.graft/` — rather than in
    * `~/.graft/`, because a brain belongs to one repository and two checkouts on
@@ -177,26 +182,34 @@ export function readFollowSubmodules(d: string): boolean {
   return readBuildConfig(d)?.followSubmodules === true;
 }
 
-/** Whether the structured tier is on for repo `d`. `GRAFT_STRUCTURED` (the env
- * twin of `--structured`) wins in both directions: any value but ""/"0"/"false"
- * turns it on, "0"/"false" turns it off, and unset or empty defers to the
- * persisted choice. Missing and explicit false both mean off (decision D1). */
+/** A default-on switch: the env twin wins in both directions ("0"/"false" is off,
+ * any other non-empty value is on, unset or empty defers), then the saved choice,
+ * and with neither it is ON. Only an explicit `false` turns it off. */
+function defaultOn(envValue: string | undefined, saved: boolean | undefined): boolean {
+  if (envValue === '0' || envValue === 'false') return false;
+  if (envValue !== undefined && envValue !== '') return true;
+  return saved !== false;
+}
+
+/** Whether the structured tier is on for repo `d`. On by default; switched off by
+ * `--no-structured` (saved) or `GRAFT_STRUCTURED=0`. */
 export function readStructured(d: string): boolean {
-  const env = process.env.GRAFT_STRUCTURED;
-  if (env === '0' || env === 'false') return false;
-  if (env !== undefined && env !== '') return true;
-  return readBuildConfig(d)?.structured === true;
+  return defaultOn(process.env.GRAFT_STRUCTURED, readBuildConfig(d)?.structured);
 }
 
 /** Whether the documents tier is on for repo `d`: the structured tier must be on,
  * and then `GRAFT_DOCUMENTS` (the env twin of `--documents`) decides exactly as
- * `GRAFT_STRUCTURED` does, falling back to the persisted choice. */
+ * `GRAFT_STRUCTURED` does, falling back to the saved choice. On by default. */
 export function readDocuments(d: string): boolean {
   if (!readStructured(d)) return false;
-  const env = process.env.GRAFT_DOCUMENTS;
-  if (env === '0' || env === 'false') return false;
-  if (env !== undefined && env !== '') return true;
-  return readBuildConfig(d)?.documents === true;
+  return defaultOn(process.env.GRAFT_DOCUMENTS, readBuildConfig(d)?.documents);
+}
+
+/** Whether `graft build` runs LSP enrichment for repo `d`. On by default; switched
+ * off by `--no-lsp` (saved) or `GRAFT_LSP=0`. With no language server on PATH the
+ * pass is a no-op either way. */
+export function readLsp(d: string): boolean {
+  return defaultOn(process.env.GRAFT_LSP, readBuildConfig(d)?.lsp);
 }
 
 /** The documents tier's size cap in bytes: `GRAFT_DOCUMENT_MAX_BYTES` when it is a

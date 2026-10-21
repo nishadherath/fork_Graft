@@ -71,6 +71,7 @@ test("deep: the concept pass reads structured files only when the tier is on, ne
   const outDir = join(root, "graft");
   const listed = (): string[] => listContextFiles(root, outDir, undefined).map((f) => relPosix(root, f)).sort();
 
+  patchBuildConfig(root, { structured: false });
   assert.deepEqual(listed(), ["src/a.ts"]);
   patchBuildConfig(root, { structured: true });
   assert.deepEqual(listed(), ["docs/guide.md", "package.json", "settings.yml", "src/a.ts"]);
@@ -87,6 +88,7 @@ test("deep: the concept pass admits workflow YAML under .github/workflows, as th
   const outDir = join(root, "graft");
   const listed = (): string[] => listContextFiles(root, outDir, undefined).map((f) => relPosix(root, f)).sort();
 
+  patchBuildConfig(root, { structured: false });
   assert.deepEqual(listed(), [], "tier off: no structured file, and nothing behind a dot");
   patchBuildConfig(root, { structured: true });
   assert.deepEqual(

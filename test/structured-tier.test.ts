@@ -2,8 +2,8 @@
  * The structured tier's plumbing: which files it claims, when it is on, and
  * that every consumer of the file set agrees about it.
  *
- * The tier is opt-in (`--structured`, or `GRAFT_STRUCTURED=1`). The risk in an
- * opt-in tier is not the parse, it is disagreement: if `build` enumerates `.md`
+ * The tier is on by default and switched off with `--no-structured` (or
+ * `GRAFT_STRUCTURED=0`). The risk in an optional tier is not the parse, it is disagreement: if `build` enumerates `.md`
  * files and the freshness probe or `check` does not (or the reverse), every
  * query reports phantom drift and the rebuild it triggers can never clear it.
  * The same class of bug as #236 for the container tier. These tests pin the
@@ -93,6 +93,8 @@ test("structured: -e support set grows only when the tier is on", () => {
 
 test("structured: file selection follows the persisted choice", () => {
   const { dir, outDir } = repoWithDocs("structured-select");
+  assert.deepEqual(files(dir, outDir), ["README.md", "config.json", "src/util.ts"], "on by default");
+  patchBuildConfig(dir, { structured: false });
   assert.deepEqual(files(dir, outDir), ["src/util.ts"]);
   patchBuildConfig(dir, { structured: true });
   assert.deepEqual(files(dir, outDir), ["README.md", "config.json", "src/util.ts"]);
@@ -105,7 +107,7 @@ test("structured: the env twin overrides the persisted choice both ways", () => 
   const saved = process.env.GRAFT_STRUCTURED;
   try {
     delete process.env.GRAFT_STRUCTURED;
-    assert.equal(readStructured(dir), false, "off by default (decision D1)");
+    assert.equal(readStructured(dir), true, "on by default");
     patchBuildConfig(dir, { structured: true });
     assert.equal(readStructured(dir), true);
     process.env.GRAFT_STRUCTURED = "0";
@@ -125,6 +127,7 @@ test("structured: the env twin overrides the persisted choice both ways", () => 
 
 test("structured: a build without the tier leaves documents out, with it they get file nodes", async () => {
   const { dir, outDir } = repoWithDocs("structured-build");
+  patchBuildConfig(dir, { structured: false });
   await buildGraph(dir, { contextDir: outDir, reuse: false });
   let graph = readGraph(wiringPath(outDir));
   assert.deepEqual(graph.nodes.filter((n) => n.kind === "file").map((n) => n.path), ["src/util.ts"]);

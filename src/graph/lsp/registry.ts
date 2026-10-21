@@ -4,6 +4,7 @@
  * simply means that language gets no LSP enrichment (the AST graph stands alone).
  */
 import { execSync } from "node:child_process";
+import { findOnPath } from "../../hosts/mcp-config.js";
 
 export interface LspServer {
   /** graft language names (as produced by languageLabelOf/genericLangOf) this serves. */
@@ -24,11 +25,14 @@ export const LSP_SERVERS: readonly LspServer[] = [
 ];
 
 const resolved = new Map<string, string | null>();
-/** Resolve a command to its ABSOLUTE path via the login shell's PATH. `spawn`
- * resolves against `process.env.PATH`, which often omits `~/.cargo/bin`,
- * `~/go/bin`, etc. where these servers live — so `command -v` can find a server
+/** Resolve a command to its ABSOLUTE path. On Windows that is a PATH walk with
+ * PATHEXT (no shell: `command -v` does not exist in cmd.exe, so the old probe
+ * found nothing there and LSP never ran). Elsewhere it is the shell's `command -v`:
+ * `spawn` resolves against `process.env.PATH`, which often omits `~/.cargo/bin`,
+ * `~/go/bin`, etc. where these servers live, so `command -v` can find a server
  * that `spawn(cmd)` then can't. Spawning the absolute path avoids that mismatch. */
-function resolveCommand(cmd: string): string | null {
+function resolveCommand(cmd: string, env: NodeJS.ProcessEnv, platform: NodeJS.Platform): string | null {
+  if (platform === "win32") return findOnPath(cmd, env, platform) ?? null;
   if (resolved.has(cmd)) return resolved.get(cmd)!;
   let abs: string | null = null;
   try { abs = execSync(`command -v ${cmd}`, { encoding: "utf8" }).trim() || null; } catch { abs = null; }
@@ -38,11 +42,15 @@ function resolveCommand(cmd: string): string | null {
 
 /** Pick the highest-priority installed server that covers at least one of the
  * languages present in the repo, with `command` resolved to an absolute path.
- * Returns null if none is installed. */
-export function pickServer(languagesPresent: Set<string>): LspServer | null {
+ * Returns null if none is installed. `env` and `platform` are injectable for tests. */
+export function pickServer(
+  languagesPresent: Set<string>,
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): LspServer | null {
   for (const s of LSP_SERVERS) {
     if (!s.languages.some((l) => languagesPresent.has(l))) continue;
-    const abs = resolveCommand(s.command);
+    const abs = resolveCommand(s.command, env, platform);
     if (abs) return { ...s, command: abs };
   }
   return null;

@@ -53,8 +53,9 @@ Sources: `package.json`, `docs/assessment-2026-10-18.md` (sections 4 and 8),
 
 What the fork adds to upstream (assessment section 1, `CHANGELOG.md`):
 
-- The structured tier: 13 families of documents and configuration. Opt-in.
-- The documents tier: PDF, DOCX, ODT, EPUB, PPTX and ODP. Opt-in.
+- The structured tier: 13 families of documents and configuration. On by default since the tag `enable-improved-support-by-default`. `--no-structured` turns it off.
+- The documents tier: PDF, DOCX, ODT, EPUB, PPTX and ODP. On by default since the same tag. `--no-documents` turns it off.
+- LSP edges: on by default since the same tag. `--no-lsp` turns them off. The Windows server lookup now works.
 - `GRAFT_REASONING` and `--reasoning`, and a `tokens:` usage line after
   `build --deep`.
 - The crux id echo fix in `src/ai/crux.ts`.
@@ -227,14 +228,14 @@ keyless unless `--deep` is given. The default `dir` is `.`.
 | `-e, --extensions <exts...>` | Code extensions to include. An extension with no parser is ignored with a warning that lists the supported set (lines 177 to 188) |
 | `-j, --concurrency <n>` | Files processed in parallel in the deep pass. Default 5 |
 | `--no-reuse` | Parse every file again. Do not replay unchanged files from the cache |
-| `--lsp` | Add compiler-grade call edges through a language server on PATH. Opt-in and slower |
+| `--lsp`, `--no-lsp` | Turn the language-server pass on or off. It is on by default. It adds compiler-grade call edges when a server is on PATH. It makes the build slower. The choice persists. Env: `GRAFT_LSP` |
 | `--allow-partial` | With `--deep`: exit 0 even if some summaries failed. The default is exit 1 for a degraded meaning tier |
 | `--follow-submodules`, `--no-follow-submodules` | Include or exclude initialised submodules. The choice persists. Default: exclude |
 | `--follow-nested-repos`, `--no-follow-nested-repos` | Include or exclude nested git clones that the index does not track. The choice persists. Default: exclude |
 | `--include-dir <name>` | Remove a name from the skip list. Repeatable. Takes a bare directory name. A dot-directory is rejected. The choice persists (lines 483 to 494) |
 | `--only-dir <path>` | Index only files under this repo-relative path. Repeatable. The list goes into the graph fingerprint. It is not written to the repository (lines 495 to 511) |
-| `--structured`, `--no-structured` | Turn the structured tier on or off. The choice persists. Env: `GRAFT_STRUCTURED` |
-| `--documents`, `--no-documents` | Turn the documents tier on or off. It needs the structured tier. The choice persists. Env: `GRAFT_DOCUMENTS` |
+| `--structured`, `--no-structured` | Turn the structured tier on or off. It is on by default. The choice persists. Env: `GRAFT_STRUCTURED` |
+| `--documents`, `--no-documents` | Turn the documents tier on or off. It is on by default. It needs the structured tier. The choice persists. Env: `GRAFT_DOCUMENTS` |
 | `--deep-documents` | With `--deep`: also summarise documents. Not persisted. Env: `GRAFT_DEEP_DOCUMENTS` |
 | `--no-gitignore` | Do not write `graft/` into `.gitignore`. Env: `GRAFT_NO_GITIGNORE=1` |
 | `--no-ignore` | Do not write the `.ignore` file for ripgrep. Env: `GRAFT_NO_IGNORE=1` |
@@ -840,9 +841,9 @@ Notes:
 | Depth | On | Hand-written extractors over native tree-sitter grammars | Definitions, signatures, spans. Imports, calls, references, extends, implements. Local scope and receiver types |
 | Container | On | A wasm grammar finds the block. The depth tier reads it | Same as depth, for the script block of a `.vue` file |
 | Breadth | On | One generic extractor over a wasm grammar and its `tags.scm` query | Definitions, signatures, spans. Bare-name calls. No scope resolution |
-| Structured | Off | Line scanners and wasm grammars | Units of documents and configuration, with exact spans. Edges to code, links and scripts |
-| Documents | Off. Needs the structured tier | Converters, then the Markdown scanner | Sections of a text rendering. The locator names the page or slide |
-| LSP | Off | A language server on PATH | Promotes call edges to compiler grade |
+| Structured | On | Line scanners and wasm grammars | Units of documents and configuration, with exact spans. Edges to code, links and scripts |
+| Documents | On. Needs the structured tier | Converters, then the Markdown scanner | Sections of a text rendering. The locator names the page or slide |
+| LSP | On. `graft build` only | A language server on PATH | Promotes call edges to compiler grade |
 
 ### Depth tier
 
@@ -884,13 +885,15 @@ Limits and rules:
 - Native grammars need a compiled binary. The Kotlin grammar does not build under
   Visual Studio 18 on this machine (`AGENTS.md`, rule 1).
 
-Optional LSP layer (`graft build --lsp`):
+LSP layer (on by default; `graft build --no-lsp` turns it off):
 
-- It adds `lsp_resolved` call edges. It is opt-in and slower.
+- It adds `lsp_resolved` call edges. It makes `graft build` slower. Only `graft build` runs it. The automatic refresh and the hooks do not.
 - It uses the first installed server that covers a language in the repository:
   `rust-analyzer` (Rust), `clangd` (C and C++), `gopls` (Go), `pyright-langserver`
   (Python), `typescript-language-server` (TypeScript and JavaScript).
 - With no server installed the graph is unchanged.
+- A server that exits at start ends the wait at once. Before the tag `enable-improved-support-by-default`, the client waited 120 s (`lsp/client.ts`).
+- On Windows the lookup walks `PATH` with `PATHEXT`. A `.cmd` or `.bat` shim starts through a shell (`lsp/registry.ts`, `lsp/client.ts`).
 
 ### Container tier
 
@@ -961,8 +964,8 @@ Limits:
 Sources: `structured/index.ts`, `structured/shared.ts`, and one file for each
 family in `structured/`.
 
-Default: off. Turn it on with `graft build --structured` or
-`GRAFT_STRUCTURED=1`. The locator is the node's `path` and its `span`, in lines
+Default: on. Turn it off with `graft build --no-structured` or
+`GRAFT_STRUCTURED=0`. The locator is the node's `path` and its `span`, in lines
 of the host file. The choice persists in `.graft/config.json`. The variable wins in both directions: `0` or
 `false` turns the tier off (`src/util/state.ts` lines 180 to 189). The scanners
 are deterministic and keyless. They never throw on bad input. They index fewer
@@ -1037,7 +1040,7 @@ interpreted. After a `cd`, nothing in the same text is reported.
 Sources: `structured/documents/` (all files), `src/ingest/fs.ts` line 33,
 `src/util/state.ts` lines 191 to 214, `package.json` lines 105 to 108.
 
-Turn it on with `graft build --structured --documents` or `GRAFT_DOCUMENTS=1`.
+Default: on. Turn it off with `graft build --no-documents` or `GRAFT_DOCUMENTS=0`.
 The structured tier must also be on. A binary has no lines. Graft converts each
 document once into a text rendering. The Markdown scanner then indexes the
 rendering.

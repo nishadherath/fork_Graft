@@ -1,5 +1,5 @@
 /**
- * A minimal LSP client for the opt-in `--lsp` enrichment pass — just enough to
+ * A minimal LSP client for the `graft build` LSP enrichment pass (on by default, `--no-lsp` turns it off) — just enough to
  * pull compiler-grade call edges out of a language server: spawn it over stdio,
  * initialize, open documents, and run the call-hierarchy requests. Built on
  * `vscode-jsonrpc` (we don't hand-roll the framing). Everything is best-effort:
@@ -34,6 +34,8 @@ export class LspClient {
   private opened = new Set<string>();
   private ready = false;
   private spawnFailed = false;
+  /** Settles when the server process exits or cannot start, so a wait on it never outlives it. */
+  private readonly exited: Promise<void>;
 
   constructor(
     command: string,
@@ -41,8 +43,17 @@ export class LspClient {
     private readonly root: string,
     private readonly languageId: string,
     private readonly callTimeoutMs = 15000,
+    private readonly initializeTimeoutMs = 120000,
   ) {
-    this.proc = spawn(command, args, { cwd: root, stdio: ["pipe", "pipe", "pipe"] });
+    // A Windows .cmd or .bat shim (an npm global such as typescript-language-server)
+    // cannot be spawned without a shell: Node refuses it with EINVAL. The path is
+    // quoted because it may hold spaces; arguments are the registry's fixed flags.
+    const needsShell = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(command);
+    this.proc = spawn(needsShell ? `"${command}"` : command, args, {
+      cwd: root,
+      stdio: ["pipe", "pipe", "pipe"],
+      shell: needsShell,
+    });
     // ENOENT (bad path) OR an immediate exit (e.g. a rustup shim whose component
     // isn't installed) must fail fast, not hang a request for the full timeout.
     this.proc.on("error", () => { this.spawnFailed = true; });
@@ -50,6 +61,10 @@ export class LspClient {
     // fast so initialize bails instead of waiting out the timeout; once we've
     // marked !ready, in-flight queries no-op. Firing during dispose is harmless.
     this.proc.on("exit", () => { this.spawnFailed = true; this.ready = false; });
+    this.exited = new Promise<void>((settle) => {
+      this.proc.once("exit", () => settle());
+      this.proc.once("error", () => settle());
+    });
     this.proc.stderr.resume(); // drain; servers are chatty on stderr
     // Swallow write-after-destroy (EPIPE / ERR_STREAM_DESTROYED) when the server
     // closes its stdin during/after shutdown — otherwise it surfaces as an
@@ -99,9 +114,13 @@ export class LspClient {
     if (this.spawnFailed || this.proc.pid === undefined) return false;
     const rootUri = uriOf(this.root);
     // Cold-workspace load (rust-analyzer/clangd index the project) can take a
-    // while — give initialize a generous timeout, separate from per-request.
+    // while — give initialize a generous timeout, separate from per-request. A server
+    // that EXITS after the 50 ms check above (a rustup shim whose component is not
+    // installed prints an error and quits a moment later) ends the wait at once: waiting
+    // out the timeout would stall every build for two minutes.
     const init = await new Promise<unknown>((resolve) => {
-      const t = setTimeout(() => resolve(null), 120000);
+      const t = setTimeout(() => resolve(null), this.initializeTimeoutMs);
+      void this.exited.then(() => { clearTimeout(t); resolve(null); });
       this.conn.sendRequest("initialize", {
         processId: process.pid,
         rootUri,

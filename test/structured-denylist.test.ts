@@ -47,6 +47,7 @@ test("denylist: file selection leaves denied files out with the tier on and is u
       .map((f) => f.slice(dir.length + 1).replaceAll("\\", "/"))
       .sort();
 
+  patchBuildConfig(dir, { structured: false });
   assert.deepEqual(listed(), ["src/util.ts"], "tier off: exactly today's set");
   patchBuildConfig(dir, { structured: true });
   assert.deepEqual(listed(), ["site.css", "src/util.ts"]);

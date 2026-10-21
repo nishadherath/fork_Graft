@@ -76,12 +76,13 @@
 
 ## This build: 0.21.1-nishadherath
 
-This is a fork of upstream Graft 0.21.1 (`@nanonets/graft`, MIT), released as git tag `v0.21.1-nishadherath`. It carries every upstream 0.21.1 feature and adds the following. The structured, document and reasoning additions are opt-in; the token line shows on `--deep` and the fixes apply to every build.
+This is a fork of upstream Graft 0.21.1 (`@nanonets/graft`, MIT), released as git tag `v0.21.1-nishadherath`. It carries every upstream 0.21.1 feature and adds the following. The structured and documents tiers and LSP edges are on by default, each with a `--no-` switch to turn it off; the reasoning setting is opt-in; the token line shows on `--deep` and the fixes apply to every build.
 
-- **Documents and configuration are indexed** (`graft build --structured`, or `GRAFT_STRUCTURED=1`): Markdown becomes a `section` per heading and JSON, JSONC, JSONL, YAML, TOML and INI a `key` per dotted path, each with an exact line span that `ask --source` prints verbatim. Keys that look like credentials are never indexed with their values, and lockfiles are skipped.
+- **Documents and configuration are indexed by default** (`--no-structured` or `GRAFT_STRUCTURED=0` turns it off): Markdown becomes a `section` per heading and JSON, JSONC, JSONL, YAML, TOML and INI a `key` per dotted path, each with an exact line span that `ask --source` prints verbatim. Keys that look like credentials are never indexed with their values, and lockfiles are skipped.
 - **Markup and build files** join that tier: HTML, Svelte, Astro, CSS and SCSS, XML (Android, Maven, property lists, storyboards), Gradle, Makefile, CMake, Dockerfile, Bash and PowerShell, and GitHub workflow YAML under `.github/workflows/`.
 - **Edges from the structured tier to code**, at no model cost: code that spells a key path, Markdown links, HTML `src`, `href` and `class`, and `npm run`/`node scripts/x` commands in workflows, scripts, Dockerfiles and Makefiles. `graft blast` follows them, so changing a config key reports the code that reads it.
-- **PDF, DOCX, ODT, EPUB, PPTX and ODP** (`--structured --documents`, or `GRAFT_DOCUMENTS=1`): each document is rendered once to a cached text file with a marker per page, slide or chapter, and indexed like Markdown, so a hit names its page and prints its lines. The converters (`pdfjs-dist`, `fflate`) are optional dependencies loaded lazily, and a missing one is named. `--deep` sends no document unless `--deep-documents` is given.
+- **PDF, DOCX, ODT, EPUB, PPTX and ODP are indexed by default** (`--no-documents` or `GRAFT_DOCUMENTS=0` turns it off): each document is rendered once to a cached text file with a marker per page, slide or chapter, and indexed like Markdown, so a hit names its page and prints its lines. The converters (`pdfjs-dist`, `fflate`) are optional dependencies loaded lazily, and a missing one is named. `--deep` sends no document unless `--deep-documents` is given.
+- **LSP edges are on by default** (`--no-lsp` or `GRAFT_LSP=0` turns them off): `graft build` asks a language server on `PATH` for compiler-grade call edges, and with none installed the graph is unchanged. On Windows the server is now found through `PATH` and `PATHEXT`, so the pass runs there too. The automatic refresh after an edit never runs it.
 - **`GRAFT_REASONING` / `--reasoning <level>`** sets the reasoning effort of every LLM call, in your provider's own words (`low`, `high`, `none`, ...). Unset sends nothing. A level the provider refuses stops the deep pass at once and names the variable.
 - **`graft build --deep` reports its token usage**: one `tokens:` line after the pass (calls, uncached and cached input, output with the reasoning share, model and level), also recorded as `deepUsage` in `graft/manifest.json`. Tokens only, no prices.
 - **The MCP launcher is always the installed `graft mcp`**, never `npx -y @nanonets/graft mcp`, which would fetch and run whatever the registry serves at each session start. `graft init` warns when no `graft` is on PATH, so `npx @nanonets/graft init` on a machine without a global install needs `npm install -g` before the server starts.
@@ -245,7 +246,7 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   **Rust, C, C++, C#, Ruby, Scala, Elixir, Solidity,
   OCaml, Zig, Dart, Clojure, Nix, Lua**.
 
-- **Documents and configuration (opt-in)**: `graft build --structured` also
+- **Documents and configuration (on by default)**: `graft build` also
   indexes the text files agents otherwise read whole, with an exact line span for
   each unit, so `ask --source`, `skeleton` and `grep` print the right lines:
 
@@ -262,16 +263,16 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   | Gradle | `.gradle` | a task (`task`), plugin and dependency entries (`key`) | line scanner |
   | Make, CMake, Dockerfile | `Makefile` `.mk` `CMakeLists.txt` `.cmake` `Dockerfile` | a rule, target or build stage (`task`), CMake functions | line scanner, tree-sitter |
   | Bash, PowerShell | `.sh` `.bash` `.ps1` `.psm1` | a function (`function`) | tree-sitter |
-  | PDF | `.pdf` | a section per heading, or per page when there are none (`section`) | `pdfjs-dist`, with `--documents` |
-  | Word processor | `.docx` `.odt` | a section per heading; pages where the editor recorded them | `fflate` and an XML scanner, with `--documents` |
-  | EPUB | `.epub` | a section per heading, in spine order, a chapter marker each | `fflate` and an XML scanner, with `--documents` |
-  | Slides | `.pptx` `.odp` | a section per slide, named by its title | `fflate` and an XML scanner, with `--documents` |
+  | PDF | `.pdf` | a section per heading, or per page when there are none (`section`) | `pdfjs-dist`, on by default |
+  | Word processor | `.docx` `.odt` | a section per heading; pages where the editor recorded them | `fflate` and an XML scanner, on by default |
+  | EPUB | `.epub` | a section per heading, in spine order, a chapter marker each | `fflate` and an XML scanner, on by default |
+  | Slides | `.pptx` `.odp` | a section per slide, named by its title | `fflate` and an XML scanner, on by default |
 
   Keys go four levels deep with at most 500 per file, shallowest first. A key whose
   name suggests a credential, or whose value is a long opaque string or a URL with
-  a user name in it, has no value in its signature or search text. Lockfiles are never indexed. The choice is saved
-  in `.graft/config.json` (or set `GRAFT_STRUCTURED=1`); `--no-structured` turns it
-  off again. Dot-files and dot-directories are not walked, with one exception:
+  a user name in it, has no value in its signature or search text. Lockfiles are never indexed. `--no-structured` (or
+  `GRAFT_STRUCTURED=0`) turns the tier off; the choice is saved in `.graft/config.json`,
+  and `--structured` turns it back on. Dot-files and dot-directories are not walked, with one exception:
   with this tier on, YAML under `.github/workflows/` is.
 
   The tier also wires these units to code, deterministically: a member chain or
@@ -284,8 +285,8 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   So `graft blast` on a changed config line reports the code that reads it, and
   `--deep` summarises the first 40 units of each structured file.
 
-  Binary documents need one more flag, `graft build --structured --documents` (or
-  `GRAFT_DOCUMENTS=1`, saved like `--structured`). A document has no lines of its
+  Binary documents are indexed too, unless `--no-documents` (or `GRAFT_DOCUMENTS=0`, saved
+  like `--no-structured`) turns them off; they need the structured tier. A document has no lines of its
   own, so graft converts it once into a text rendering at
   `graft/.graph/docs/<sha256 of the file>.txt`, with a marker line per page, slide
   or chapter, and indexes that. Every span is a line range of the rendering, so a
@@ -300,11 +301,13 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   skipped or text-less file gets a warning line. `--deep` leaves documents alone
   unless `--deep-documents` is given.
 
-- **Compiler-grade edges (opt-in)** — `graft build --lsp` adds precise
+- **Compiler-grade edges (on by default)** — `graft build` adds precise
   `lsp_resolved` call edges (member calls the static pass can't type) when a
   language server is on your `PATH`: **rust-analyzer** (Rust), **clangd** (C/C++),
   **gopls** (Go), **pyright** (Python), **typescript-language-server** (TS/JS).
-  It's best-effort — with no server installed the graph is unchanged.
+  It's best-effort — with no server installed the graph is unchanged. `--no-lsp` (or
+  `GRAFT_LSP=0`) skips the pass, which makes a build slower; the choice is saved in
+  `.graft/config.json`. Only `graft build` runs it, not the automatic refresh.
 
 Twenty-three languages in total. A file whose language isn't listed is skipped, not
 indexed. Adding a broad-tier language is a small contribution — see
@@ -439,9 +442,12 @@ graft build --follow-submodules      # include initialized submodules; persist t
 graft build --no-follow-submodules   # exclude submodules again and persist that choice (the default)
 graft build --follow-nested-repos    # include nested git clones the index doesn't track; persist the choice
 graft build --no-follow-nested-repos # exclude nested clones again and persist that choice (the default)
-graft build --structured             # also index Markdown, JSON, YAML, TOML and INI: a section per heading, a key per path
-graft build --no-structured          # turn that indexing off again and persist the choice (it is off until --structured is run)
-graft build --structured --documents # also index PDF, DOCX, ODT, EPUB, PPTX and ODP through a cached text rendering
+graft build --no-structured          # code only: skip Markdown, JSON, YAML, TOML, INI, markup and build files; persist the choice (on by default)
+graft build --structured             # turn that indexing back on and persist the choice
+graft build --no-documents           # skip PDF, DOCX, ODT, EPUB, PPTX and ODP; persist the choice (on by default)
+graft build --documents              # turn document indexing back on (needs the structured tier)
+graft build --no-lsp                 # skip the language-server edge pass; persist the choice (on by default; a no-op with no server on PATH)
+graft build --lsp                    # turn the language-server pass back on
 graft build --deep --deep-documents  # let the LLM pass summarise documents too (not persisted)
 
 graft ask "<task>" [dir]             # query the graph — ranked nodes + exact file:line (no LLM, no key)

@@ -54,6 +54,7 @@ for (const git of [true, false]) {
 
   test(`dotpaths (${mode}): tier off, the file set is exactly today's`, () => {
     const dir = repo(`dotpaths-off-${git}`, git);
+    patchBuildConfig(dir, { structured: false });
     assert.deepEqual(listed(dir), ["src/util.ts"]);
   });
 

@@ -82,7 +82,7 @@ import { buildGraphWithProgress } from "./claude/build-progress.js";
 import { homedir } from "node:os";
 import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, runUpgrade } from "./cli-meta.js";
 import { findOnPath } from "./hosts/mcp-config.js";
-import { patchBuildConfig, readDocuments, readStructured, type BuildConfig } from "./util/state.js";
+import { patchBuildConfig, readDocuments, readLsp, readStructured, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
 import { latestSession, formatSessionStats, sessionInputRate } from "./claude/session-metrics.js";
 import { setInputRate } from "./context/savings.js";
@@ -183,8 +183,8 @@ function warnUnsupportedExtensions(exts?: string[], structured = false, document
     console.error(`⚠ -e "${shown}": no parser registered for this extension — ignoring it.`);
   }
   console.error(`  supported: ${supportedExtensions(structured, documents).join(" ")}`);
-  if (!structured) console.error("  (Markdown, JSON, YAML, TOML and INI need --structured.)");
-  if (!documents) console.error("  (PDF, DOCX, ODT, EPUB, PPTX and ODP need --structured --documents.)");
+  if (!structured) console.error("  (Markdown, JSON, YAML, TOML and INI are indexed unless the structured tier is off: run with --structured to turn it back on.)");
+  if (!documents) console.error("  (PDF, DOCX, ODT, EPUB, PPTX and ODP are indexed unless the structured or documents tier is off: run with --structured --documents to turn them back on.)");
 }
 
 /** Text for the omitted-`[dir]` case, shared by every query command's help. */
@@ -373,7 +373,8 @@ program
   .option("-e, --extensions <exts...>", 'code extensions to include (e.g. ".ts" ".py"); an extension with no parser is ignored with a warning that lists the supported set')
   .option("-j, --concurrency <n>", "files summarized in parallel during --deep (default 5)")
   .option("--no-reuse", "re-parse every file instead of replaying unchanged ones from the extraction cache")
-  .option("--lsp", "add compiler-grade call edges via a language server if one is installed (opt-in, slower; e.g. rust-analyzer, clangd)")
+  .option("--lsp", "add compiler-grade call edges via a language server on PATH (on by default; e.g. rust-analyzer, clangd, gopls); same as GRAFT_LSP=1; persisted")
+  .option("--no-lsp", "skip the language-server pass, which is slower than a plain build; same as GRAFT_LSP=0; persisted")
   .option("--allow-partial", "with --deep: exit 0 even when some files' summaries failed (default: a degraded meaning tier exits 1)")
   .option(
     "--follow-submodules",
@@ -410,19 +411,19 @@ program
   .option(
     "--structured",
     "also index Markdown, JSON, YAML, TOML and INI files: a section per heading, a key per dotted path, " +
-      "each with an exact line span (same as GRAFT_STRUCTURED=1); persisted for later builds and automatic refreshes",
+      "each with an exact line span, plus the markup and build files; on by default (same as GRAFT_STRUCTURED=1); persisted for later builds and automatic refreshes",
   )
   .option(
     "--no-structured",
-    "stop indexing those documents; persisted for later builds and automatic refreshes (default)",
+    "stop indexing those files (code only); same as GRAFT_STRUCTURED=0; persisted for later builds and automatic refreshes",
   )
   .option(
     "--documents",
     "with --structured, also index PDF, DOCX, ODT, EPUB, PPTX and ODP through a cached text rendering in " +
-      "graft/.graph/docs/: a section per heading, page or slide (same as GRAFT_DOCUMENTS=1); persisted. " +
+      "graft/.graph/docs/: a section per heading, page or slide; on by default (same as GRAFT_DOCUMENTS=1); persisted. " +
       "Needs the optional packages pdfjs-dist and fflate; a document over GRAFT_DOCUMENT_MAX_BYTES (25 MB) is skipped",
   )
-  .option("--no-documents", "stop indexing those documents; persisted (default)")
+  .option("--no-documents", "stop indexing PDF, DOCX, ODT, EPUB, PPTX and ODP; same as GRAFT_DOCUMENTS=0; persisted")
   .option(
     "--deep-documents",
     "with --deep, also summarise documents' sections, bounded per file like other structured files " +
@@ -461,6 +462,7 @@ program
     }
     const structuredWasExplicit = command.getOptionValueSource("structured") === "cli";
     const documentsWasExplicit = command.getOptionValueSource("documents") === "cli";
+    const lspWasExplicit = command.getOptionValueSource("lsp") === "cli";
     const structuredNow = (structuredWasExplicit ? opts.structured : undefined) ?? readStructured(resolve(dir));
     warnUnsupportedExtensions(
       opts.extensions,
@@ -523,6 +525,9 @@ program
     if (documentsWasExplicit && typeof opts.documents === "boolean") {
       buildConfigPatch.documents = opts.documents;
     }
+    if (lspWasExplicit && typeof opts.lsp === "boolean") {
+      buildConfigPatch.lsp = opts.lsp;
+    }
     const deepDocumentsEnv = process.env.GRAFT_DEEP_DOCUMENTS;
     const deepDocuments =
       opts.deepDocuments === true ||
@@ -568,6 +573,8 @@ program
         followSubmodules: followSubmodulesWasExplicit ? opts.followSubmodules : undefined,
         followNestedRepos: followNestedReposWasExplicit ? opts.followNestedRepos : undefined,
         structured: structuredWasExplicit ? opts.structured : undefined,
+        documents: documentsWasExplicit ? opts.documents : undefined,
+        lsp: lspWasExplicit ? opts.lsp : undefined,
       });
       return;
     }
@@ -603,7 +610,7 @@ program
       deepDocuments,
       concurrency,
       reuse: opts.reuse,
-      lsp: opts.lsp,
+      lsp: lspWasExplicit ? opts.lsp : readLsp(resolve(dir)),
       onlyDirs,
       onProgress: ({ phase, index, total, file }) =>
         process.stderr.write(

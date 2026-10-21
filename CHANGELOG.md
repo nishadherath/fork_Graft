@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased (git tag `enable-improved-support-by-default`)
+
+### Changed
+
+- **The structured tier, the documents tier and LSP edges are on by default.** A plain
+  `graft build` now indexes Markdown, configuration, markup and build files, and PDF,
+  DOCX, ODT, EPUB, PPTX and ODP documents, and asks a language server on `PATH` for
+  compiler-grade call edges. Each has an explicit off switch, saved in
+  `.graft/config.json` like the other build choices: `--no-structured`,
+  `--no-documents` and `--no-lsp` (env twins `GRAFT_STRUCTURED=0`, `GRAFT_DOCUMENTS=0`
+  and `GRAFT_LSP=0`). `--structured`, `--documents` and `--lsp` turn them back on.
+  A repository that saved `false` earlier keeps it; one that saved nothing is now on.
+  Documents still need the structured tier, and a missing converter package is still
+  named in the build output.
+- **`graft build` on a workspace** passes an explicit `--no-documents` or `--no-lsp` to
+  every child repository, as it already did for `--structured`.
+- Only `graft build` runs the LSP pass. The automatic refresh after an edit and the
+  session-start hook never do, because a language server can take minutes to index.
+
+### Fixed
+
+- **The language-server lookup works on Windows.** It ran `command -v`, which cmd.exe
+  does not have, so `--lsp` never found a server there. It now walks `PATH` with
+  `PATHEXT`, and a `.cmd` or `.bat` shim (an npm global such as
+  `typescript-language-server`) is started through a shell, since Node refuses to
+  spawn one directly.
+- **A language server that exits at start no longer stalls the build.** The client
+  waited out its 120 s initialize timeout when the server quit a moment after the
+  first 50 ms check (a rustup `rust-analyzer` shim whose component is not installed
+  does this). It now ends the wait when the process exits: a build that took 125 s
+  here takes 4 s.
+
 ## 0.21.1-nishadherath.1
 
 ### Changed

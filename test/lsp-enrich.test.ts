@@ -42,3 +42,33 @@ test("enrichWithLsp is a no-op when no server matches the repo's languages", asy
   assert.equal(r.added, 0);
   assert.equal(graph.edges.length, before, "graph edges untouched");
 });
+
+test("pickServer finds a server by walking PATH, with PATHEXT on Windows (no shell, no `command -v`)", async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = mkdtempSync(join(tmpdir(), "graft-lsp-path-"));
+  try {
+    writeFileSync(join(dir, "rust-analyzer.exe"), "");
+    const found = pickServer(new Set(["rust"]), { PATH: dir, PATHEXT: ".EXE" }, "win32");
+    assert.ok(found, "a .exe on PATH is found on win32");
+    assert.match(found.command, /rust-analyzer\.exe$/i);
+    assert.equal(pickServer(new Set(["rust"]), { PATH: join(dir, "empty"), PATHEXT: ".EXE" }, "win32"), null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("LspClient.initialize gives up as soon as the server process exits, not after the 120 s timeout", { timeout: 30_000 }, async () => {
+  // A rustup shim whose component is not installed prints an error and exits a
+  // moment AFTER the 50 ms spawn check. The client used to wait out the full
+  // initialize timeout, which stalled every `graft build` with LSP on by default.
+  const { LspClient } = await import("../src/graph/lsp/client.js");
+  const { tmpdir } = await import("node:os");
+  const started = Date.now();
+  const client = new LspClient(process.execPath, ["-e", "setTimeout(() => process.exit(1), 400)"], tmpdir(), "text");
+  const ok = await client.initialize();
+  await client.dispose();
+  assert.equal(ok, false, "a server that exits is not ready");
+  assert.ok(Date.now() - started < 15_000, `gave up in ${Date.now() - started} ms, expected well under the 120 s initialize timeout`);
+});

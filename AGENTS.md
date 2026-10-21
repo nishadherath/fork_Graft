@@ -45,9 +45,11 @@ fork, so what this tree builds is what every other repository's
 5. **Deterministic and keyless by default.** New tiers parse with
    tree-sitter grammars already in `tree-sitter-wasm` or with a
    hand-written scanner, cached by content hash, no network, no model.
-   Anything that needs a converter dependency (PDF, DOCX, EPUB, PPTX) is
-   opt-in and loaded lazily, with a refusal that names the package to
-   install.
+   A converter dependency (PDF, DOCX, EPUB, PPTX) is optional and loaded
+   lazily, with a refusal that names the package to install. The structured
+   tier, the documents tier and LSP edges are on by default (tag
+   `enable-improved-support-by-default`); `--no-structured`, `--no-documents`
+   and `--no-lsp` turn each off and the choice is saved.
 6. **No vendor fact, price or model name in source.** The persona's
    rules on magic numbers, error messages and configuration apply.
 7. **Windows is the primary platform.** Paths through `relPosix`; tests

@@ -64,6 +64,8 @@ function builtRepo(): string {
     'import { total } from "./total.js";\nexport function report(xs: number[]): string {\n  return `sum=${total(xs)}`;\n}\n',
   );
   writeFileSync(join(d, "README.md"), "# fixture\n");
+  // No parser claims a .txt file: the fixture for the unindexed-file report below.
+  writeFileSync(join(d, "notes.txt"), "plain notes\n");
 
   git(d, "init", "-b", "main");
   git(d, "config", "user.email", "test@example.com");
@@ -139,11 +141,11 @@ test("blast --base: diffs against the merge base, and reports the ranges it read
 
 test("blast: a changed file no parser claims is reported, never silently dropped", () => {
   const d = builtRepo();
-  writeFileSync(join(d, "README.md"), "# fixture\n\nnow with prose\n");
+  writeFileSync(join(d, "notes.txt"), "plain notes\n\nnow with more\n");
 
   const report = blastJson([d]);
 
-  assert.deepEqual(report.unindexed, ["README.md"]);
+  assert.deepEqual(report.unindexed, ["notes.txt"]);
   assert.deepEqual(report.impacted, [], "nothing to walk from an unindexed file");
 });
 

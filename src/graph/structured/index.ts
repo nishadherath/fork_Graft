@@ -7,8 +7,8 @@
  * carries an exact line span in the host file, so `graft ask --source` prints it
  * verbatim and the cards, skeleton and grep need no change to show it.
  *
- * Opt-in (`graft build --structured`, or `GRAFT_STRUCTURED=1`), decision D1. The
- * choice is persisted in `.graft/config.json` and read through
+ * On by default; `graft build --no-structured` (or `GRAFT_STRUCTURED=0`) turns it
+ * off. The choice is persisted in `.graft/config.json` and read through
  * `readStructured` (util/state.ts), so the build, the freshness probe, `check`
  * and the automatic refresh always enumerate the same files.
  *

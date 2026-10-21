@@ -8,7 +8,7 @@
 import { Graft } from "../engine.js";
 import { contextDirFor, ensureGitignored, recordDeepUsage } from "../context/node-file.js";
 import { formatUsageLine } from "../ai/llm/metered.js";
-import { patchBuildConfig, type BuildConfig } from "../util/state.js";
+import { patchBuildConfig, readLsp, type BuildConfig } from "../util/state.js";
 import type { EngineConfig } from "../ai/providers.js";
 import { formatAsk } from "../ask/ask.js";
 import type { Direction } from "./traverse.js";
@@ -43,6 +43,10 @@ export interface WorkspaceBuildOptions {
   followNestedRepos?: boolean;
   /** An explicit CLI `--structured` / `--no-structured` choice to persist into every child repo. */
   structured?: boolean;
+  /** An explicit CLI `--documents` / `--no-documents` choice to persist into every child repo. */
+  documents?: boolean;
+  /** An explicit CLI `--lsp` / `--no-lsp` choice to persist into every child repo. */
+  lsp?: boolean;
 }
 
 /** Build every git child into its own committable `graft/`, then replace the
@@ -65,12 +69,18 @@ export async function runWorkspaceBuild(root: string, opts: WorkspaceBuildOption
     if (opts.structured !== undefined) {
       childConfigPatch.structured = opts.structured;
     }
+    if (opts.documents !== undefined) {
+      childConfigPatch.documents = opts.documents;
+    }
+    if (opts.lsp !== undefined) {
+      childConfigPatch.lsp = opts.lsp;
+    }
     if (Object.keys(childConfigPatch).length > 0) {
       patchBuildConfig(childDir, childConfigPatch);
     }
     const engine = new Graft({ ...opts.childConfig, contextDir: undefined });
     if (opts.deep) await engine.init(childDir, { extensions: opts.extensions });
-    const g = await engine.graph(childDir, { llm: opts.deep, concurrency: opts.concurrency });
+    const g = await engine.graph(childDir, { llm: opts.deep, concurrency: opts.concurrency, lsp: readLsp(childDir) });
     console.log(`✓ ${childName}/: ${g.nodes} nodes, ${g.edges} edges, ${g.cards} cards [${g.languages.join(", ")}]`);
     if (opts.deep) {
       const usage = engine.usage();

@@ -116,9 +116,9 @@ export function listSourceFiles(
   onlyDirs?: ReadonlySet<string>,
 ): string[] {
   // A file is a source file if a depth-tier grammar (languageOf), a breadth-tier
-  // grammar (genericLangOf), a container (containerLangOf) or, when the repo opted
-  // in, the structured tier claims its extension. All must agree here or `build`
-  // and `check` would enumerate different sets. The opt-in is read from state, like
+  // grammar (genericLangOf), a container (containerLangOf) or, unless the repo
+  // turned it off, the structured tier claims its extension. All must agree here or `build`
+  // and `check` would enumerate different sets. The choice is read from state, like
   // the other walk choices, so the probe and the refresh path see it too.
   const structured = readStructured(resolve(root));
   const documents = readDocuments(resolve(root));

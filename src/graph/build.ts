@@ -86,10 +86,11 @@ export interface GraphBuildOptions {
    * the pre-query refresh (`graph/refresh.ts`); an explicit `graft build` never
    * sets it. See the write block in {@link buildGraph} for why the split exists. */
   graphOnly?: boolean;
-  /** Opt-in compiler-grade edge enrichment via a language server (`graft build
-   * --lsp`): adds `lsp_resolved` call edges the AST resolver couldn't (member
-   * calls, breadth-tier calls). Off by default — needs a server on PATH and is
-   * slower; the graph is fully functional without it. */
+  /** Compiler-grade edge enrichment via a language server: adds `lsp_resolved`
+   * call edges the AST resolver couldn't (member calls, breadth-tier calls). The
+   * `graft build` command turns it on unless `--no-lsp` (see `readLsp`); a direct
+   * caller of this function gets it only when it asks. Needs a server on PATH and
+   * is slower; the graph is fully functional without it. */
   lsp?: boolean;
   /** Run the Tier-2 LLM meaning pass. Absent → Tier-1 only (cache is still preserved). */
   summarizer?: CruxSummarizer;
@@ -224,13 +225,13 @@ export async function buildGraph(
     new Set(files.map((f) => containerLangOf(f.abs)?.name).filter((n): n is string => !!n)),
   );
 
-  // Structured tier (opt-in): only the JSON, YAML and INI families need a grammar.
+  // Structured tier (on unless the repo turned it off): only the JSON, YAML and INI families need a grammar.
   // `files` holds structured files only when the repo enabled the tier.
   await warmStructuredGrammars(
     new Set(files.map((f) => structuredLangOf(f.abs)?.name).filter((n): n is string => !!n)),
   );
 
-  // Documents tier (opt-in): converting a binary is asynchronous, so every document
+  // Documents tier (on unless the repo turned it off): converting a binary is asynchronous, so every document
   // is rendered (or its cached rendering read) here, before the synchronous loop.
   // `files` holds documents only when the repo enabled the tier.
   const documents = await prepareDocuments(

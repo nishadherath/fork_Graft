@@ -1,6 +1,6 @@
 # Design issue: index structured text and opt-in documents
 
-> Operator note (not part of the issue text). Open this before the pull requests (plan decision D5 A). Paste from the line below the rule. Open question 1 (the default setting) is still open. The install footprint (open question 4) is decided as option A, so the issue states it as the proposal and still asks maintainers for their view.
+> Operator note (not part of the issue text). Since the tag `enable-improved-support-by-default` the fork's `main` has the tiers ON by default (`--no-structured`, `--no-documents`, `--no-lsp` turn them off). The pull-request branches stay opt-in, as proposed below (decision D1); do not carry the default-on change into them. Open this before the pull requests (plan decision D5 A). Paste from the line below the rule. Open question 1 (the default setting) is still open. The install footprint (open question 4) is decided as option A, so the issue states it as the proposal and still asks maintainers for their view.
 
 ---
 

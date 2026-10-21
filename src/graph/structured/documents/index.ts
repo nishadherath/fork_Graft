@@ -9,8 +9,8 @@
  * rendering, so `--source` prints it verbatim; the node keeps the binary's path,
  * and its signature names the binary, the page or slide, and the rendering.
  *
- * Opt-in twice: the structured tier must be on, and `--documents` (or
- * `GRAFT_DOCUMENTS=1`). The converters are optional dependencies loaded lazily
+ * On by default, but only with the structured tier on; `graft build --no-documents`
+ * (or `GRAFT_DOCUMENTS=0`) turns it off. The converters are optional dependencies loaded lazily
  * (decision D4 A): `pdfjs-dist` for PDF, `fflate` for the zip-based formats,
  * whose XML is read by a hand-written scanner. No network, no model.
  */

@@ -296,9 +296,11 @@ compiler-grade layer — all `$0` and deterministic (no model, no key):
   only from what the file records (a PDF's pages, the page breaks Word or
   LibreOffice wrote when they last laid it out), never from an estimate. The
   converters are the optional dependencies `pdfjs-dist` and `fflate`, loaded only
-  when a document is read; a missing one is named in the build output. Documents
-  have their own size cap, `GRAFT_DOCUMENT_MAX_BYTES` (default 25 MB), and a
-  skipped or text-less file gets a warning line. `--deep` leaves documents alone
+  when a document is read; a missing one is named in one warning line that also
+  says `--no-documents` stops the lookup. Documents have their own size cap,
+  `GRAFT_DOCUMENT_MAX_BYTES` (default 25 MB). Skipped, text-less and unconverted
+  documents get one warning line for each cause, naming the count and the first five
+  files, however many there are. `--deep` leaves documents alone
   unless `--deep-documents` is given.
 
 - **Compiler-grade edges (on by default)** — `graft build` adds precise

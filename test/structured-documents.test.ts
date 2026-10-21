@@ -590,3 +590,48 @@ test("documents: a rebuild replays the rendering, an edit replaces it, and the p
   assert.equal(existsSync(join(root, renderingRel(second))), false);
   assert.equal(readGraph(wiringPath(outDir))!.nodes.some((n) => n.path === "spec.pdf"), false);
 });
+
+test("documents: many oversize PDFs give one warning that counts them and lists the first few", async () => {
+  const names = ["a.pdf", "b.pdf", "c.pdf", "d.pdf", "e.pdf", "f.pdf", "g.pdf"];
+  const files: Record<string, Uint8Array> = { "ok.pdf": pdf([["fits"]]) };
+  for (const n of names) files[n] = pdf([["too large"]], 1_300_000);
+  process.env.GRAFT_DOCUMENT_MAX_BYTES = "1200000";
+  try {
+    const { result } = await build("cap-many", files);
+    assert.equal(result.warnings.length, 1, `one line for seven files, got: ${JSON.stringify(result.warnings)}`);
+    assert.match(result.warnings[0]!, /^7 documents skipped, each over the documents tier's cap of 1200000 bytes \(GRAFT_DOCUMENT_MAX_BYTES\): a\.pdf, b\.pdf, c\.pdf, d\.pdf, e\.pdf and 2 more$/);
+  } finally {
+    delete process.env.GRAFT_DOCUMENT_MAX_BYTES;
+  }
+});
+
+test("documents: many text-less PDFs give one warning, not one line each", async () => {
+  const files: Record<string, Uint8Array> = {};
+  for (const n of ["s1", "s2", "s3"]) files[`${n}.pdf`] = pdf([[], []]);
+  const { result } = await build("textless-many", files);
+  assert.equal(result.warnings.length, 1, `one line for three files, got: ${JSON.stringify(result.warnings)}`);
+  assert.match(
+    result.warnings[0]!,
+    /^3 documents have no text \(a scanned PDF has no text layer\); only their page markers are indexed: s1\.pdf, s2\.pdf, s3\.pdf$/,
+  );
+});
+
+test("documents: a missing converter is one warning per package, never an error, and names the way out", async () => {
+  const { documentNotices } = await import("../src/graph/structured/documents/notices.js");
+  const lines = documentNotices({
+    capBytes: 1000,
+    oversize: [],
+    textless: [],
+    missing: new Map([["pdfjs-dist", 12], ["fflate", 1]]),
+  });
+  assert.equal(lines.length, 2, "one line for each package, not one for each of the 13 documents");
+  assert.match(lines[0]!, /^12 documents skipped: the optional package pdfjs-dist is not installed;.*`graft build --no-documents`/);
+  assert.match(lines[1]!, /^1 document skipped: the optional package fflate is not installed;.*`graft build --no-documents`/);
+});
+
+test("documents: a name list shows at most five and counts the rest", async () => {
+  const { listNames } = await import("../src/graph/structured/documents/notices.js");
+  assert.equal(listNames(["a"]), "a");
+  assert.equal(listNames(["a", "b", "c", "d", "e"]), "a, b, c, d, e");
+  assert.equal(listNames(["a", "b", "c", "d", "e", "f"]), "a, b, c, d, e and 1 more");
+});

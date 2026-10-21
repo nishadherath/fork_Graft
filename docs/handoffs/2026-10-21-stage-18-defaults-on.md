@@ -55,7 +55,14 @@ Committed on `main`, tagged `enable-improved-support-by-default`, pushed.
 
 ## Work completed
 
-- Source, tests, docs as listed above, committed in one change series on `main`.
+- Source, tests, docs as listed above, committed on `main` (c0e74d1, tag `enable-improved-support-by-default`).
+- Follow-up the same day: document notices are one line for each cause, never one for each
+  file (`src/graph/structured/documents/notices.ts`). A missing converter package is a warning
+  that names `--no-documents`, not an error. Gate after it: 1,565 tests, 1,560 passed, 0 failed,
+  5 skipped. Tag `enable-improved-support-by-default.1`.
+- Cleanup: the four merged `stage-*` branches deleted; the five `pr/*` branches kept (they hold
+  the upstream pull-request work, 3 to 8 commits each not on `main`) and pushed to origin as a
+  backup; no worktrees other than the main checkout.
 
 ## Unresolved questions
 
@@ -63,9 +70,6 @@ Committed on `main`, tagged `enable-improved-support-by-default`, pushed.
   (rust-analyzer, clangd, gopls, pyright, typescript-language-server): each node is
   queried, 15 s per call at worst. If that hurts, `GRAFT_LSP=0` in the environment
   turns it off everywhere, or a per-call `maxNodes` cap can be added.
-- Operator: a default build on a repository with PDFs and no converter prints a
-  warning per document until `pdfjs-dist` and `fflate` are installed (they are
-  optional dependencies of this package).
 - Not done: syncing the converters into the global install (memory note
   `global-install-converters`); `sync-global` still copies `dist/` only.
 

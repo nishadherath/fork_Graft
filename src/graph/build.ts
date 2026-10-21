@@ -25,7 +25,7 @@ import { prepareDocuments, pruneRenderings } from "./structured/documents/cache.
 import { extractDocument } from "./structured/documents/extract.js";
 import { documentFormatOf } from "./structured/documents/index.js";
 import { textlessUnits } from "./structured/documents/render.js";
-import { MissingConverterError } from "./structured/documents/load.js";
+import { documentNotices } from "./structured/documents/notices.js";
 import { contentHash } from "../util/id.js";
 import { relPosix } from "../util/paths.js";
 import { readSourceFile } from "../util/source.js";
@@ -170,8 +170,11 @@ export async function buildGraph(
   // resolution must agree on the same Git-ignore-aware working-tree view —
   // including the repo's persisted directory and submodule choices.
   // Documents past their cap are dropped by the walk like any oversized file, but
-  // a skipped PDF is a surprise worth a line, so the build names each one.
+  // a skipped PDF is a surprise worth a line, so the build reports them, one line
+  // for all of them (documents/notices.ts), not one each.
   const warnings: string[] = [];
+  const oversizeDocuments: { rel: string; size: number }[] = [];
+  const textlessDocuments: { rel: string; kind: string; label: string; scanned: boolean }[] = [];
   const { maxBytes: documentCap, problem: capProblem } = readDocumentMaxBytes(DOCUMENT_MAX_BYTES);
   if (capProblem && readDocuments(root)) warnings.push(capProblem);
   const walked = walkDir(
@@ -179,9 +182,7 @@ export async function buildGraph(
     readIncludeDirs(root),
     sourceWalkOptions(root, (abs, size) => {
       if (documentFormatOf(abs) === null) return;
-      warnings.push(
-        `${relPosix(root, abs)}: skipped, ${size} bytes is over the documents tier's cap of ${documentCap} bytes (GRAFT_DOCUMENT_MAX_BYTES)`,
-      );
+      oversizeDocuments.push({ rel: relPosix(root, abs), size });
     }),
   );
   const onlyDirs = opts.onlyDirs && opts.onlyDirs.length > 0 ? new Set(opts.onlyDirs) : undefined;
@@ -263,8 +264,7 @@ export async function buildGraph(
       }
       const textless = textlessUnits(doc.text);
       if (textless) {
-        const scanned = doc.format === "pdf" ? " (a scanned PDF has no text layer)" : "";
-        warnings.push(`${rel}: no text in its ${textless.label}${scanned}; only its ${textless.kind} markers are indexed`);
+        textlessDocuments.push({ rel, kind: textless.kind, label: textless.label, scanned: doc.format === "pdf" });
       }
       const cached = priorExtract.files[rel];
       sources.set(rel, doc.text);
@@ -369,10 +369,17 @@ export async function buildGraph(
     files: entries,
   });
 
-  // One refusal per missing converter package, naming it, rather than one per file.
-  for (const [packageName, count] of missingConverters) {
-    errors.push(`${count} document${count === 1 ? "" : "s"} skipped: ${new MissingConverterError(packageName).message}`);
-  }
+  // One line per cause, never one per file: over the cap, no text, converter not
+  // installed. A missing converter is a warning, not an error: the tier is on by
+  // default and the user may never have asked for documents.
+  warnings.push(
+    ...documentNotices({
+      capBytes: documentCap,
+      oversize: oversizeDocuments,
+      textless: textlessDocuments,
+      missing: missingConverters,
+    }),
+  );
   // A rendering no current document hashes to is stale; with the tier off, all are.
   pruneRenderings(
     outDir,

@@ -19,6 +19,14 @@
 - Only `graft build` runs the LSP pass. The automatic refresh after an edit and the
   session-start hook never do, because a language server can take minutes to index.
 
+- **Document warnings are one line for each cause, not one for each file.** With the
+  documents tier on by default, a repository with many scanned or oversize PDFs would
+  print a line per file. A build now prints at most one line for documents over the size
+  cap, one for documents with no text, and one for each missing converter package, each
+  with the count and the first five names. A missing converter is a warning (`⚠`), not an
+  error (`✗`), and the line names both ways out: install the package, or
+  `graft build --no-documents`. One affected file keeps the older per-file wording.
+
 ### Fixed
 
 - **The language-server lookup works on Windows.** It ran `command -v`, which cmd.exe

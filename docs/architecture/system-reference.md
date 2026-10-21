@@ -1088,8 +1088,12 @@ Limits and refusals:
 | Units that `--deep --deep-documents` summarises for each structured file | 40 | `graph/enrich.ts` line 36 |
 
 - The converters load only when a document is converted. If the package is not
-  installed, the build stops for that file with a message that names the package
-  and the fix (`documents/load.ts` lines 13 to 22).
+  installed, the build skips that document. It prints one warning for each missing
+  package, with the count, the fix and `graft build --no-documents`
+  (`documents/load.ts` lines 13 to 22; `documents/notices.ts`).
+- Document notices are one line for each cause: over the size cap, no text layer, or
+  converter not installed. Each line gives the count and the first five file names.
+  One affected file keeps the per-file wording (`documents/notices.ts`).
 - `package.json` lists `fflate` 0.8.3 and `pdfjs-dist` 5.6.205 as optional
   dependencies. They install unless the user omits optional packages.
 - The PDF converter also needs `@napi-rs/canvas`, which pdfjs loads in Node

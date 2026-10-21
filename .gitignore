@@ -2,10 +2,12 @@ node_modules/
 dist/
 *.log
 
-# graft's local graph cache — regenerable, not committed. Each dev runs
+# graft's local graph cache: regenerable, not committed. Each dev runs
 # `graft build` locally (it re-adds this line itself), so the folder is a
-# personal cache like node_modules, never a shared artifact.
-graft/
+# personal cache like node_modules, never a shared artifact. Anchored to the
+# root, as graft writes it: an unanchored `graft/` also matched the tracked
+# `.claude/skills/graft/`, so a new file there was silently left out.
+/graft/
 
 # Env
 .env

@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { registerMcpConfigs, serverEntry, findOnPath } from '../src/hosts/mcp-config.js';
+import { registerMcpConfigs, serverEntry } from '../src/hosts/mcp-config.js';
+import { findOnPath } from '../src/graph/lsp/registry.js';
 
 function fresh(): string { return mkdtempSync(join(tmpdir(), 'graft-mcpcfg-')); }
 
@@ -100,6 +101,8 @@ test('serverEntry is the bare graft command regardless of PATH or environment', 
     const e = serverEntry();
     assert.deepEqual(e, { command: 'graft', args: ['mcp'] });
     assert.ok(!/^([/\]|[A-Za-z]:)/.test(e.command), 'never an absolute path: configs get shared');
+    // A repo that uses trail gets trail's installed binary, never upstream's npx form.
+    assert.deepEqual(serverEntry({ brand: 'trail' }), { command: 'trail', args: ['mcp'] });
   } finally {
     for (const [k, v] of [['GRAFT_MCP_NPX', saved.npx], ['PATH', saved.path], ['Path', saved.Path]] as const) {
       if (v === undefined) delete process.env[k]; else process.env[k] = v;
@@ -107,8 +110,8 @@ test('serverEntry is the bare graft command regardless of PATH or environment', 
   }
 });
 
-// The PATH probe is a filesystem lookup, not a spawn: on Windows the global `graft` is
-// a `graft.cmd` shim that a shell-less spawn cannot see.
+// The LSP registry's PATH lookup is a filesystem walk, not a spawn: on Windows a
+// global command is a `.cmd` shim that a shell-less spawn cannot see.
 test('findOnPath finds a graft.cmd shim on win32 and honours PATHEXT', () => {
   const dir = fresh();
   const empty = fresh();

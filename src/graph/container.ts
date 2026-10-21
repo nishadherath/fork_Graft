@@ -22,7 +22,8 @@
  * fixtures whose true line numbers are known.
  */
 import { extractFile, mintId, type ExtractResult, type Language, type RawEdge } from "./extract.js";
-import { loadWasmLanguage, parseWasm, type TsNode } from "./generic.js";
+import { extractGeneric, fallbackLangOf, loadWasmLanguage, parseWasm, type TsNode } from "./generic.js";
+import { nativeReady } from "./native.js";
 import { contentHash } from "../util/id.js";
 import type { NodeV1 } from "./types.js";
 
@@ -153,7 +154,11 @@ export function extractEmbedded(
 ): EmbeddedBlock | null {
   let extracted: ExtractResult;
   try {
-    extracted = extractFile(rel, script, inner);
+    // No native grammar for the embedded language (see native.ts): its WASM
+    // stand-in gives the block's symbols, warmed by the build like any other.
+    extracted = nativeReady(inner)
+      ? extractFile(rel, script, inner)
+      : extractGeneric(rel, script, fallbackLangOf(inner).name);
   } catch {
     return null;
   }

@@ -1,6 +1,7 @@
 # graft system reference
 
-Last verified: 2026-10-21 (Stage 15b), against `main` at `6e46fce`.
+Last verified: 2026-10-21. Sections 1 to 5 were checked by Stage 17 against the merge
+of upstream `0c750cc` (0.23.0). Sections 6 to 8 are from Stage 15b, at `6e46fce`.
 
 This is a living reference for the operator's fork of graft. It states what the
 tool does today, as the source code defines it. Section 8 says how to keep it
@@ -33,46 +34,50 @@ Contents:
 
 ## 1. Project state
 
-Sources: `package.json`, `docs/assessment-2026-10-18.md` (sections 4 and 8),
-`docs/handoffs/2026-10-21-stage-15b-system-reference.md` (verified facts),
-`CHANGELOG.md` (top section).
+Sources: `package.json`, `docs/handoffs/2026-10-18-stage-17-merge-upstream-0.23.0.md`
+(verified facts), `docs/assessment-2026-10-18.md` (sections 4 and 8), `CHANGELOG.md`
+(top section).
 
 | Item | State |
 |---|---|
-| Package | `@nanonets/graft`, version `0.21.1-nishadherath.1` (`package.json` line 3) |
-| Branch | `main` at `6e46fce` |
-| Global install | Built from this tree. `graft --version` printed `0.21.1-nishadherath.1` on 2026-10-21 |
-| Node | `engines` says `>=20` (`package.json` line 55). The operator runs 26.7.0 |
-| Upstream | The upstream project is now `trailhq/Trail-Code`. Its version 0.23.0 reached npm on 2026-10-15 |
-| Distance from upstream | On 2026-10-18 `main` was 84 commits ahead and 14 behind. On 2026-10-21, after `git fetch upstream`, 15 commits were behind |
-| Merge of upstream | A dry-run merge on 2026-10-18 conflicted in 12 files. Stage 17 (the merge) has not started |
-| Last full gate | `npm run build && npm test` on 2026-10-21 (Node 26.7.0): 1,553 tests, 1,548 passed, 0 failed, 5 skipped, 336 s. The same counts on 2026-10-18 and 2026-10-15 |
-| Stages done | Stages 0 to 14 have `status: done` in `docs/handoffs/` |
+| Package | `@nanonets/graft`, version `0.23.0-nishadherath` (`package.json` line 3) |
+| Branch | `main`, with upstream `0c750cc` merged on 2026-10-21 (Stage 17) |
+| Global install | A `--ignore-scripts` install of the fork's own packed tarball, then `sync-global`. `graft --version` printed `0.23.0-nishadherath` on 2026-10-21. The shim runs `dist/bin/graft.js` |
+| Node | `engines` says `>=20`. The operator runs 26.7.0 |
+| Upstream | `trailhq/Trail-Code`. It publishes 0.23.0 as `@nanonets/graft` and as `@trailhq/trail-code` (with a `trail` command) |
+| Distance from upstream | 0 commits behind `upstream/main` (`0c750cc`) on 2026-10-21 |
+| Brand | This build runs as `graft` and writes its map to `graft/`. It installs no `trail` command. `test/graft-brand-layout.test.ts` holds this |
+| Last full gate | `npm run build && npm test` on 2026-10-21 (Node 26.7.0), after the merge: 1,665 tests, 1,653 passed, 0 failed, 12 skipped, 531 s. The 12 skips are Windows platform skips and tests that upstream marks skip |
+| Stages done | Stages 0 to 18 have `status: done` in `docs/handoffs/`. Stage 17 is the upstream merge |
 | Upstream pull requests | None opened. The operator's one upstream item is issue 542 |
-| Draft advisory | Written, not sent. The Windows PATH probe bug is still in upstream 0.23.0 |
+| Draft advisory | Written, not sent. The Windows PATH probe bug is still in upstream `0c750cc` |
 
 What the fork adds to upstream (assessment section 1, `CHANGELOG.md`):
 
 - The structured tier: 13 families of documents and configuration. On by default since the tag `enable-improved-support-by-default`. `--no-structured` turns it off.
 - The documents tier: PDF, DOCX, ODT, EPUB, PPTX and ODP. On by default since the same tag. `--no-documents` turns it off.
-- LSP edges: on by default since the same tag. `--no-lsp` turns them off. The Windows server lookup now works.
+- LSP edges: on by default since the same tag. `--no-lsp` turns them off. The Windows server lookup works (`findOnPath` in `src/graph/lsp/registry.ts`).
 - `GRAFT_REASONING` and `--reasoning`, and a `tokens:` usage line after
   `build --deep`.
 - The crux id echo fix in `src/ai/crux.ts`.
-- An MCP launcher that is always `graft mcp`, and a PATH probe that works on
-  Windows (`src/hosts/mcp-config.ts` lines 46 to 75).
+- An MCP launcher that is always the installed binary, `graft mcp` (or
+  `trail mcp` under the trail brand), with no PATH probe
+  (`src/hosts/mcp-config.ts` lines 49 to 58). Section 5 has the detail.
 
 What is open (assessment sections 0, 4 and 7):
 
-- Startup is slow on this machine. The assessment measured 6.3 s for
-  `graft --version` on 2026-10-18.
+- Startup. On 2026-10-21 `graft --version` took 2.1 s through node and 2.3 to
+  3.0 s through the shim from the global install, and 1.5 s from the fork's own
+  `dist/`. The assessment measured 6.3 s on 2026-10-18. `ask --no-refresh -n 1`
+  took 2.2 to 2.6 s through the shim.
 - The graph of this repository had no structured nodes and no summaries on
   2026-10-18.
 - The design issue for upstream was not opened.
 - Decisions D8 to D11 are open. They cover the fork's purpose, the `trail`
   name, the advisory, and `GRAFT_REASONING`.
-- The staged roadmap is in assessment section 6. Stage 17 is the next code
-  stage.
+- The staged roadmap is in assessment section 6. Its Stage 18 (startup by
+  per-command loading) is the next code stage, named Stage 18r in
+  `docs/handoffs/` because the defaults-on work took the number 18.
 
 ## 2. Terms and files on disk
 
@@ -135,16 +140,22 @@ Sources: `src/graph/types.ts` lines 46 to 52 and 108 to 121,
 
 ### Dispatch order
 
-Source: `src/graph/build.ts` lines 285 to 294.
+Source: `tierOf` in `src/graph/build.ts` (line 77). `buildGraph` and
+`checkGraph` both use it, so the build and the check see the same files.
 
-1. The depth tier, if a hand-written extractor claims the extension.
-2. The container tier, if no depth extractor claimed the file.
+1. The depth tier, if a hand-written extractor claims the extension and its
+   native grammar loads. If the grammar does not load, the file goes to that
+   language's WASM stand-in in the breadth tier. The build prints one line that
+   names the language and the fix.
+2. The container tier, if no depth extractor claimed the file. An embedded
+   block whose native grammar does not load also goes to the WASM stand-in.
 3. The breadth tier, if neither claimed it.
-4. The structured tier, if none of the above claimed it and the repository
-   opted in.
+4. The structured tier, if none of the above claimed it. The walk lists these
+   files only while the tier is on (the default).
 
-The documents tier converts binaries before this loop. The Markdown scanner
-then reads each rendering.
+`warmGrammarsFor` (line 286) loads the WASM grammars of all four before the
+parse loop. The documents tier converts binaries before this loop. The Markdown
+scanner then reads each rendering.
 
 ### Files graft writes
 
@@ -180,12 +191,18 @@ Source: `src/graph/workspace.ts` lines 1 to 23.
 
 ## 3. CLI commands
 
-Sources: `src/cli.ts` (line numbers below), `src/legacy-args.ts`.
-The list comes from `grep -n '\.command("' src/cli.ts`. It has 28 entries.
+Sources: `src/cli.ts` (line numbers below), `src/brand.ts`.
+The list comes from `grep -n '\.command("' src/cli.ts`. It has 30 entries. They
+include hidden commands, the `skills` subcommands and `workspace add`.
+
+The program runs under two names. `dist/bin/graft.js` sets the graft brand and
+`dist/bin/trail.js` sets the trail brand (`src/bin/`, `src/brand.ts` lines 24 to 37).
+This section describes the graft brand, the one the fork's global install runs.
+The last subsection lists what changes under the trail brand.
 
 ### Global options
 
-Source: `src/cli.ts` lines 137 to 146.
+Source: `src/cli.ts` lines 150 to 164.
 
 | Option | Purpose |
 |---|---|
@@ -201,39 +218,42 @@ Source: `src/cli.ts` lines 137 to 146.
 
 - Query commands take `[dir]`. When it is omitted, graft uses the nearest
   ancestor directory that holds a `graft/` index. It prints a note on stderr when
-  it answers from an ancestor (lines 190 to 204).
+  it answers from an ancestor (lines 217 to 222).
 - `ask`, `skeleton`, `callers`, `blast`, `grep` and `map` refresh the graph first
   when the working tree has moved. `--no-refresh` skips the refresh. The variable
-  `GRAFT_NO_REFRESH=1` does the same for every command (lines 224 to 226;
-  `src/graph/refresh.ts` line 69).
+  `GRAFT_NO_REFRESH=1` does the same for every command (lines 230 to 244;
+  `src/graph/refresh.ts` line 70).
 - `GRAFT_REFRESH=hash` makes the freshness probe hash every file. It does not
   trust size and mtime (`src/graph/fingerprint.ts` line 107).
 - Before every command except `version`, `upgrade`, `_update-check`,
-  `_brain-refresh` and `mcp`, graft starts a background check of the latest
+  `_trail-past-read` and `mcp`, graft starts a background check of the latest
   version, prints an upgrade note if one is due, and handles the telemetry
-  notice (lines 255 to 274).
-- The old spelling `graft brain` is rewritten to `graft trail`. The old option
-  `--brain` is rewritten to `--trail` (`src/legacy-args.ts`).
+  notice (lines 273 to 300).
+- A person who types `graft` at a terminal sees one line, at most once a day, that
+  says graft is now trail. An agent, a hook, CI or a pipe never sees it. The
+  variable `GRAFT_NO_RENAME_NOTICE` turns it off (`src/brand.ts` `graftNotice`).
 
 ### Build and check
 
-#### `graft build [dir]` (line 366)
+#### `graft build [dir]` (line 441)
 
 Builds `graft/` from the code: the wiring graph and the per-file cards. It is
 keyless unless `--deep` is given. The default `dir` is `.`.
 
 | Option | Effect |
 |---|---|
-| `--deep` | Run the LLM pass: concept nodes, and a summary and crux for each symbol. Without a key, graft prints a warning and runs the keyless build (lines 540 to 550) |
-| `-e, --extensions <exts...>` | Code extensions to include. An extension with no parser is ignored with a warning that lists the supported set (lines 177 to 188) |
+| `--check` | Build nothing. Fail if `graft/` is stale. The same as `graft check`, and counted as `check` in telemetry (lines 536 to 542) |
+| `--json` | With `--check`: print the drift as JSON |
+| `--deep` | Run the LLM pass: concept nodes, and a summary and crux for each symbol. Without a key, graft prints a warning and runs the keyless build (lines 633 to 648) |
+| `-e, --extensions <exts...>` | Code extensions to include. An extension with no parser is ignored with a warning that lists the supported set (lines 195 to 206) |
 | `-j, --concurrency <n>` | Files processed in parallel in the deep pass. Default 5 |
 | `--no-reuse` | Parse every file again. Do not replay unchanged files from the cache |
 | `--lsp`, `--no-lsp` | Turn the language-server pass on or off. It is on by default. It adds compiler-grade call edges when a server is on PATH. It makes the build slower. The choice persists. Env: `GRAFT_LSP` |
 | `--allow-partial` | With `--deep`: exit 0 even if some summaries failed. The default is exit 1 for a degraded meaning tier |
 | `--follow-submodules`, `--no-follow-submodules` | Include or exclude initialised submodules. The choice persists. Default: exclude |
 | `--follow-nested-repos`, `--no-follow-nested-repos` | Include or exclude nested git clones that the index does not track. The choice persists. Default: exclude |
-| `--include-dir <name>` | Remove a name from the skip list. Repeatable. Takes a bare directory name. A dot-directory is rejected. The choice persists (lines 483 to 494) |
-| `--only-dir <path>` | Index only files under this repo-relative path. Repeatable. The list goes into the graph fingerprint. It is not written to the repository (lines 495 to 511) |
+| `--include-dir <name>` | Remove a name from the skip list. Repeatable. Takes a bare directory name. A dot-directory is rejected. The choice persists (lines 567 to 584) |
+| `--only-dir <path>` | Index only files under this repo-relative path. Repeatable. The list goes into the graph fingerprint. It is not written to the repository (lines 588 to 601) |
 | `--structured`, `--no-structured` | Turn the structured tier on or off. It is on by default. The choice persists. Env: `GRAFT_STRUCTURED` |
 | `--documents`, `--no-documents` | Turn the documents tier on or off. It is on by default. It needs the structured tier. The choice persists. Env: `GRAFT_DOCUMENTS` |
 | `--deep-documents` | With `--deep`: also summarise documents. Not persisted. Env: `GRAFT_DEEP_DOCUMENTS` |
@@ -242,17 +262,22 @@ keyless unless `--deep` is given. The default `dir` is `.`.
 
 Notes:
 
-- A workspace parent builds each child into its own `graft/` (lines 557 to 573).
+- A workspace parent builds each child into its own `graft/` (lines 650 to 669).
 - `--documents` without `--structured` prints a warning and does nothing
-  (lines 470 to 472).
+  (lines 560 to 562).
 - The build prints the node count by kind, the edge count, the languages, and
   how many files it parsed or replayed from cache. With `--deep` it also prints a
-  usage line.
+  usage line. A build that starts from a graph copied from the main worktree
+  prints a `seeded` line (line 716).
+- If a native grammar does not load, graft parses that language with its WASM
+  stand-in. The build then prints a notice that names the languages and the
+  packages to allow at install (lines 741 to 744; `src/graph/native.ts`).
 
-#### `graft check [dir]` (line 743)
+#### `graft check [dir]` (line 885)
 
 Fails when `graft/` is stale relative to the code. It is for CI. It never
-refreshes first, because it reports the drift.
+refreshes first, because it reports the drift. The work is in `runCheckCommand`
+(line 901).
 
 | Option | Effect |
 |---|---|
@@ -264,7 +289,7 @@ categories are `added`, `removed`, `changed` and `stale` (`src/graph/check.ts`
 lines 9 to 18). `stale` means a summary is out of date. A never-built markdown
 layer is only informational.
 
-#### `graft stats [dir]` (line 785)
+#### `graft stats [dir]` (line 943)
 
 Shows the usage mix of the latest agent session and the tokens saved. It reads
 local session JSON only. It uses no graph and no network.
@@ -275,7 +300,7 @@ local session JSON only. It uses no graph and no network.
 
 ### Query commands
 
-#### `graft ask <query> [dir]` (line 686)
+#### `graft ask <query> [dir]` (line 823)
 
 Ranks nodes for a plain-words query and returns exact `file:line` locators. It
 is keyless. A structural query such as "what calls X" walks the wiring graph. Any
@@ -291,7 +316,7 @@ other query ranks lexically (`src/ask/ask.ts` lines 1 to 15).
 | `--no-graph-rank` | Rank by lexical relevance only |
 | `--no-refresh` | Skip the freshness check |
 
-#### `graft skeleton <file> [dir]` (line 726)
+#### `graft skeleton <file> [dir]` (line 867)
 
 Prints the signatures of one file. The file is matched as an exact repo-relative
 path first, then as a basename. An ambiguous basename returns a list of paths
@@ -302,7 +327,7 @@ path first, then as a basename. An ambiguous basename returns a list of paths
 | `--json` | Print as JSON |
 | `--no-refresh` | Skip the freshness check |
 
-#### `graft callers <symbol> [dir]` (line 875)
+#### `graft callers <symbol> [dir]` (line 1032)
 
 Lists who calls or references a symbol. It is keyless. The symbol may be a bare
 name, a qualified name (`Class.method`) or a package-qualified name (`pkg.Fn`).
@@ -315,7 +340,7 @@ name, a qualified name (`Class.method`) or a package-qualified name (`pkg.Fn`).
 | `--json` | Print as JSON |
 | `--no-refresh` | Skip the freshness check |
 
-#### `graft blast [dir]` (line 917)
+#### `graft blast [dir]` (line 1073)
 
 Reports what depends on the lines that a diff touched. It is built for CI.
 
@@ -331,7 +356,7 @@ Reports what depends on the lines that a diff touched. It is built for CI.
 | `--pr-author <who...>` | Keep the PR author out of the suggestions |
 | `--no-refresh` | Skip the freshness check |
 
-#### `graft grep <pattern> [dir]` (line 950)
+#### `graft grep <pattern> [dir]` (line 1105)
 
 Runs a regex over the indexed files. It groups hits by the innermost enclosing
 symbol. It ranks groups by the count of incoming edges. It is keyless.
@@ -348,7 +373,7 @@ The default cap is 300 hits. Each hit text is cut at 160 characters. The output
 counts the hits and unreadable files that it dropped (`src/search/grep.ts`
 lines 59 to 80).
 
-#### `graft map [dir]` (line 986)
+#### `graft map [dir]` (line 1140)
 
 Prints a token-budgeted orientation: directory clusters, the hubs in each
 directory, and global hotspots. Importance is the count of incoming dependency
@@ -357,10 +382,10 @@ edges (`src/graph/map.ts` lines 1 to 20).
 | Option | Effect |
 |---|---|
 | `--max-dirs <n>` | Maximum directories shown. The rest are counted as dropped. Default 16 |
-| `--json` | Print as JSON. At a workspace parent the JSON path does not federate (lines 1009 to 1012) |
+| `--json` | Print as JSON. At a workspace parent the JSON path does not federate (lines 1163 to 1166) |
 | `--no-refresh` | Skip the freshness check |
 
-#### `graft viz [dir]` (line 803)
+#### `graft viz [dir]` (line 961)
 
 Serves an interactive view of the graph, or writes it as one HTML file.
 
@@ -372,13 +397,13 @@ Serves an interactive view of the graph, or writes it as one HTML file.
 | `--title <text>` | Subtitle for an exported page |
 | `--tabs <list>` | Tabs for an exported page: `context`, `code`, `outline`. Default: all three. An unknown name is an error |
 
-#### `graft mcp [dir]` (line 864)
+#### `graft mcp [dir]` (line 1022)
 
 Serves the graph over MCP on stdio. Section 4 describes the tools.
 
 ### Setup commands
 
-#### `graft init [dir]` (line 1030)
+#### `graft init [dir]` (line 1344)
 
 Wires graft into the coding agents used with the repository. The default `dir`
 is `.`. Section 5 lists what it writes.
@@ -396,15 +421,14 @@ is `.`. Section 5 lists what it writes.
 | `--dry-run` | Print every file that would change, then exit |
 | `-y, --yes` | Skip the picker. Wire every detected agent |
 | `--no-global` | Skip writes outside the repository |
-| `--trail <handoff>` | Attach a Trail: `<brainId>:<token>`, or a bare id with `GRAFT_BRAIN_TOKEN` set |
 | `--verbose` | Print every file written, the build output and the closing banner |
 
-Selection logic (lines 1103 to 1138): explicit flags win. With a terminal,
+Selection logic (lines 1536 to 1555): explicit flags win. With a terminal,
 graft shows a picker. Without a terminal and without `--yes` or `--agents`, graft
 writes nothing and prints the command to run. At a workspace parent, graft wires
 the parent and each child.
 
-#### `graft uninstall [dir]` (line 1437)
+#### `graft uninstall [dir]` (line 1947)
 
 Removes the files and config entries that graft wrote. Without `-y` it prints
 what it would remove and exits.
@@ -419,41 +443,62 @@ what it would remove and exits.
 
 | Command | Purpose | Line |
 |---|---|---|
-| `graft version` | Print the installed version and the latest on npm | 349 |
-| `graft upgrade` | Upgrade the global install to the latest on npm. This replaces the fork build with the published one | 357 |
-| `graft telemetry [action]` | `status` (default), `enable`, `disable` or `debug` for the anonymous usage stats | 321 |
+| `graft version` | Print the installed version and the latest on npm | 406 |
+| `graft upgrade` | Upgrade the global install to the latest on npm. This replaces the fork build with the published one. It also installs `@trailhq/trail-code` when that package is published. It can then run `trail init` for the repository in the current directory (`moveHereToTrail`, line 428) | 413 |
+| `graft telemetry [action]` | `status` (default), `enable`, `disable` or `debug` for the anonymous usage stats | 377 |
 
 The `upgrade` caution comes from assessment section 3.
 
-### Trail commands
+### Learnings commands
 
-A Trail is the set of rules that upstream's hosted service mines from a
-repository's history. These commands talk to that service. They are not keyless
-and not offline. The base command is `graft trail` (line 1467).
+A learning is a short note that a session saves for the next session. These
+commands exist under the graft brand but are hidden from `--help`. They are
+listed by default under the trail brand. All three are keyless.
 
 | Command | Purpose | Options | Line |
 |---|---|---|---|
-| `graft trail connect <handoff> [dir]` | Attach a Trail to the repo and pull its rules. The handoff is `<brainId>:<token>`, or a bare id with `GRAFT_BRAIN_TOKEN` set | none | 1592 |
-| `graft trail pull [dir]` | Refresh the rules. Write each accepted change into the repo's context files | `--dry-run` | 1622 |
-| `graft trail watch [dir]` | Wait until Trail has suggestions to review or accepted changes to pull. Then say so once | `--interval <seconds>`, `--settle <seconds>`, `--timeout <minutes>`, `--accepted-only`, `--json`, `--verbose` | 1652 |
-| `graft trail push [dir]` | Read this repo on the local machine and build its Trail. It needs a GitHub `origin` remote | `--no-approve`, `--no-watch`, `--verbose` | 1718 |
-| `graft trail status [dir]` | Show the attached Trail, the cached rule count, and how many rules still match the code | `--json` | 1946 |
-| `graft trail disconnect [dir]` | Forget the attached Trail. Its rules stay in the instruction files until the next `init` | none | 1988 |
-
-`trail watch` exit codes (lines 1661 to 1671): 0 when there is something to act
-on, 2 on timeout, 1 when no Trail is attached or the token is refused.
+| `graft note [dir]` | Save what a session decided, tried and ruled out as a learning in `.trail/learnings/`. The text comes on stdin | `--title <text>` (required), `-m, --body <text>`, `--personal`, `--touches <list>`, `--author <name>`, `--minutes <n>`, `--tokens <n>`, `--json` | 1186 |
+| `graft learn <skill> [dir]` | Save a correction as a takeaway on a skill, kept in `~/.trail` | `-m, --text <text>`, `--description <text>`, `--section <heading>`, `--author <name>` | 1205 |
+| `graft skills [dir]` | List the repository's skills and the takeaways that wait to fold in | `--json` | 1238 |
+| `graft skills show <skill>` | Print a skill with every takeaway not yet folded in | `-C, --dir <path>` | 1264 |
+| `graft skills fold [skill]` | Write waiting takeaways into `SKILL.md` and raise its version | `--confirmed`, `-C, --dir <path>` | 1275 |
+| `graft skills publish <skill>` | Move a skill kept on this machine into the repository's `.claude/skills/` | `-C, --dir <path>` | 1308 |
+| `graft skills confirm <skill> [takeaway]` | Say that a teammate's takeaway is right, so `fold --confirmed` takes it | `--author <name>`, `-C, --dir <path>` | 1325 |
 
 ### Hidden commands
 
-Hidden commands do not appear in `--help`.
+Hidden commands do not appear in `--help`. The upkeep step and the hooks start
+them in detached processes.
 
 | Command | Purpose | Line |
 |---|---|---|
-| `graft _brain-refresh [dir]` | Pull the attached Trail's rules again and rewrite the agent files. The upkeep step starts it detached | 290 |
-| `graft _update-check` | Refresh the cached answer for the latest version | 305 |
-| `graft _telemetry-flush` | Send the queued anonymous usage events | 314 |
-| `graft claude-md` | Parent of the old `claude-md pull` | 1932 |
-| `graft claude-md pull [dir]` | Same as `graft trail pull`. Option: `--dry-run` | 1936 |
+| `graft _update-check` | Refresh the cached answer for the latest version | 362 |
+| `graft _telemetry-flush` | Send the queued anonymous usage events | 371 |
+| `graft _trail-past-read <dir>` | Read a repository's past sessions and PR reviews for learnings, after a move to trail | 327 |
+| `graft _trail-sync [dir]` | Send the repository's learnings and waiting uses to the Trail workspace | 338 |
+| `graft _trail-branches [dir]` | Fetch, then note which files teammates' open branches change and the learnings they carry | 347 |
+| `graft _trail-claim` | Wait for a sign-in through the link that the agent was given, then connect the workspace | 355 |
+
+### Under the trail brand
+
+`trail` runs the same program with a different command layout (`src/cli.ts`
+line 106, lines 2417 to 2455). The fork's global install has no `trail` command,
+so these facts come from the source only.
+
+- `trail check` is the team check (`teamCheckCommand`, line 2241). It compares the
+  branch diff with the learnings. The freshness check is `trail build --check`.
+- `trail status` (line 2361) replaces `stats` and shows the map, the learnings and
+  the tokens saved. `stats`, `viz`, `mcp` and `version` are hidden.
+- `trail note` is listed. `trail team` (line 2134) shows what the team learned this
+  week.
+- `trail workspace` (line 2041, with `add` at line 2079), `trail login` (line 1986)
+  and `trail logout` (line 2021) manage a Trail workspace. They are hidden unless
+  the cloud is enabled (line 2420).
+- `trail init` also reads the repository's past Claude sessions and merged PR
+  reviews for learnings (lines 1607 to 1610).
+- The default context directory is `.trail/cache/` in a repository that is on
+  trail (`src/context/map-dir.ts` `mapDirFor`, line 31). A `graft/` map that git
+  does not track is moved there.
 
 ## 4. MCP server
 
@@ -468,14 +513,15 @@ Sources: `src/mcp/tools.ts`, `src/mcp/server.ts`, `src/mcp/instructions.ts`,
   `notifications/initialized` and `notifications/cancelled`.
 - Errors: -32700 for a parse error, -32601 for an unknown method, -32603 for an
   internal error in `tools/call`.
-- `initialize` returns `serverInfo.name` `graft`, the version, `capabilities`
-  with `tools`, and the instructions text.
+- `initialize` returns `serverInfo.name` (`graft` under the graft brand), the
+  version, `capabilities` with `tools`, and the instructions text (`server.ts`
+  line 109).
 - `callTool` never throws. A tool failure returns text with `isError: true`
-  (`tools.ts` lines 216 to 244).
+  (`tools.ts` lines 218 to 245).
 
 ### Which tools the server lists
 
-Source: `server.ts` lines 41 to 64.
+Source: `server.ts` lines 61 to 66.
 
 - With a `--dir` override, the server lists all tools.
 - Otherwise it lists all tools only if the repository has a graft index, or if
@@ -485,7 +531,7 @@ Source: `server.ts` lines 41 to 64.
 
 ### Freshness before each call
 
-Source: `tools.ts` lines 201 to 244.
+Source: `tools.ts` lines 203 to 245.
 
 Every tool except `graft_check_freshness` refreshes the graph first. The refresh
 is keyless. If the refresh adds a note, the note comes before the answer.
@@ -537,9 +583,9 @@ Notes:
 - An unknown symbol returns an error that tells the caller to check the spelling
   or run `graft build`.
 - The code also accepts a `file` argument in place of `symbol`. The schema does
-  not list it (`tools.ts` line 284).
+  not list it (`tools.ts` line 286).
 - At a workspace root, the code reads `depth` only when it is a number
-  (`tools.ts` line 173). A string value such as `"all"` is ignored there.
+  (`tools.ts` line 175). A string value such as `"all"` is ignored there.
 
 #### `graft_find_all`
 
@@ -553,7 +599,9 @@ symbol and ranked by incoming-edge count.
 | `ignore_case` | boolean | no | Case-insensitive match |
 | `fixed` | boolean | no | Treat the pattern as a literal string |
 
-A search with no hits returns a note, not an error.
+A search with no hits returns a note, not an error. In a single-graph repository
+the note takes extra text from `ignoredCode` (`tools.ts` line 318,
+`src/search/ignored-code.ts`).
 
 #### `graft_repo_map`
 
@@ -586,7 +634,8 @@ Source: `src/mcp/instructions.ts`.
 - The text tells the agent that the repository is indexed and that these tools
   usually replace several file reads.
 - It gives one `ToolSearch` query that loads all tools in one lookup. The query
-  is built by `toolSearchQuery()` with the prefix `mcp__graft__` (lines 36 to 39).
+  is built by `toolSearchQuery()` with the prefix `mcp__<brand>__`, so
+  `mcp__graft__` under the graft brand (lines 37 to 40).
 - It lists five tools in order of use: `graft_find_code`, `graft_find_all`,
   `graft_trace_calls`, `graft_file_api`, `graft_repo_map`. It does not list
   `graft_check_freshness`.
@@ -596,19 +645,37 @@ Source: `src/mcp/instructions.ts`.
 
 This document does not copy the text. Its tool lines use a dash character that
 the prose rules of this repository forbid. Read the exact words in
-`src/mcp/instructions.ts` lines 41 to 57.
+`src/mcp/instructions.ts` lines 43 to 59.
+
+### Under the trail brand
+
+Started as `trail mcp`, the same server changes its names (`src/brand.ts`
+`inBrand`).
+
+- `serverInfo.name` is `trail` (`server.ts` line 109).
+- `tools/list` advertises `trail_find_code`, `trail_find_all`, `trail_trace_calls`,
+  `trail_file_api`, `trail_repo_map` and `trail_check_freshness`. The tool
+  descriptions and the instructions text use the word trail (`server.ts` line 123,
+  `tool-names.ts` line 38).
+- The server answers both name sets. `canonicalToolName` maps a `trail_` name to
+  its `graft_` name (`tool-names.ts` line 47).
+- The `ToolSearch` prefix is `mcp__trail__`.
+- `trail init` registers no MCP server for Claude Code. See section 5.
 
 ## 5. Claude Code integration and other hosts
 
 Sources: `src/claude/settings-merge.ts`, `src/claude/hooks.ts`,
 `src/claude/format.ts`, `src/claude/statusline.ts`, `src/claude/init.ts`,
 `src/claude/skill-template.ts`, `src/hosts/` (all files), `src/cli.ts`
-lines 1103 to 1138.
+lines 1536 to 1555.
+
+This section describes the graft brand. The last subsection lists what changes
+under the trail brand.
 
 ### What `graft init` writes for Claude Code
 
-Sources: `src/claude/init.ts` lines 19 to 30, `src/hosts/claude-global.ts`
-lines 57 to 65.
+Sources: `src/claude/init.ts` lines 73 to 84 (`legacyClaudeTargets`),
+`src/hosts/claude-global.ts` lines 57 to 67.
 
 | Scope | Path | Content |
 |---|---|---|
@@ -633,91 +700,85 @@ Source: `src/claude/settings-merge.ts`.
 
 - The merge removes graft's earlier entries and adds the current ones. It keeps
   every entry that is not graft's. Running `init` again gives the same result.
-- A `statusLine` that does not name `graft-statusline.cjs` stays untouched. A
-  warning says so (lines 87 to 129). `--no-statusline` or `GRAFT_NO_STATUSLINE`
-  removes graft's own statusline and writes no new one.
-- `footerLinksRegexes` gets the pattern `graft/[\w./-]+\.md` (line 9).
-- `permissions.allow` gets `Bash(graft:*)`, `Bash(npx graft:*)`,
-  `Bash(graft-dev:*)` and `Bash(node dist/cli.js:*)` (lines 14 to 19). The
+- A `statusLine` that does not name `graft-statusline.cjs` or `trail-statusline.cjs`
+  stays untouched. A warning says so (lines 100 to 127). `--no-statusline` or
+  `GRAFT_NO_STATUSLINE` removes graft's own statusline and writes no new one.
+- `footerLinksRegexes` gets the pattern `graft/[\w./-]+\.md` (line 11).
+- `permissions.allow` gets `Bash(trail:*)`, `Bash(graft:*)`, `Bash(npx graft:*)`,
+  `Bash(graft-dev:*)` and `Bash(node dist/cli.js:*)` (lines 16 to 22). The
   purpose is that a retrieval call does not raise a permission prompt.
 - Each hook command has the form
   `node "${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/graft-hooks.cjs" <argument>`.
 
 ### Hooks
 
-Sources: `settings-merge.ts` lines 34 to 59, `hooks.ts` lines 461 to 535.
+Sources: `settings-merge.ts` lines 44 to 72, `hooks.ts` lines 704 to 797.
 
 | Event | Matcher | Argument | Budget | Purpose |
 |---|---|---|---|---|
-| SessionStart | none | `session-start` | 8,000 ms | Orientation, upgrade note, Trail line |
+| SessionStart | none | `session-start` | 8,000 ms | Orientation, upgrade note, handover line |
 | UserPromptSubmit | none | `prompt` | 15,000 ms | Retrieval pack for the prompt |
 | PostToolUse | `Write\|Edit\|MultiEdit` | `post-edit` | 10,000 ms | Blast radius, mark graph dirty |
-| PostToolUse | `Bash\|mcp__graft__\|Read\|Grep\|Glob` | `tool-savings` | 8,000 ms | Score usage mix, sum savings |
+| PostToolUse | `Bash\|mcp__graft__\|mcp__trail__\|Read\|Grep\|Glob` | `tool-savings` | 8,000 ms | Score usage mix, sum savings |
 | Stop | none | `stop` | 8,000 ms | Bill the turn, tally, background rebuild |
+| SessionEnd | none | `session-end` | 5,000 ms | Send queued telemetry from a detached child |
 
-Hooks never call the network, with one exception. The Trail check at session
-start is described below.
+The hook process makes no network call. SessionStart and SessionEnd start a
+detached child that sends the queued telemetry, at most once a day (`hooks.ts`
+lines 727 and 750).
 
-#### SessionStart (`hooks.ts` lines 465 to 490)
+#### SessionStart (`hooks.ts` lines 713 to 748)
 
-1. If the repository has a Trail, start the Trail check at once.
-2. Run the upkeep step without the network. It refreshes wiring that an older
+1. Run the upkeep step without the network. It refreshes wiring that an older
    graft wrote and reads the cached "newer version" answer.
-3. Queue the telemetry summaries of sessions that ended. The hook sends nothing.
+2. If Claude Code is wired and no `trail` command is on PATH, add a handover line
+   at most once a week. It tells the agent to say that `graft upgrade` adds the
+   `trail` command (`src/brand.ts` `trailHandoverLine`, line 248). `CI` and
+   `GRAFT_NO_RENAME_NOTICE` turn it off.
+3. Queue the telemetry summaries of sessions that ended. Start the detached send.
 4. Read `INDEX.md` from the context directory. Add a stale banner if the graph
    has drifted.
 5. Emit the orientation as `additionalContext`.
 
 The orientation holds a directive and the first 1,500 bytes of `INDEX.md`
-(`format.ts` line 211). The directive names the five commands `ask`, `grep`,
+(`format.ts` line 297). The directive names the five commands `ask`, `grep`,
 `skeleton`, `callers` and `map`. It tells the agent to pick one tool, and to close
 a reply with a one-line tally of tokens saved. It tells the agent not to pipe
 graft output through `head` or `tail`.
 
-The Trail check (`hooks.ts` lines 398 to 459):
+#### UserPromptSubmit (`hooks.ts` lines 770 to 796)
 
-- It runs only if the repo has a Trail attached.
-- It waits at most 3,000 ms. The cap is lower when the installed hook budget is
-  tighter. A slow answer gives no line. It never fails the hook.
-- It reports accepted changes that wait for `graft trail pull`. It reports new
-  suggestions since the last session.
-- It starts a background `graft trail push --no-watch` at most once in 24 hours,
-  and only when HEAD has moved since the last push
-  (`src/brain/autopush.ts` lines 20 and 44). `GRAFT_TRAIL_AUTOPUSH` controls it.
-
-#### UserPromptSubmit (`hooks.ts` lines 510 to 534)
-
-1. A prompt shorter than 12 characters gets no pack (line 24).
+1. A prompt shorter than 12 characters gets no pack (line 36).
 2. The hook runs `graft ask <prompt> . --json -n 3` as a child process. On a
    multi-scope repo it adds `--in <scope>` when the last edited file maps to one
    scope.
 3. The child's time limit is the installed hook budget minus 2,000 ms, with a
    floor of 4,000 ms. If several settings files declare the hook, the smallest
-   budget wins (lines 63 to 123).
-4. A strength gate decides what to inject (`format.ts` lines 193 to 209). The top
+   budget wins (lines 76 to 140).
+4. A strength gate decides what to inject (`format.ts` lines 279 to 295). The top
    hit must match a symbol name with a share of at least 0.1, or match the query
    with a share of at least 0.5 (`src/ask/fuse.ts` lines 100 and 108).
 5. A structural result (such as "who calls X") always passes the gate. If a
    lexical result fails it, the hook injects a one-line nudge instead of a pack.
-   It spends at most two nudges in a session (`format.ts` line 160).
+   It spends at most two nudges in a session (`format.ts` line 246).
 6. A novelty gate drops hits whose pointer was already injected this session. The
    hook remembers the last 40 pointers.
 7. The pack holds up to three hits. Each hit has a title, a locator and a snippet
    of at most 140 characters. The hook does not pass `--source`, so the pack holds
    no code.
 
-#### PostToolUse: post-edit (`hooks.ts` lines 188 to 194)
+#### PostToolUse: post-edit (`hooks.ts` lines 201 to 215)
 
-1. Skip files under `graft/`.
+1. Skip files under `graft/` or `.trail/cache/` (line 48).
 2. Mark the graph dirty. Record the count of changed, added and removed nodes
    from a child run of `graft check . --json`. Record the file's base name.
 3. Print the blast radius: up to eight incoming edges from outside the file, then
-   a count of the rest (`format.ts` lines 62 to 79).
+   a count of the rest (`format.ts` lines 72 to 83).
 
 The hook also reads the touched path from a Codex `apply_patch` payload
-(`editedFilePath`, lines 177 to 186).
+(`editedFilePath`, lines 190 to 199).
 
-#### PostToolUse: tool-savings (`hooks.ts` lines 257 to 283)
+#### PostToolUse: tool-savings (`hooks.ts` lines 308 to 313)
 
 1. Classify the tool use as a graft retrieval or a source read (`Read`, `Grep`,
    `Glob`).
@@ -727,7 +788,7 @@ The hook also reads the touched path from a Codex `apply_patch` payload
 
 The classification feeds `graft stats` and the usage summary.
 
-#### Stop (`hooks.ts` lines 332 to 396)
+#### Stop (`hooks.ts` lines 417 to 561)
 
 1. Bill the turn: read the last turn's usage from the transcript and add its
    input cost and token count to the session. A turn already billed is skipped.
@@ -739,7 +800,7 @@ The classification feeds `graft stats` and the usage summary.
 
 ### Statusline
 
-Sources: `src/claude/format.ts` lines 25 to 52, `src/claude/statusline.ts`.
+Sources: `src/claude/format.ts` lines 27 to 56, `src/claude/statusline.ts`.
 
 The first line shows these segments, separated by a dot:
 
@@ -764,8 +825,8 @@ file.
 
 ### Other hosts
 
-Sources: `src/hosts/registry.ts` lines 29 to 124, `src/hosts/mcp-config.ts`
-lines 179 to 233, `src/hosts/plan.ts`, `src/hosts/codex-hooks.ts`,
+Sources: `src/hosts/registry.ts` lines 33 to 128, `src/hosts/mcp-config.ts`
+lines 176 to 233, `src/hosts/plan.ts`, `src/hosts/codex-hooks.ts`,
 `src/hosts/cursor-hooks.ts`, `src/hosts/antigravity.ts`.
 
 A "section" file is a shared file that the user owns. Graft keeps a fenced block
@@ -791,17 +852,59 @@ Hook events by host:
   `startup|resume|compact`, 10,000 ms), UserPromptSubmit (15,000 ms), PostToolUse
   (matcher `apply_patch|Write|Edit|MultiEdit`, 10,000 ms) and Stop (10,000 ms).
   These entries fire in every repository opened with Codex.
-- Cursor (`cursor-hooks.ts` lines 69 to 75): `postToolUse` (matcher
+- Cursor (`cursor-hooks.ts` lines 71 to 77): `postToolUse` (matcher
   `Read|Grep|Glob|Search|Shell`), `afterMCPExecution` and `sessionEnd`. They score
   the usage mix and savings. They are repo-local.
 
-MCP launch command:
+MCP launch command. These are deliberate decisions of this fork:
 
-- Every host gets `{ "command": "graft", "args": ["mcp"] }` (`opencode.json` uses
-  the array form). The command is a bare name, never `npx` and never an absolute
-  path (`mcp-config.ts` lines 28 to 46).
-- `findOnPath` is a filesystem lookup that honours `PATHEXT` on Windows. It does
-  not spawn a process (lines 55 to 75). `init` warns once if no `graft` is on PATH.
+- `serverEntry` in `mcp-config.ts` (lines 49 to 58) returns a constant for each
+  brand: `{ "command": "graft", "args": ["mcp"] }`, or `trail mcp` under the trail
+  brand. `opencode.json` uses the array form.
+- The command is a bare name. It is never `npx` and never an absolute path. There
+  is no PATH probe when the entry is written, and no `GRAFT_MCP_NPX` switch.
+- `graft init` warns once if the command is not on PATH (`cli.ts` line 1885). The
+  check is `commandOnPath` in `src/brand.ts` (line 142). It looks for
+  `<name>.cmd`, `<name>.exe` and the bare name on Windows. It does not read
+  `PATHEXT`. It spawns no process.
+- `findOnPath` is in `src/graph/lsp/registry.ts` (line 19). Only the language
+  server lookup uses it. It honours `PATHEXT` and returns the path.
+
+### Under the trail brand
+
+`trail init` wires the same hosts with a different layout. The fork's global
+install has no `trail` command, so these facts come from the source only.
+
+- Claude Code files (`claude/init.ts` `claudeTargetsFor`, line 55, and
+  `runTrailInit`, line 175):
+  - `.claude/settings.json` holds one SessionStart entry that runs
+    `.trail/hook.cjs`. The team commits both files.
+  - `.claude/settings.local.json` holds the statusline and the allow list. It stays
+    out of git.
+  - `.trail/statusline.cjs` is the statusline shim.
+  - The skill goes to `~/.claude/skills/trail/SKILL.md`, not into the repository.
+  - No `.mcp.json` entry and no `~/.claude.json` server. The user-level step
+    removes a `trail` server from `~/.claude.json`. It also turns graft's
+    user-level server off for that folder (`claude-global.ts` line 160).
+  - The other hooks come from `~/.claude/settings.json`. With `--no-global` they go
+    into `.claude/settings.local.json`.
+- SessionStart runs `trailAtStart` (`hooks.ts` line 682). It fetches teammates'
+  branches, waits at most 3,000 ms, and starts a detached sync of learnings to
+  the workspace. The `git fetch` is the one network wait in the hooks.
+- The orientation adds a learnings paragraph (`format.ts` line 331). The
+  statusline adds an `<N> learnings` segment (`format.ts` line 38).
+- The prompt hook puts matching learnings above the code pack (`notesForPrompt`,
+  `format.ts` line 113). The post-edit and tool-savings hooks add learnings for
+  the touched file (`learningsOnTouch`, `hooks.ts` line 321). The post-edit hook
+  also reports a teammate's branch that changes the same function (`editOverlap`,
+  line 225).
+- The Stop hook can block once in a session, to ask the agent to save a learning
+  after a turn of real digging (`askForNote`, line 532).
+- Files that a host owns carry the name `trail`: `.cursor/rules/trail.mdc`,
+  `.adal/skills/trail/SKILL.md`, and `.cursor/hooks/trail-hooks.cjs`
+  (`registry.ts` `hostRelPath`, line 143). The Antigravity skill goes to
+  `~/.gemini/skills/trail/SKILL.md`.
+- Every host that gets an MCP entry gets `trail mcp`, and the entry name is `trail`.
 
 ## 6. File types by tier
 
@@ -1311,34 +1414,33 @@ The source is right in each case.
 
 | Item | The other document says | The source says |
 |---|---|---|
-| Statusline content | README line 412: graph size, "% enriched" and a stale warning | `format.ts` lines 25 to 52: node and edge counts, freshness, tokens saved with dollars, context percent, last file. No enrichment percent |
+| Statusline content | README line 412: graph size, "% enriched" and a stale warning | `format.ts` lines 27 to 56: node and edge counts, freshness, tokens saved with dollars, context percent, last file. No enrichment percent |
 | Codex hooks | README lines 383 and 406: one `PostToolUse` entry that matches `Write\|Edit\|MultiEdit` | `codex-hooks.ts` lines 51 to 59: four events, and the edit matcher also holds `apply_patch` |
-| CLI list | README lines 433 to 514 omit `stats`, `telemetry`, `trail connect`, `trail status` and `trail disconnect` | `cli.ts` defines all of them |
+| CLI list | The upstream README CLI block omits `stats` and `telemetry` | `cli.ts` defines both |
 | Dot-paths | A comment in `structured/index.ts` lines 51 to 53 says dot-directories are never walked | `ingest/fs.ts` line 52 admits `.github/workflows` for `.yml` and `.yaml` files |
 | Crux size | The `ask --full` help text and the skill call the crux an excerpt of 8 lines or fewer | The prompt asks for about 8 lines. `enrich.ts` line 29 allows 12 |
 | MCP tool count | `instructions.ts` lists five tools | `tool-names.ts` lists six. `graft mcp` help says six |
-| `graft_trace_calls` depth | The tool schema accepts `"all"` | At a workspace root, `tools.ts` line 173 reads a number only |
-| Deep-pass concurrency default | `cli.ts` line 374: the `-j` help text says "default 5" | `cli.ts` line 457 passes nothing when `-j` is absent. `context/build.ts` line 200 then uses 8 for the file pass. `graph/enrich.ts` line 39 uses 5 for the symbol pass. Found by Stage 15c |
-| Repository URL | Assessment: upstream is `trailhq/Trail-Code` | `package.json` line 17 still names `trailhq/Graft.git`. Upstream changed its own `package.json` at 0.22.0; the fork's copy is from 0.21.1 |
+| `graft_trace_calls` depth | The tool schema accepts `"all"` | At a workspace root, `tools.ts` line 175 reads a number only |
+| Deep-pass concurrency default | `cli.ts` line 453: the `-j` help text says "default 5" | `cli.ts` line 546 passes nothing when `-j` is absent. `context/build.ts` line 200 then uses 8 for the file pass. `graph/enrich.ts` line 39 uses 5 for the symbol pass. Found by Stage 15c |
 
-Two numbers differ between documents by date, not by fact: the gate ran with
-the same counts on 2026-10-15, 2026-10-18 and 2026-10-21, and the upstream
-distance was 14 commits on 2026-10-18 and 15 on 2026-10-21.
+Gate counts and the upstream distance differ between documents by date, not by
+fact. Each was right on its date. Section 1 holds the values after the Stage 17
+merge on 2026-10-21.
 
 ### Not verified in this stage
 
 This stage used file reads only. It ran no command, no build and no network
 call.
 
-- The global install version, the test counts, the upstream commit distance and
-  the open pull-request count come from the handoff and the assessment. They were
-  not re-run.
-- The timings in sections 1 and 7.4 come from assessment section 8. They were not
+- Stage 17 re-ran the global install version, the test counts, the upstream
+  commit distance and the section 1 timings on 2026-10-21. The open pull-request
+  count comes from the assessment and was not re-run.
+- The timings in section 7.4 come from assessment section 8. They were not
   re-measured.
 - The upstream benchmark figures were not reproduced.
-- `graft trail push`, `pull` and `watch`, `src/brain/`, `src/telemetry/`,
-  `src/app/`, `src/blast/` and `src/viz/` were read at the command definition and
-  the module header only.
+- `src/telemetry/`, `src/app/`, `src/blast/`, `src/viz/` and upstream's
+  learnings and workspace modules (`src/notes/`, `src/cloud/`) were read at the
+  command definition and the module header only.
 - The node kinds of the R extractor, the Go type resolution and the per-language
   rules for `references` edges were not traced through the walker. The tables use
   the kind maps and the header comments in `extract.ts`.
@@ -1350,3 +1452,7 @@ call.
 - The hook budgets are the values that `graft init` writes. A repository wired by
   an older version may carry other values. `promptAskTimeout` reads the installed
   value at run time.
+- The post-edit hook counts stale nodes with `graft check . --json` as a child
+  process (`hooks.ts` line 170). Under the trail brand the child inherits the brand,
+  and `check` is then the team check. Its JSON has no `graph` key, so the count is
+  0. This was read from the source and not run.

@@ -4,7 +4,39 @@
  * simply means that language gets no LSP enrichment (the AST graph stands alone).
  */
 import { execSync } from "node:child_process";
-import { findOnPath } from "../../hosts/mcp-config.js";
+import { statSync } from "node:fs";
+import { delimiter, join } from "node:path";
+
+/** Windows' own default when PATHEXT is unset. */
+const DEFAULT_PATHEXT = ".COM;.EXE;.BAT;.CMD";
+
+/**
+ * Filesystem PATH lookup that returns where `name` lives. A spawn cannot do this on
+ * Windows: a server installed as a `.cmd` shim is ENOENT to a shell-less spawn.
+ * Unlike `commandOnPath` in brand.ts (a yes or no), this honours PATHEXT and the
+ * `Path` spelling, and returns the first match, or undefined.
+ */
+export function findOnPath(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): string | undefined {
+  const win = platform === "win32";
+  const dirs = (win ? (env.PATH ?? env.Path ?? "") : (env.PATH ?? "")).split(win ? ";" : delimiter).filter(Boolean);
+  const exts = win
+    ? ["", ...(env.PATHEXT ?? DEFAULT_PATHEXT).split(";").filter(Boolean)].map((e) => e.toLowerCase())
+    : [""];
+  for (const dir of dirs) {
+    for (const ext of exts) {
+      const candidate = join(dir.replace(/^"|"$/g, ""), name + ext);
+      try {
+        const s = statSync(candidate);
+        if (s.isFile() && (win || (s.mode & 0o111) !== 0)) return candidate;
+      } catch { /* not here */ }
+    }
+  }
+  return undefined;
+}
 
 export interface LspServer {
   /** graft language names (as produced by languageLabelOf/genericLangOf) this serves. */

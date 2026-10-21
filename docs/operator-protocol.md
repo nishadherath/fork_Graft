@@ -236,6 +236,16 @@ about the operator's machine and this repository, not preferences.
   global install and checks the versions agree. Nothing in the global
   install is edited by hand any more; the old `patch/patch_graft_crux.py`
   is retired because its fix is in `src/ai/crux.ts` with a test.
+- **A merge that changes the base release needs a reinstall first.**
+  `sync-global` refuses when the base releases differ, because the global
+  `node_modules` would not match the new code (0.21.1 to 0.23.0 moved
+  `openai` from 6 to 7). Stage 17 did it like this, on 2026-10-21: copy the
+  global `@nanonets/graft` folder and its three `graft` shims to a backup;
+  `npm pack --ignore-scripts` in the fork; `npm install -g <tgz>
+  --ignore-scripts`; copy the Kotlin `build/` folder back from the backup;
+  then `sync-global`, which reported every file unchanged. This also
+  installs the optional converters (`fflate`, `pdfjs-dist`). The shim now
+  runs `dist/bin/graft.js`, as upstream's `bin` entry says.
 - **`npm ci` cannot compile `tree-sitter-kotlin` here.** Its `binding.gyp`
   passes clang LTO flags (`-flto=thin`, `opt:lldltojobs=2`) that Visual
   Studio 18's linker rejects. Install with `npm ci --ignore-scripts`, then
@@ -243,9 +253,27 @@ about the operator's machine and this repository, not preferences.
   install (built on 2026-10-04 under the same Node ABI). Every other
   grammar loads from its shipped prebuild. Upstream CI builds on Node 20,
   so this is a local toolchain fact, not something to change in source.
+  Since upstream 0.23.0 a missing Kotlin binary no longer breaks anything:
+  Kotlin files go to a WASM stand-in with the same spans but coarser kinds
+  and fewer edges (measured 2026-10-21: a method reported as a function,
+  1 edge instead of 4), and the build prints one line naming the fix. The
+  copy is still worth making for full fidelity.
+- **Never run a graft command in a wired checkout as a smoke test.** Any
+  command, `graft mcp` included, compares the repository's wiring stamp
+  with the running version and rewrites the agent files on a mismatch.
+  This checkout has committed graft shims, so a bare `graft mcp` here
+  rewrote them and `.claude/settings.json` (2026-10-21). Smoke-test in a
+  temporary folder.
 - **A source build carries no telemetry key.** `dist/telemetry/key.js` is
-  stamped only by `prepublishOnly`; after a sync the global install sends
-  no usage pings, which is upstream's intended behaviour for forks.
+  stamped only by `scripts/stamp-telemetry-key.mjs` (run by `prepare` and
+  `prepublishOnly`), and only when `GRAFT_POSTHOG_KEY` is set; after a sync
+  the global install sends no usage pings, which is upstream's intended
+  behaviour for forks.
+- **Upstream is `trailhq/Trail-Code`** (recorded 2026-10-21), formerly
+  `NanoNets/context-graph-engine`. The `upstream` remote keeps the old URL,
+  which GitHub redirects; pull requests are opened against
+  `trailhq/Trail-Code`. Its 0.23.0 publishes as both `@nanonets/graft`
+  and `@trailhq/trail-code`.
 - **Pull-request branches start at `upstream/main`.** `main` here carries
   the operator's files (AGENTS.md, the persona, this protocol,
   `docs/handoffs/`, plan documents). A branch for upstream cherry-picks

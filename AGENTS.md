@@ -9,7 +9,12 @@ loaded on every session and binding.
 # AGENTS.md: fork_graft (the operator's fork of @nanonets/graft)
 
 This repository is the operator's fork of
-`github.com/NanoNets/context-graph-engine` (npm `@nanonets/graft`, MIT).
+`github.com/trailhq/Trail-Code` (npm `@nanonets/graft`, MIT), which was
+`github.com/NanoNets/context-graph-engine` until October 2026; the
+`upstream` remote still names the old URL and GitHub redirects it.
+Upstream also publishes the same code as `@trailhq/trail-code` with a
+`trail` command; this fork keeps the `graft` command, the
+`@nanonets/graft` package and the `graft/` folder.
 It exists to carry local fixes and new file-type indexing that are
 upstreamed by pull request. The global install on the operator's
 machine (`npm root -g`, Node 26.7.0 under nvm4w) is built from this

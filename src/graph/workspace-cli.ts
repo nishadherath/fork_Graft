@@ -9,6 +9,8 @@ import { Graft } from "../engine.js";
 import { contextDirFor, ensureGitignored, recordDeepUsage } from "../context/node-file.js";
 import { formatUsageLine } from "../ai/llm/metered.js";
 import { patchBuildConfig, readLsp, type BuildConfig } from "../util/state.js";
+import { brand, cmd, PACKAGE_FOR } from "../brand.js";
+import { nativeFallbackNotice } from "./native.js";
 import type { EngineConfig } from "../ai/providers.js";
 import { formatAsk } from "../ask/ask.js";
 import type { Direction } from "./traverse.js";
@@ -47,12 +49,17 @@ export interface WorkspaceBuildOptions {
   documents?: boolean;
   /** An explicit CLI `--lsp` / `--no-lsp` choice to persist into every child repo. */
   lsp?: boolean;
+  /** The npm package this runs from, for the fix in the native-parser notice. */
+  packageName?: string;
 }
 
 /** Build every git child into its own committable `graft/`, then replace the
  * parent's `graft/` with `workspace.json`. Prints the one-time split warning
  * first when migrating away from a mega-graph. */
 export async function runWorkspaceBuild(root: string, opts: WorkspaceBuildOptions): Promise<void> {
+  // Native grammars load once per process, so the children share one answer:
+  // collected here and printed once at the end, not once per repo.
+  const fellBack = { languages: new Set<string>(), packages: new Set<string>() };
   const buildChild = async (childDir: string, childName: string): Promise<void> => {
     // Persisted BEFORE the child build itself runs, same as the single-repo
     // path in cli.ts, so this build and every later no-flag child build agree.
@@ -88,6 +95,8 @@ export async function runWorkspaceBuild(root: string, opts: WorkspaceBuildOption
       recordDeepUsage(g.contextDir, usage);
     }
     for (const e of g.errors) console.error(`✗ ${childName}/: ${e}`);
+    for (const l of g.nativeFallback?.languages ?? []) fellBack.languages.add(l);
+    for (const p of g.nativeFallback?.packages ?? []) fellBack.packages.add(p);
   };
 
   const { children } = await splitWorkspace(
@@ -103,7 +112,12 @@ export async function runWorkspaceBuild(root: string, opts: WorkspaceBuildOption
   // index (graft/workspace.json) is written outside buildGraph, so ignore it here too.
   ensureGitignored(root, contextDirFor(root, opts.override));
   console.log(`✓ workspace: ${children.length} repos federated → graft/workspace.json`);
-  console.log(`  graft/ is git-ignored — each teammate runs \`graft build\` to regenerate it locally.`);
+  console.log(`  graft/ is git-ignored — each teammate runs \`${cmd("graft build")}\` to regenerate it locally.`);
+  const notice = nativeFallbackNotice(
+    { languages: [...fellBack.languages].sort(), packages: [...fellBack.packages].sort() },
+    opts.packageName ?? PACKAGE_FOR[brand()],
+  );
+  if (notice) console.error(notice);
 }
 
 export function runWorkspaceAsk(

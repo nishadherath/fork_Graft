@@ -17,6 +17,17 @@
   script, an HTML `<script>` or a Markdown fence falls back to its WASM stand-in when
   the native grammar did not load, the same as a whole file of that language.
 
+- **Startup loads only what the command uses.** `graft --version` used to load about 510
+  modules, including both LLM SDKs, because the CLI imported the engine, the init and
+  uninstall machinery, the workspace commands and the graph builder at the top. The
+  CLI now loads each of those inside the command that needs it, and `ask` answers
+  without the engine. Output, options and exit codes are unchanged. Under the hood the
+  workspace index readers moved to `graph/workspace-index.ts` (re-exported from
+  `graph/workspace.ts`), `Graft` loads the LLM factory when a model is first needed
+  (`init` and `graph` were already async), and `graph/refresh.ts` loads the builder only
+  when a rebuild runs. `test/startup-imports.test.ts` fails if `--version` loads an SDK,
+  the MCP server, the Claude hooks, the engine or the graph builder.
+
 - **The structured tier, the documents tier and LSP edges are on by default.** A plain
   `graft build` now indexes Markdown, configuration, markup and build files, and PDF,
   DOCX, ODT, EPUB, PPTX and ODP documents, and asks a language server on `PATH` for

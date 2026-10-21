@@ -14,7 +14,6 @@ import { resolveConfig, type EngineConfig, type ResolvedConfig } from "./ai/prov
 import { ChatSynthesizer, type Synthesizer } from "./ai/synthesize.js";
 import { ChatSummarizer, type Summarizer } from "./ai/summarize.js";
 import { ChatCruxSummarizer, type CruxSummarizer } from "./ai/crux.js";
-import { createChatModel } from "./ai/llm/factory.js";
 import { MeteredChatModel, emptyUsageTotals } from "./ai/llm/metered.js";
 import type { ChatModel, DeepUsage } from "./ai/llm/types.js";
 import { buildContext, CODE_EXTENSIONS, type BuildProgress, type BuildResult } from "./context/build.js";
@@ -70,8 +69,8 @@ export class Graft {
       extensions: opts.extensions,
       onlyDirs: opts.onlyDirs,
       model: this.modelLabel(),
-      summarizer: this.summarizer(),
-      synthesizer: this.synthesizer(),
+      summarizer: await this.summarizer(),
+      synthesizer: await this.synthesizer(),
       onProgress: opts.onProgress,
     });
   }
@@ -92,10 +91,10 @@ export class Graft {
    * Tier-1 (structure) always runs; the Tier-2 meaning layer runs only when
    * `opts.llm` is set. Either way the prior meaning layer is preserved.
    */
-  graph(dir: string, opts: GraphRunOptions = {}): Promise<GraphBuildResult> {
+  async graph(dir: string, opts: GraphRunOptions = {}): Promise<GraphBuildResult> {
     return buildGraph(dir, {
       contextDir: this.cfg.contextDir,
-      summarizer: opts.llm ? this.cruxSummarizer() : undefined,
+      summarizer: opts.llm ? await this.cruxSummarizer() : undefined,
       deepDocuments: opts.deepDocuments,
       concurrency: opts.concurrency,
       reuse: opts.reuse,
@@ -137,8 +136,12 @@ export class Graft {
     };
   }
 
-  /** The configured transport, metered, or a clear error telling the user how to set a key. */
-  private chatModel(): ChatModel {
+  /**
+   * The configured transport, metered, or a clear error telling the user how to set a key.
+   * The factory (and with it the OpenAI and Anthropic SDKs) loads here, on first use, so
+   * commands that never call a model do not pay for it at startup.
+   */
+  private async chatModel(): Promise<ChatModel> {
     if (this._chatModel) return this._chatModel;
     if (this.cfg.chatModel) return (this._chatModel = new MeteredChatModel(this.cfg.chatModel));
     if (!this.cfg.apiKey) {
@@ -147,6 +150,7 @@ export class Graft {
           "for your provider) to build or summarize the graph.",
       );
     }
+    const { createChatModel } = await import("./ai/llm/factory.js");
     this._chatModel = new MeteredChatModel(
       createChatModel({
         provider: this.cfg.provider,
@@ -160,17 +164,17 @@ export class Graft {
     return this._chatModel;
   }
 
-  private synthesizer(): Synthesizer {
-    return this.cfg.synthesizer ?? new ChatSynthesizer(this.chatModel());
+  private async synthesizer(): Promise<Synthesizer> {
+    return this.cfg.synthesizer ?? new ChatSynthesizer(await this.chatModel());
   }
 
   /** Per-node crux summarizer for the code graph's Tier-2 pass. */
-  private cruxSummarizer(): CruxSummarizer {
-    return this.cfg.cruxSummarizer ?? new ChatCruxSummarizer(this.chatModel());
+  private async cruxSummarizer(): Promise<CruxSummarizer> {
+    return this.cfg.cruxSummarizer ?? new ChatCruxSummarizer(await this.chatModel());
   }
 
-  private summarizer(): Summarizer {
-    return this.cfg.summarizer ?? new ChatSummarizer(this.chatModel());
+  private async summarizer(): Promise<Summarizer> {
+    return this.cfg.summarizer ?? new ChatSummarizer(await this.chatModel());
   }
 
   /** Human label for the active model, recorded in the manifest. */

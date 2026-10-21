@@ -17,7 +17,7 @@ import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { contextDirFor } from "../context/node-file.js";
 import { wiringPath } from "./write.js";
-import { workspacePath } from "./workspace.js";
+import { workspacePath } from "./workspace-index.js";
 
 /** True when `dir` is a graft root of either shape — a built repo or a workspace parent. */
 export function hasGraftIndex(dir: string): boolean {

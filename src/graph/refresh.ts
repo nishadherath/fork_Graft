@@ -36,7 +36,6 @@ import { join, resolve } from "node:path";
 import { contextDirFor } from "../context/node-file.js";
 import { acquireLockIn, releaseLockIn } from "../util/state.js";
 import { CACHE_DIR } from "../context/node-file.js";
-import { buildGraph } from "./build.js";
 import { driftCount, isClean, probeDrift, readFingerprint, type Drift } from "./fingerprint.js";
 import { invalidateGraphCaches } from "./load.js";
 import { seedGraph, type SeedResult } from "./seed.js";
@@ -214,6 +213,8 @@ export async function ensureFreshGraph(root: string, opts: RefreshOptions = {}):
       // here so an auto-rebuild keeps the same limited file set instead of silently
       // widening to the whole tree.
       const onlyDirs = readFingerprint(outDir)?.onlyDirs;
+      // Loaded here, not at the top: a query that finds the graph fresh never builds.
+      const { buildGraph } = await import("./build.js");
       await buildGraph(dir, { contextDir: opts.contextDir, graphOnly: true, onlyDirs });
       invalidateGraphCaches(outDir);
       return { refreshed: true, drift: drift ?? undefined, note: seedNote };

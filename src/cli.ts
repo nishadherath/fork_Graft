@@ -14,14 +14,10 @@ import { Command } from "commander";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Graft } from "./engine.js";
+import type { Graft } from "./engine.js";
 import { resolveConfig, type EngineConfig } from "./ai/providers.js";
 import type { ProviderKind } from "./ai/llm/factory.js";
-import { formatCheckReport } from "./context/check.js";
-import { formatGraphCheckReport } from "./graph/check.js";
-import { buildGraphIfMissing, runInit } from "./claude/init.js";
 import { statuslineWanted } from "./claude/settings-merge.js";
-import { runHostsInit } from "./hosts/init.js";
 import { hostIds } from "./hosts/registry.js";
 import { checkoutRoot, ensureRepoHome, keepsNotes, noteCount, rememberRepo, repoName, repoPlace, shownPath } from "./notes/home.js";
 import { brand, cmd, commandOnPath, graftNotice, strandedRepoNotice, tag } from "./brand.js";
@@ -31,25 +27,13 @@ import { learningsAtBase, teammateEdits, withBaseLearnings } from "./check/learn
 import { contextDirFor, recordDeepUsage } from "./context/node-file.js";
 import { formatUsageLine } from "./ai/llm/metered.js";
 import { loadGraphCached } from "./graph/load.js";
-import { ensureFreshChildren, ensureFreshGraph, refreshNote } from "./graph/refresh.js";
-import { isWorkspaceBuildRoot, readWorkspace } from "./graph/workspace.js";
+import { isWorkspaceBuildRoot, readWorkspace } from "./graph/workspace-index.js";
 import { NOT_GIT_LINE, homeFolderRefusal, isGitWorkTree } from "./init-guard.js";
 import { hasGraftIndex, nearestGraftRoot } from "./graph/root.js";
-import { unsupportedExtensions, supportedExtensions } from "./graph/source-files.js";
 import { discoverWorkspaceChildren } from "./graph/scopes.js";
-import {
-  runWorkspaceAsk,
-  runWorkspaceBuild,
-  runWorkspaceCallers,
-  runWorkspaceCheck,
-  runWorkspaceGrep,
-  runWorkspaceMap,
-} from "./graph/workspace-cli.js";
 import { formatInitEpilogue } from "./cli-epilogue.js";
-import { planInit, selectedWrites } from "./hosts/plan.js";
-import { planRetract, runRetract, changed, type Retraction } from "./hosts/retract.js";
+import type { Retraction } from "./hosts/retract.js";
 import { compactWrites, formatNonInteractiveHelp, formatPlan, pickLearnings, runPicker } from "./cli-picker.js";
-import { buildGraphWithProgress } from "./claude/build-progress.js";
 import { homedir } from "node:os";
 import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, readPackageName, runUpgrade } from "./cli-meta.js";
 import { nativeFallbackNotice } from "./graph/native.js";
@@ -73,7 +57,6 @@ import { ensureRepoTrail, LEARNINGS_DIR } from "./notes/repo-trail.js";
 import type { AskResult } from "./ask/ask.js";
 import { setInputRate } from "./context/savings.js";
 import { formatUpdateNudge, maybeRefreshInBackground, readStamp, readUpdateCache, refreshUpdateCache, wiredHostIds, wiringOpts, writeStamp } from "./upkeep.js";
-import { shouldMoveToTrail } from "./upkeep-run.js";
 import {
   countBucket,
   savedTokensBucket,
@@ -185,15 +168,61 @@ function cliConfig(): EngineConfig {
   };
 }
 
-const engineFrom = (): Graft => new Graft(cliConfig());
+/**
+ * The engine pulls in the graph builder and every checker, so it loads when a
+ * command first needs it rather than at startup (`--version`, hooks and the
+ * query commands that never build).
+ */
+const engineFrom = async (): Promise<Graft> => {
+  const { Graft } = await import("./engine.js");
+  return new Graft(cliConfig());
+};
+
+/** The per-workspace command bodies (federated ask, grep, map, the child builds). Query
+ *  commands load them only once `readWorkspace` says the folder is a workspace. */
+const workspaceCli = () => import("./graph/workspace-cli.js");
+
+/**
+ * What `init` and `uninstall` write with. Loaded by `loadWiring()` at the top of
+ * those two commands; every other command never touches these modules, so they
+ * stay off the startup path. Assigned once, before any user of it runs.
+ */
+let wiring!: Pick<typeof import("./hosts/plan.js"), "planInit" | "selectedWrites"> &
+  Pick<typeof import("./hosts/retract.js"), "planRetract" | "runRetract" | "changed"> &
+  Pick<typeof import("./claude/init.js"), "runInit" | "buildGraphIfMissing"> &
+  Pick<typeof import("./hosts/init.js"), "runHostsInit"> &
+  Pick<typeof import("./claude/build-progress.js"), "buildGraphWithProgress">;
+
+async function loadWiring(): Promise<void> {
+  const [plan, retract, init, hostsInit, progress] = await Promise.all([
+    import("./hosts/plan.js"),
+    import("./hosts/retract.js"),
+    import("./claude/init.js"),
+    import("./hosts/init.js"),
+    import("./claude/build-progress.js"),
+  ]);
+  wiring = {
+    planInit: plan.planInit,
+    selectedWrites: plan.selectedWrites,
+    planRetract: retract.planRetract,
+    runRetract: retract.runRetract,
+    changed: retract.changed,
+    runInit: init.runInit,
+    buildGraphIfMissing: init.buildGraphIfMissing,
+    runHostsInit: hostsInit.runHostsInit,
+    buildGraphWithProgress: progress.buildGraphWithProgress,
+  };
+}
 
 /**
  * Warn (never fail) when a user's `-e` extension has no parser, so it is never a silent
  * no-op — `graft build -e ".vue"` used to accept it, index nothing, and exit 0. The
  * supported set is listed so `-e` also answers "what is actually supported".
  */
-function warnUnsupportedExtensions(exts?: string[], structured = false, documents = false): void {
+async function warnUnsupportedExtensions(exts?: string[], structured = false, documents = false): Promise<void> {
   if (!exts?.length) return;
+  // Loaded here: the extension registry pulls in every extractor, which only a build or check with -e needs.
+  const { unsupportedExtensions, supportedExtensions } = await import("./graph/source-files.js");
   const bad = unsupportedExtensions(exts, structured, documents);
   if (bad.length === 0) return;
   for (const e of bad) {
@@ -228,6 +257,7 @@ function queryRoot(dir?: string): string {
  * stdout stays machine-readable.
  */
 async function refreshBefore(dir: string, opts: { refresh?: boolean }): Promise<void> {
+  const { ensureFreshChildren, ensureFreshGraph, refreshNote } = await import("./graph/refresh.js");
   const globalDir = program.opts<GlobalOpts>().dir;
   const root = resolve(dir);
   const disabled = opts.refresh === false;
@@ -412,11 +442,11 @@ program
 
 grouped(program.command("upgrade"), GROUP.setup)
   .description(`Upgrade the globally installed ${brand()} to the latest version on npm`)
-  .action(() => {
+  .action(async () => {
     const result = runUpgrade(import.meta.url);
     console.log(formatUpgradeReport(result));
     if (result.ran && !result.ok) process.exit(1);
-    if (!TRAIL && result.ok && result.trailVersion) moveHereToTrail(process.cwd());
+    if (!TRAIL && result.ok && result.trailVersion) await moveHereToTrail(process.cwd());
   });
 
 /**
@@ -425,9 +455,11 @@ grouped(program.command("upgrade"), GROUP.setup)
  * past sessions are read for learnings. Every other repo wired as graft moves
  * the next time a session opens in it (upkeep-run.ts).
  */
-function moveHereToTrail(dir: string): void {
+async function moveHereToTrail(dir: string): Promise<void> {
   const root = checkoutRoot(dir);
-  if (!root || !shouldMoveToTrail(root)) return;
+  if (!root) return;
+  const { shouldMoveToTrail } = await import("./upkeep-run.js");
+  if (!shouldMoveToTrail(root)) return;
   const stamp = readStamp(root);
   const hosts = [...new Set([...(stamp?.hosts ?? []), ...wiredHostIds(root)])];
   const o = wiringOpts(stamp);
@@ -552,7 +584,7 @@ grouped(program.command("build"), GROUP.setup)
     const documentsWasExplicit = command.getOptionValueSource("documents") === "cli";
     const lspWasExplicit = command.getOptionValueSource("lsp") === "cli";
     const structuredNow = (structuredWasExplicit ? opts.structured : undefined) ?? readStructured(resolve(dir));
-    warnUnsupportedExtensions(
+    await warnUnsupportedExtensions(
       opts.extensions,
       structuredNow,
       structuredNow && ((documentsWasExplicit ? opts.documents : undefined) ?? readDocuments(resolve(dir))),
@@ -623,7 +655,7 @@ grouped(program.command("build"), GROUP.setup)
     if (Object.keys(buildConfigPatch).length > 0) {
       patchBuildConfig(resolve(dir), buildConfigPatch);
     }
-    const engine = engineFrom();
+    const engine = await engineFrom();
     const fmt = (o: Record<string, number>) =>
       Object.entries(o)
         .sort((a, b) => b[1] - a[1])
@@ -651,7 +683,7 @@ grouped(program.command("build"), GROUP.setup)
     const buildRoot = resolve(dir);
     const buildGlobalDir = program.opts<GlobalOpts>().dir;
     if (isWorkspaceBuildRoot(buildRoot, buildGlobalDir)) {
-      await runWorkspaceBuild(buildRoot, {
+      await (await workspaceCli()).runWorkspaceBuild(buildRoot, {
         deep: !!deep,
         extensions: opts.extensions,
         concurrency,
@@ -836,15 +868,23 @@ grouped(program.command("ask"), GROUP.find)
     await refreshBefore(dir, opts);
     const askGlobalDir = program.opts<GlobalOpts>().dir;
     if (readWorkspace(dir, askGlobalDir)) {
-      runWorkspaceAsk(dir, askGlobalDir, query, {
+      (await workspaceCli()).runWorkspaceAsk(dir, askGlobalDir, query, {
         limit: Number(opts.limit), source: opts.source, full: opts.full, in: opts.in, json: opts.json,
       });
       return;
     }
-    const engine = engineFrom();
     let r;
     try {
-      r = engine.ask(dir, query, { limit: Number(opts.limit), source: opts.source, full: opts.full, in: opts.in, graphRank: opts.graphRank });
+      // What `Graft.ask` does, without loading the engine: answering needs the
+      // ranker and the notes, not the builder, the checkers or the LLM adapters.
+      const [{ ask }, { attachNotes }] = await Promise.all([import("./ask/ask.js"), import("./notes/ask-notes.js")]);
+      r = attachNotes(
+        ask(dir, query, {
+          contextDir: resolveConfig(cliConfig()).contextDir,
+          limit: Number(opts.limit), source: opts.source, full: opts.full, in: opts.in, graphRank: opts.graphRank,
+        }),
+        dir,
+      );
     } catch (err) {
       console.error(`✗ ${err instanceof Error ? err.message : String(err)}`);
       process.exit(1);
@@ -903,14 +943,14 @@ async function runCheckCommand(
   opts: { extensions?: string[]; json?: boolean },
   label: string,
 ): Promise<void> {
-    warnUnsupportedExtensions(opts.extensions, readStructured(resolve(dirArg ?? ".")));
+    await warnUnsupportedExtensions(opts.extensions, readStructured(resolve(dirArg ?? ".")));
     const dir = noteQuery(queryRoot(dirArg));
     const checkGlobalDir = program.opts<GlobalOpts>().dir;
     if (readWorkspace(dir, checkGlobalDir)) {
-      await runWorkspaceCheck(dir, checkGlobalDir);
+      await (await workspaceCli()).runWorkspaceCheck(dir, checkGlobalDir);
       return;
     }
-    const engine = engineFrom();
+    const engine = await engineFrom();
     const r = engine.check(dir, { extensions: opts.extensions });
     const g = await engine.checkGraph(dir); // graph.json is only judged when it exists
 
@@ -925,6 +965,10 @@ async function runCheckCommand(
     } else if (bothMissing) {
       console.log(`${label}: NO GRAPH\n\nNo code map found. Run \`${cmd("graft build")}\` first.`);
     } else {
+      const [{ formatCheckReport }, { formatGraphCheckReport }] = await Promise.all([
+        import("./context/check.js"),
+        import("./graph/check.js"),
+      ]);
       if (r.missing) {
         console.log(
           `deep layer: not built (run \`${cmd("graft build --deep")}\` for concept nodes) — wiring graph is the source of truth`,
@@ -1050,7 +1094,7 @@ grouped(program.command("callers"), GROUP.find)
       await refreshBefore(dir, opts);
       const globalOpts = program.opts<{ dir?: string }>();
       if (!opts.json && readWorkspace(dir, globalOpts.dir)) {
-        runWorkspaceCallers(dir, globalOpts.dir, symbol, {
+        (await workspaceCli()).runWorkspaceCallers(dir, globalOpts.dir, symbol, {
           direction: opts.direction === "out" ? "out" : "in",
           depth: opts.depth
             ? (/^(all|full|max)$/i.test(opts.depth) ? Number.POSITIVE_INFINITY : Number(opts.depth))
@@ -1121,7 +1165,7 @@ grouped(program.command("grep"), GROUP.find)
       await refreshBefore(dir, opts);
       const globalOpts = program.opts<{ dir?: string }>();
       if (readWorkspace(dir, globalOpts.dir)) {
-        runWorkspaceGrep(dir, globalOpts.dir, pattern, {
+        (await workspaceCli()).runWorkspaceGrep(dir, globalOpts.dir, pattern, {
           ignoreCase: opts.ignoreCase, fixed: opts.fixed, json: opts.json,
         });
         return;
@@ -1161,7 +1205,7 @@ grouped(program.command("map"), GROUP.find)
     }
     await refreshBefore(dir, opts); // after arg validation: a bad flag shouldn't cost a rebuild
     if (!opts.json && readWorkspace(root, globalOpts.dir)) {
-      runWorkspaceMap(root, globalOpts.dir, { maxDirs: maxDirsW });
+      (await workspaceCli()).runWorkspaceMap(root, globalOpts.dir, { maxDirs: maxDirsW });
       return;
     }
     const { buildRepoMap, formatRepoMap } = await import("./graph/map.js");
@@ -1525,7 +1569,8 @@ async function runInitCommand(dir: string, opts: InitOptions): Promise<{ ids: st
     // guessing (pre-0.8 this silently wired every agent the machine had ever
     // installed — see --yes to get that back).
     const home = homedir();
-    const plan = planInit(repo, { home });
+    await loadWiring();
+    const plan = wiring.planInit(repo, { home });
     const detectedIds = plan.filter((p) => p.detected).map((p) => p.id);
     const noAgents = (opts as { agents?: unknown }).agents === false;
 
@@ -1575,7 +1620,7 @@ async function runInitCommand(dir: string, opts: InitOptions): Promise<{ ids: st
     if (opts.dryRun) {
       console.error(formatPlan(plan, ids, repo, home));
       for (const child of children)
-        console.error(`\n— ${child}/ (workspace child)\n` + formatPlan(planInit(join(repo, child), { home }), ids, join(repo, child), home));
+        console.error(`\n— ${child}/ (workspace child)\n` + formatPlan(wiring.planInit(join(repo, child), { home }), ids, join(repo, child), home));
       return null;
     }
     if (ids.length === 0) {
@@ -1625,7 +1670,7 @@ async function runInitCommand(dir: string, opts: InitOptions): Promise<{ ids: st
     // the workspace build, so it covers every child.
     let graphLine: string | null = null;
     if (!verbose) {
-      const res = await buildGraphWithProgress(repo, { build: opts.build, cliPath });
+      const res = await wiring.buildGraphWithProgress(repo, { build: opts.build, cliPath });
       for (const m of res.messages) console.error(m);
       const existing = res.built ? null : loadGraphCached(contextDirFor(repo, children.length ? undefined : program.opts<GlobalOpts>().dir));
       const fmt = (x: number) => x.toLocaleString("en-US");
@@ -1742,7 +1787,7 @@ async function runInitCommand(dir: string, opts: InitOptions): Promise<{ ids: st
     if (!verbose) {
       // What there is to commit: the top-level entries the picked agents wrote.
       const tops: string[] = [];
-      for (const w of selectedWrites(plan, ids)) {
+      for (const w of wiring.selectedWrites(plan, ids)) {
         if (w.scope !== "repo") continue;
         const rel = shown(repo, w.path);
         // trail's Claude Code setup shares one file in .claude/; the rest there is personal.
@@ -1808,7 +1853,7 @@ function wireTarget(
   ctx: {
     home: string;
     cliPath: string;
-    plan: ReturnType<typeof planInit>;
+    plan: ReturnType<typeof import("./hosts/plan.js").planInit>;
     wantClaude: boolean;
     opts: { build?: boolean; mcp?: boolean; hooks?: boolean; global?: boolean; statusline?: boolean };
     /** Collect warnings and removals instead of printing a line per file, and
@@ -1833,8 +1878,8 @@ function wireTarget(
     // `reconcileWiring` then keeps them *up to date*, which is worse than stale.
     // Retract every host NOT being written now; `exclude` spares the ones about to
     // be rewritten, and the graph cache is kept (init is one step from using it).
-    const retracted = changed(
-      runRetract(repo, { home, apply: true, global: opts.global, cache: false, exclude: ids }),
+    const retracted = wiring.changed(
+      wiring.runRetract(repo, { home, apply: true, global: opts.global, cache: false, exclude: ids }),
     ).filter((r) => r.action !== "skipped-unparseable");
     for (const r of retracted) say(`- removed ${r.path} (${r.what}) — agent not selected`);
     report.retracted = [...new Set(retracted.map((r) => r.hostId))];
@@ -1843,7 +1888,7 @@ function wireTarget(
       // `global`/`home` are threaded through alongside `statusline`: the claude layer
       // writes under `~/.claude` now (hosts/claude-global.ts), so --no-global has to
       // reach it or the flag would silently mean "no out-of-repo writes, except three".
-      const res = runInit(repo, { build: opts.build, cliPath, statusline: wantStatusline, global: opts.global, home, brand: brand() });
+      const res = wiring.runInit(repo, { build: opts.build, cliPath, statusline: wantStatusline, global: opts.global, home, brand: brand() });
       say(`✓ wrote ${res.settingsPath}`);
       for (const s of res.shims) say(`✓ wrote ${s}`);
       if (res.skill) say(`✓ wrote ${res.skill}`);
@@ -1864,7 +1909,7 @@ function wireTarget(
     // list — never by its own detection fallback.
     const others = ids.filter((id) => id !== "claude");
     if (others.length > 0) {
-      const r = runHostsInit(repo, {
+      const r = wiring.runHostsInit(repo, {
         agents: others,
         home,
         mcp: opts.mcp,
@@ -1876,7 +1921,7 @@ function wireTarget(
       for (const m of r.mcp) say(`✓ mcp ${m.id}: ${m.path} (${m.action})`);
       for (const h of r.hooks) say(`✓ hook ${h.id}: ${h.path} (${h.action})`);
       // Only worth saying when there was actually something out-of-repo to skip.
-      if (opts.global === false && selectedWrites(plan, ids).some((w) => w.scope === "global"))
+      if (opts.global === false && wiring.selectedWrites(plan, ids).some((w) => w.scope === "global"))
         say("· skipped out-of-repo writes (--no-global)");
     }
 
@@ -1902,7 +1947,7 @@ function wireTarget(
     if (!wantClaude) {
       if (!quiet)
         say(
-          buildGraphIfMissing(repo, { build: opts.build, cliPath })
+          wiring.buildGraphIfMissing(repo, { build: opts.build, cliPath })
             ? `✓ built the graph (${cmd("graft build")})`
             : "· skipped graph build",
         );
@@ -1912,7 +1957,7 @@ function wireTarget(
 
 /** Group a retraction report by host, so the output reads as "what leaves each agent". */
 function formatRetractions(rs: Retraction[], apply: boolean): string {
-  const hit = changed(rs);
+  const hit = wiring.changed(rs);
   if (hit.length === 0) return "· nothing to remove — no graft wiring found here";
   const verb = apply ? "removed" : "would remove";
   const lines: string[] = [];
@@ -1950,21 +1995,22 @@ grouped(program.command("uninstall"), GROUP.setup)
   .option("-y, --yes", "actually remove (without this, prints what it would remove and exits)")
   .option("--keep-cache", "keep graft/ and the .gitignore entries — wiring only")
   .option("--no-global", "leave out-of-repo files alone (~/.codex, ~/.gemini)")
-  .action((dir: string, opts: { yes?: boolean; keepCache?: boolean; global?: boolean }) => {
+  .action(async (dir: string, opts: { yes?: boolean; keepCache?: boolean; global?: boolean }) => {
+    await loadWiring();
     const repo = resolve(dir);
     const home = homedir();
     const common = { home, global: opts.global, cache: opts.keepCache ? false : true };
 
     if (!opts.yes) {
-      console.error(formatRetractions(planRetract(repo, common), false));
+      console.error(formatRetractions(wiring.planRetract(repo, common), false));
       console.error("\nDry run — nothing was touched. Re-run with -y to remove.");
       if (opts.global !== false)
         console.error("Entries marked [machine-wide] affect every project; --no-global skips them.");
       return;
     }
-    const done = runRetract(repo, { ...common, apply: true });
+    const done = wiring.runRetract(repo, { ...common, apply: true });
     console.error(formatRetractions(done, true));
-    const bad = changed(done).filter((r) => r.action === "skipped-unparseable");
+    const bad = wiring.changed(done).filter((r) => r.action === "skipped-unparseable");
     console.error(
       bad.length
         ? `\n⚠ ${bad.length} file(s) could not be parsed and were left as-is — see above.`
@@ -2366,7 +2412,7 @@ function statusCommand(name = "status"): Command {
     .action(async (dirArg: string | undefined, opts: { json?: boolean }) => {
       const repo = queryRoot(dirArg);
       const graph = loadGraphCached(contextDirFor(repo, program.opts<GlobalOpts>().dir));
-      const g = graph ? await engineFrom().checkGraph(repo) : null;
+      const g = graph ? await (await engineFrom()).checkGraph(repo) : null;
       const fresh = g && !g.missing ? g.ok : null;
       const kept = keepsNotes(repo);
       const all = kept ? listNotes(repo) : [];

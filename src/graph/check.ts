@@ -10,6 +10,9 @@
  *   added    a definition exists in code but not in graph.json (run `graph`)
  *   removed  a node in graph.json no longer exists in code       (run `graph`)
  *   changed  a node's body_hash differs from the committed one   (run `graph`)
+ *   cards    the per-file cards or INDEX.md no longer match the wiring
+ *            (a card missing, edited, or left for a file the wiring dropped)
+ *                                                                  (run `graft build`)
  *   stale    a committed node's summary is flagged stale — its body changed
  *            since it was last summarized                         (run `graft build --deep`)
  *
@@ -29,6 +32,7 @@ import { extractDocument } from "./structured/documents/extract.js";
 import { documentFormatOf } from "./structured/documents/index.js";
 import { listSourceFiles, tierOf, warmGrammarsFor } from "./build.js";
 import { readGraph, wiringPath } from "./write.js";
+import { cardDrift, type CardDrift } from "./cards.js";
 import { readFingerprint } from "./fingerprint.js";
 import { readSourceFile } from "../util/source.js";
 import { cmd } from "../brand.js";
@@ -50,6 +54,9 @@ export interface GraphCheckResult {
    * coverage figure. A deep build that lost most of its LLM calls (#127) is only
    * distinguishable from a deliberate Tier-1 build by the SHARE that is missing. */
   nodes: number;
+  /** Where the card tree and `INDEX.md` disagree with the wiring. Absent only on a
+   * result built before this field existed (the graph is `missing`). */
+  cards?: CardDrift;
 }
 
 export interface GraphCheckOptions {
@@ -165,7 +172,12 @@ export async function checkGraph(
     arr.sort();
   }
 
+  result.cards = cardDrift(committed, outDir);
+  const cards = result.cards;
+  const cardsOk = cards.missing.length + cards.stale.length + cards.orphan.length === 0 && !cards.index;
+
   result.ok =
+    cardsOk &&
     result.added.length === 0 &&
     result.removed.length === 0 &&
     result.changed.length === 0 &&
@@ -204,7 +216,18 @@ export function formatGraphCheckReport(r: GraphCheckResult): string {
     lines.push(`stale summaries (${r.stale.length}):`);
     for (const id of r.stale) lines.push(`  ! ${id}`);
   }
+  const c = r.cards;
+  if (c && (c.missing.length || c.stale.length || c.orphan.length || c.index)) {
+    lines.push("cards out of step with the wiring:");
+    for (const p of c.missing) lines.push(`  + ${p} (no card)`);
+    for (const p of c.stale) lines.push(`  ~ ${p} (card text differs)`);
+    for (const p of c.orphan) lines.push(`  - ${p} (file no longer indexed)`);
+    if (c.index) lines.push("  ~ INDEX.md (differs from the wiring)");
+  }
   lines.push("");
+  if (c && (c.missing.length || c.stale.length || c.orphan.length || c.index) && !structural) {
+    lines.push(`Run \`${cmd("graft build")}\` to rewrite the cards and INDEX.md.`);
+  }
   if (structural) lines.push(`Run \`${cmd("graft build")}\` to rebuild the structure, then commit graft/.`);
   if (r.stale.length) lines.push(`Run \`${cmd("graft build --deep")}\` to refresh stale summaries.`);
   return lines.join("\n");

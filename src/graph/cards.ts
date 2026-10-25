@@ -220,6 +220,61 @@ function cardFiles(byPath: Map<string, NodeV1[]>, cardOf: Map<string, string>, o
   return files.sort((a, b) => a.card.localeCompare(b.card));
 }
 
+/** Where the cards on disk differ from the cards the wiring would write. Paths are
+ * relative to the context dir. */
+export interface CardDrift {
+  /** The wiring indexes a file whose card is not on disk. */
+  missing: string[];
+  /** A card whose text differs from what the wiring renders. */
+  stale: string[];
+  /** A card on disk for a file the wiring no longer indexes. */
+  orphan: string[];
+  /** `INDEX.md` differs from what the wiring renders. */
+  index: boolean;
+}
+
+/**
+ * Compare the card tree and `INDEX.md` with `graph`, without writing. A context dir
+ * with no cards and no index has not had its markdown surface built (a query-path
+ * refresh writes only the graph), which is absence rather than drift.
+ */
+export function cardDrift(graph: GraphV1, outDir: string): CardDrift {
+  const drift: CardDrift = { missing: [], stale: [], orphan: [], index: false };
+  if (!existsSync(outDir)) return drift;
+  const existing = listExistingCards(outDir);
+  const indexPath = join(outDir, INDEX_FILE);
+  if (existing.length === 0 && !existsSync(indexPath)) return drift;
+
+  const byPath = groupByPath(graph);
+  const cardOf = planCards(byPath, outDir);
+  const concepts = conceptsByPath(outDir);
+  const expected = new Set<string>();
+  for (const [sourcePath, group] of byPath) {
+    const cardPath = cardOf.get(sourcePath)!;
+    expected.add(cardPath);
+    const rel = relPosix(outDir, cardPath);
+    if (!existsSync(cardPath)) {
+      drift.missing.push(rel);
+      continue;
+    }
+    const fileNode = group.find((n) => n.kind === "file");
+    const symbols = group.filter((n) => n.kind !== "file");
+    const want = renderCard(sourcePath, fileNode, symbols, concepts.get(sourcePath) ?? []);
+    if (readFileSync(cardPath, "utf8") !== want) drift.stale.push(rel);
+  }
+  for (const card of existing) {
+    if (!expected.has(card)) drift.orphan.push(relPosix(outDir, card));
+  }
+  // Only the roster is compared: the header is spelled in the brand of whichever command
+  // wrote it (`graft` or `trail`), and a map built by one is checked by the other.
+  const roster = (text: string): string => text.slice(Math.max(text.indexOf("\n## "), 0));
+  drift.index =
+    !existsSync(indexPath) ||
+    roster(readFileSync(indexPath, "utf8")) !== roster(renderIndex(outDir, cardFiles(byPath, cardOf, outDir)));
+  for (const list of [drift.missing, drift.stale, drift.orphan]) list.sort();
+  return drift;
+}
+
 /**
  * Remove the cards whose source file the wiring no longer indexes, and rewrite
  * `INDEX.md` when any went. This is the part of the markdown surface the query-path

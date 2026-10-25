@@ -1,6 +1,7 @@
 /**
- * The query-path refresh prunes the cards whose source left the wiring, and the concept
- * listing never mistakes a leftover root card for a concept node.
+ * Cards against wiring: `graft check` reports a card tree that no longer agrees with
+ * `wiring.json`, the query-path refresh prunes the cards whose source left the graph,
+ * and the concept listing never mistakes a leftover root card for a concept node.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,6 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildGraph } from "../src/graph/build.js";
+import { checkGraph, formatGraphCheckReport } from "../src/graph/check.js";
 import { readNodes } from "../src/context/node-file.js";
 import { patchBuildConfig } from "../src/util/state.js";
 
@@ -19,6 +21,55 @@ function repo(tag: string): { dir: string; outDir: string } {
   writeFileSync(join(dir, "Dockerfile"), "FROM node:22\nRUN echo hi\n");
   return { dir, outDir: join(dir, "graft") };
 }
+
+test("check: a card tree built with the wiring reports no card drift", async () => {
+  const { dir, outDir } = repo("cards-clean");
+  try {
+    patchBuildConfig(dir, { structured: true });
+    await buildGraph(dir, { contextDir: outDir, reuse: false });
+    const r = await checkGraph(dir, { contextDir: outDir });
+    assert.equal(r.ok, true, JSON.stringify(r));
+    assert.deepEqual(r.cards, { missing: [], stale: [], orphan: [], index: false });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("check: an orphan, a missing and an edited card are each named", async () => {
+  const { dir, outDir } = repo("cards-drift");
+  try {
+    patchBuildConfig(dir, { structured: true });
+    await buildGraph(dir, { contextDir: outDir, reuse: false });
+    rmSync(join(outDir, "README.md"));
+    writeFileSync(join(outDir, "src", "util.md"), "# src/util.ts\n\n- ghost · function · L1-L2 — ghost()\n");
+    mkdirSync(join(outDir, "old"), { recursive: true });
+    writeFileSync(join(outDir, "old", "gone.md"), "# old/gone.ts\n\n_No extracted symbols in this file._\n");
+
+    const r = await checkGraph(dir, { contextDir: outDir });
+    assert.equal(r.ok, false);
+    assert.deepEqual(r.cards?.missing, ["README.md"]);
+    assert.deepEqual(r.cards?.stale, ["src/util.md"]);
+    assert.deepEqual(r.cards?.orphan, ["old/gone.md"]);
+    const text = formatGraphCheckReport(r);
+    assert.match(text, /STALE/);
+    assert.match(text, /cards/i);
+    assert.match(text, /old\/gone\.md/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("check: a graph with no cards at all is not card drift", async () => {
+  const { dir, outDir } = repo("cards-none");
+  try {
+    await buildGraph(dir, { contextDir: outDir, reuse: false, graphOnly: true });
+    const r = await checkGraph(dir, { contextDir: outDir });
+    assert.equal(r.ok, true, JSON.stringify(r));
+    assert.equal(r.cards?.missing.length, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("refresh: switching the structured tier off prunes its cards and rewrites INDEX.md", async () => {
   const { dir, outDir } = repo("cards-prune");
@@ -37,6 +88,8 @@ test("refresh: switching the structured tier off prunes its cards and rewrites I
     const index = readFileSync(join(outDir, "INDEX.md"), "utf8");
     assert.doesNotMatch(index, /Dockerfile/);
     assert.match(index, /1 per-file wiring cards/);
+    const r = await checkGraph(dir, { contextDir: outDir });
+    assert.deepEqual(r.cards, { missing: [], stale: [], orphan: [], index: false });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -4,6 +4,11 @@
 
 ### Fixed
 
+- **`graft check` now compares the cards with the wiring.** It names a card that is
+  missing, a card whose text differs from what the wiring renders, a card left for a
+  file the wiring no longer indexes, and an `INDEX.md` that differs, and it exits
+  non-zero for any of them. A map whose markdown surface was never built (a graph from a
+  query-path refresh) is not reported.
 - **A card for a file that left the wiring is pruned on the query path,** and
   `INDEX.md` is rewritten. Root-level cards (`README.md`, `package.md`) were never
   pruned at all, because they share the folder with concept nodes; switching a tier off

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The concept listing no longer lists a root card for a file without an extension**
+  (`Dockerfile`, `Makefile`) once that file has left the wiring.
+
 ## 0.25.0-nishadherath
 
 ### Changed

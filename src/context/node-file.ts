@@ -352,6 +352,18 @@ function isWiringCardHeading(content: string): boolean {
   return /^# [^\s#]+\.[A-Za-z0-9]{1,12}(?:\s|$)/.test(line);
 }
 
+/** A card for a file with no extension (`Dockerfile`, `Makefile`) has a bare heading,
+ * so the body decides: every line a card writes is a `- name · kind · L1-L2` symbol
+ * or the no-symbols marker. This is what recognises a card left behind after its
+ * file left the wiring, which `fileCardStems` can no longer name. */
+function isWiringCardBody(content: string): boolean {
+  const lines = content.trim().split(/\r?\n/);
+  if (!/^# [^\s#]+(?:\s|$)/.test(lines[0] ?? "")) return false;
+  const body = lines.slice(1).filter((l) => l.trim() !== "");
+  if (body.length === 0) return false;
+  return body.every((l) => /^- .+ · \S+ · L\d+-L\d+(?: — .*)?$/.test(l) || l === "_No extracted symbols in this file._");
+}
+
 /**
  * A top-level `.md` that is a per-file wiring card, not a concept node.
  * Real concepts always carry `slug` in frontmatter and are never skipped.
@@ -367,7 +379,7 @@ function isRootFileCard(
   if (hasConceptSlug(fm)) return false;
   if (fileCardStems.has(stem)) return true;
   if (isCoversOnlyFileCard(fm)) return true;
-  return isWiringCardHeading(content);
+  return isWiringCardHeading(content) || isWiringCardBody(content);
 }
 
 /** Read and parse every concept-node `.md` in a context dir (skips INDEX.md

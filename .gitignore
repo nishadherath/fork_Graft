@@ -8,6 +8,8 @@ dist/
 # root, as graft writes it: an unanchored `graft/` also matched the tracked
 # `.claude/skills/graft/`, so a new file there was silently left out.
 /graft/
+# Except the graft skill's SKILL.md fixture, which CI checks against the spec.
+!test/fixtures/skills/graft/
 
 # Env
 .env

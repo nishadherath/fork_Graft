@@ -4,39 +4,8 @@
  * simply means that language gets no LSP enrichment (the AST graph stands alone).
  */
 import { execSync } from "node:child_process";
-import { statSync } from "node:fs";
-import { delimiter, join } from "node:path";
-
-/** Windows' own default when PATHEXT is unset. */
-const DEFAULT_PATHEXT = ".COM;.EXE;.BAT;.CMD";
-
-/**
- * Filesystem PATH lookup that returns where `name` lives. A spawn cannot do this on
- * Windows: a server installed as a `.cmd` shim is ENOENT to a shell-less spawn.
- * Unlike `commandOnPath` in brand.ts (a yes or no), this honours PATHEXT and the
- * `Path` spelling, and returns the first match, or undefined.
- */
-export function findOnPath(
-  name: string,
-  env: NodeJS.ProcessEnv = process.env,
-  platform: NodeJS.Platform = process.platform,
-): string | undefined {
-  const win = platform === "win32";
-  const dirs = (win ? (env.PATH ?? env.Path ?? "") : (env.PATH ?? "")).split(win ? ";" : delimiter).filter(Boolean);
-  const exts = win
-    ? ["", ...(env.PATHEXT ?? DEFAULT_PATHEXT).split(";").filter(Boolean)].map((e) => e.toLowerCase())
-    : [""];
-  for (const dir of dirs) {
-    for (const ext of exts) {
-      const candidate = join(dir.replace(/^"|"$/g, ""), name + ext);
-      try {
-        const s = statSync(candidate);
-        if (s.isFile() && (win || (s.mode & 0o111) !== 0)) return candidate;
-      } catch { /* not here */ }
-    }
-  }
-  return undefined;
-}
+import { existsSync } from "node:fs";
+import { win32 } from "node:path";
 
 export interface LspServer {
   /** graft language names (as produced by languageLabelOf/genericLangOf) this serves. */
@@ -56,15 +25,33 @@ export const LSP_SERVERS: readonly LspServer[] = [
   { languages: ["typescript", "javascript", "tsx"], command: "typescript-language-server", args: ["--stdio"], languageId: "typescript" },
 ];
 
+/** Windows: the first `<cmd>.com/.exe/.cmd` in PATH order, searching only
+ * absolute PATH folders. Not `where.exe`: it (and cmd.exe finding `where.exe` itself)
+ * searches the current folder first, so a checkout could plant
+ * `typescript-language-server.cmd` and have `graft build --lsp` run it. The extension
+ * matters too: npm puts an extensionless sh script next to each `.cmd` shim, which
+ * Windows can't run. */
+export function findOnWindowsPath(cmd: string, pathVar = process.env.PATH ?? "", exists: (p: string) => boolean = existsSync): string | null {
+  for (const entry of pathVar.split(";")) {
+    const dir = entry.trim().replace(/^"(.*)"$/, "$1");
+    if (!/^([a-zA-Z]:[\\/]|\\\\)/.test(dir)) continue; // relative or empty ("." = the current folder)
+    for (const ext of [".com", ".exe", ".cmd"]) { // .cmd: npm's shims (see spawnSpec); a .bat can't be started without a shell
+      const p = win32.join(dir, cmd + ext);
+      if (exists(p)) return p;
+    }
+  }
+  return null;
+}
+
 const resolved = new Map<string, string | null>();
-/** Resolve a command to its ABSOLUTE path. On Windows that is a PATH walk with
- * PATHEXT (no shell: `command -v` does not exist in cmd.exe, so the old probe
- * found nothing there and LSP never ran). Elsewhere it is the shell's `command -v`:
- * `spawn` resolves against `process.env.PATH`, which often omits `~/.cargo/bin`,
- * `~/go/bin`, etc. where these servers live, so `command -v` can find a server
- * that `spawn(cmd)` then can't. Spawning the absolute path avoids that mismatch. */
+/** Resolve a command to its ABSOLUTE path. `spawn` resolves against
+ * `process.env.PATH`, which often omits `~/.cargo/bin`, `~/go/bin`, etc. where
+ * these servers live, so `command -v` can find a server that `spawn(cmd)` then
+ * can't. Spawning the absolute path avoids that mismatch. On Windows cmd.exe has
+ * no `command -v`: search PATH directly there (findOnWindowsPath), uncached so the
+ * injected `env` is honoured. */
 function resolveCommand(cmd: string, env: NodeJS.ProcessEnv, platform: NodeJS.Platform): string | null {
-  if (platform === "win32") return findOnPath(cmd, env, platform) ?? null;
+  if (platform === "win32") return findOnWindowsPath(cmd, env.PATH ?? env.Path ?? "");
   if (resolved.has(cmd)) return resolved.get(cmd)!;
   let abs: string | null = null;
   try { abs = execSync(`command -v ${cmd}`, { encoding: "utf8" }).trim() || null; } catch { abs = null; }

@@ -1,11 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { registerMcpConfigs, serverEntry } from '../src/hosts/mcp-config.js';
-import { findOnPath } from '../src/graph/lsp/registry.js';
 
 function fresh(): string { return mkdtempSync(join(tmpdir(), 'graft-mcpcfg-')); }
 
@@ -108,26 +107,4 @@ test('serverEntry is the bare graft command regardless of PATH or environment', 
       if (v === undefined) delete process.env[k]; else process.env[k] = v;
     }
   }
-});
-
-// The LSP registry's PATH lookup is a filesystem walk, not a spawn: on Windows a
-// global command is a `.cmd` shim that a shell-less spawn cannot see.
-test('findOnPath finds a graft.cmd shim on win32 and honours PATHEXT', () => {
-  const dir = fresh();
-  const empty = fresh();
-  writeFileSync(join(dir, 'graft.cmd'), '@echo off\r\n');
-  assert.equal(findOnPath('graft', { PATH: dir, PATHEXT: '.CMD' }, 'win32'), join(dir, 'graft.cmd'));
-  assert.equal(findOnPath('graft', { PATH: dir, PATHEXT: '.EXE' }, 'win32'), undefined);
-  assert.equal(findOnPath('graft', { PATH: empty }, 'win32'), undefined);
-  assert.equal(findOnPath('graft', { Path: dir }, 'win32'), join(dir, 'graft.cmd'), 'Windows spells it Path');
-});
-
-test('findOnPath requires the executable bit on POSIX', () => {
-  const dir = fresh();
-  writeFileSync(join(dir, 'graft'), '#!/bin/sh\n');
-  chmodSync(join(dir, 'graft'), 0o644);
-  assert.equal(findOnPath('graft', { PATH: dir }, 'linux'), undefined, 'not executable');
-  chmodSync(join(dir, 'graft'), 0o755);
-  // chmod is a no-op on Windows, where every file reads as non-executable here.
-  if (process.platform !== 'win32') assert.equal(findOnPath('graft', { PATH: dir }, 'linux'), join(dir, 'graft'));
 });

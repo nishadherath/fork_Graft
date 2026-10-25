@@ -282,3 +282,20 @@ about the operator's machine and this repository, not preferences.
   branch to the operator, who pushes and opens the pull request by hand.
 - **The gate here is `npm run build && npm test`** (about 7 minutes on
   this machine; 1,329 tests on 2026-10-13), quoted with its counts.
+- **Since upstream 0.25.0 the gate cannot exit zero on this machine**
+  (measured 2026-10-25). Upstream's skills probes give git 300 ms per call,
+  and many new hook tests have wall-clock bars; here a bare `git --version`
+  takes 460 to 1,030 ms during a run. Plain `upstream/main` fails the same
+  tests. The suite is 4,222 tests and takes about 27 minutes. Until the
+  operator decides otherwise, a merge passes when it fails no test that plain
+  upstream does not fail in a full run on this machine. Compare by test name,
+  and rerun a test that fails on one side only, alone, before calling it a fault.
+- **`npm test` is near the Windows command-line limit.** `scripts/run-tests.mjs`
+  passes every test file as an absolute path on one command line: 28,371 of
+  32,767 characters here on 2026-10-25 (486 files). A longer checkout path
+  already fails with `ENAMETOOLONG`; run a baseline worktree from a short path
+  such as `D:\Code\Claude\ub`.
+- **`tree-sitter-wasm` 2.x has no SCSS grammar.** The build copies
+  `tree-sitter-scss.wasm` from the 1.x bundle (dev dependency
+  `tree-sitter-wasm-v1`) into `dist/vendor/wasm/` (`scripts/vendor-grammars.mjs`);
+  `src/graph/generic.ts` loads it from there. Recorded at the 0.25.0 merge.

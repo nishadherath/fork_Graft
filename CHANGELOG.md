@@ -1,6 +1,192 @@
 # Changelog
 
-## Unreleased (git tag `enable-improved-support-by-default`)
+## 0.25.0-nishadherath
+
+### Changed
+
+- **Merged upstream Trail-code 0.25.0** (`trailhq/Trail-Code` `4e7d0f5`, 0.25.0 plus one
+  later fix). The version is `0.25.0-nishadherath`. The `graft` command, the
+  `@nanonets/graft` package and the `graft/` folder stay. Every fork feature is kept:
+  the structured and documents tiers, LSP edges, `GRAFT_REASONING` and the `tokens:`
+  line, and per-command loading at startup.
+- **The OpenAI adapter takes upstream's structured-output ladder** (forced
+  `tool_choice`, then `"required"`, then `"auto"`, and a 200 that carries an error is
+  retried). A `GRAFT_REASONING` level still goes on every attempt, and a call that only
+  went through with reasoning turned off is still counted on the `tokens:` line.
+- **Crux ids are matched by upstream's `resolveTargetId`,** which covers the echoed
+  descriptor line the fork's own fix handled and the newer `id=` layout.
+- **Language servers on Windows are found by upstream's `findOnWindowsPath`,** which
+  searches only absolute `PATH` folders, so a checkout cannot plant a server in the
+  current folder. An npm `.cmd` shim runs its script under node directly; any other
+  `.cmd` or `.bat` server is still started through a shell. The fork's `findOnPath`
+  is removed, as nothing calls it any more.
+- **Cards are written only when they change** (upstream #472), at the fork's own card
+  paths for structured and document files.
+
+### Fixed
+
+- **SCSS is still indexed.** Upstream moved to `tree-sitter-wasm` 2.x, which no longer
+  ships the SCSS grammar, so `.scss` files lost every node. The build now copies
+  `tree-sitter-scss.wasm` from the 1.x bundle (a dev dependency, `tree-sitter-wasm-v1`)
+  into `dist/vendor/wasm/` with its licence, as upstream does for `tree-sitter-swift`.
+  The plain CSS grammar is not a stand-in: it misreads `@mixin` and `$v:` spans.
+- **`graft --version` still loads no graph builder.** Upstream's onboarding code imported
+  `cleanSubject` from `notes/edit-overlap.ts`, which loads the builder; the helper now
+  lives in `notes/flatten.ts`, and `edit-overlap.ts` re-exports it.
+
+## 0.25.0
+
+### Added
+
+- **Skills, on by default.** When you do the same job on a few different days
+  (a release, a deploy, test and lint before a commit), Trail offers once to
+  save it as a skill. It saves only when you type yes. The next time you ask
+  for that job, your agent gets the exact steps you used. A step that can't be
+  undone, like a push to prod, asks you first.
+- **Lessons on a skill.** When you correct a run ("you skipped lint"), Trail
+  offers to add that to the skill, so the next run does it.
+- **Guardrails.** A command you've said never to run is stopped before it runs.
+- **`trail init` looks back** through your own past sessions in the repo, finds
+  what came up on two or more days (preferences, guardrails, repeated jobs) and
+  lists them for you to keep. Nothing is kept unless you pick it. No model call.
+- **Known error fixes.** When a command fails the way it failed before, your
+  agent gets the fix that worked last time.
+- **One install, all your repos.** After `trail init --pair` connects the
+  first repo, the Trail page lists the other repos Claude Code ran in on this
+  laptop (names only, never paths). Tick the ones you want and each is set up
+  and added to your workspace.
+- **Skills go up as folders.** A repo skill reaches Trail with the files it
+  points to (references, scripts, templates), not just its steps.
+- **Skill runs from your coding agent.** When Claude Code uses one of the
+  repo's skills (on its own, or because you typed `/name`), the Skills page
+  counts it as a run. Only the skill's name is sent, never the task.
+- The token card on the Trail page measures your last merged PR, not one
+  lookup.
+
+### Changed
+
+- Learnings and skills don't repeat each other. Each hook gives your agent one
+  answer, and at the end of a turn the skill offer comes before the ask to save
+  a learning.
+- `trail init --pair` lists the skills init found on the Trail page by name and
+  day count, marked as kept on this machine. Their steps stay on your machine.
+- `--server <url>` is the only way to point Trail at a self-hosted server;
+  `TRAIL_URL` is no longer read.
+- Uploads send only learnings committed at HEAD, and only the current repo.
+- A learning or skill deleted at HEAD comes down from Trail at the next sync.
+  Switching branches never takes anything down.
+- Learnings, skill runs and searches sync at the end of each turn, not only
+  when a session starts.
+
+### Fixed
+
+- Python test runs count as tests: `.venv/bin/pytest`, `uv run`, `poetry run`,
+  `tox`, `nox` and `python -m unittest`.
+- The ask to save a learning comes once per fail-then-pass, not again on every
+  rerun.
+- A long preference is kept whole; only its title is shortened.
+- Codex users are always told to trust Trail's hooks in `/hooks`.
+- Windows: sessions in a git worktree are found as the repo's, and paths in
+  shell edits, skill steps and the `cp` line read correctly.
+- `trail grep` refuses a pattern whose repeat repeats inside it, like `(a+)+`,
+  which could hang the search on one long line.
+- Windows: a skill update no longer fails while another process lets go of
+  the skills lock.
+
+## 0.24.1
+
+### Added
+
+- **`trail init --pair <code>`**: set up from the Trail web app at
+  team.trailhq.com. The setup prompt there carries a pair code; with it, init
+  streams its steps (map, PR reviews, past sessions, learnings) to the live
+  onboarding page, which shows the tokens one lookup on the map saved and
+  teammates' open branches that touch your files, then hands the repo's
+  learnings and skills over for you to review before anything is uploaded.
+  A learning you drop there stays dropped.
+- **`trail init --connect <code>`**: connects this machine to your Trail
+  workspace with the one-time code from team.trailhq.com (the token goes where
+  `trail login` keeps it) and sends one summary of the repo: what a lookup on
+  the code map saved, the learnings' titles, and teammates' recently pushed
+  branches that change the files you work on. Titles, counts and names only;
+  never code, diffs or session text.
+- **`--server <url>`** (or `TRAIL_URL`) points `--pair` and `--connect` at a
+  self-hosted Trail. Offline, init says so once and prints the exact command
+  to connect later.
+- **Workspace brains in your agents**: once connected, `trail mcp` also serves
+  the workspace's `list_brains`, `get_context`, `search_rules` and `get_rules`,
+  passed to the workspace with your token; the repo tools keep working
+  offline. Claude Code gets one user-level `trail` entry that serves just
+  those (`trail mcp --brains`); `trail logout` takes it out.
+- `trail init` writes a skill when your past sessions repeat a procedure.
+
+### Changed
+
+- Trail cloud now defaults to https://team.trailhq.com.
+
+### Fixed
+
+- The agent picker no longer leaves a stray title behind in an 80-column
+  terminal.
+
+## 0.24.0
+
+### Added
+
+- **`trail init` offers what your teammates' Claude doesn't know yet** (#662):
+  what reviewers flagged on merged PRs, and Claude Code's memory of the repo.
+  Every team row names real code, and anything CLAUDE.md, AGENTS.md or a
+  learning already says is dropped. What you told Claude more than once is now
+  offered as personal only.
+- **Learnings are asked for on real signals** (#663): a check that failed, then
+  passed after an edit; a correction followed by code work; a commit, push or
+  PR after edits; a long read that found where something lives. The ask names
+  what happened.
+- **`trail note` checks a team learning before saving it**: it must name a file
+  or function in the repo, give a reason, and not repeat an existing learning.
+  `--replaces <file>` supersedes an old one, and `--anyway` skips the checks.
+- **Shell parsing and command risk checks** behind trail's hooks, and new
+  learning fields (#654).
+- **Gleam support** (#408).
+
+### Fixed
+
+- Language servers are found and started on Windows (#579), and child
+  processes no longer flash console windows there (#631).
+- Update checks honor `DO_NOT_TRACK` (#651).
+- `--no-gitignore` is kept when build options are saved (#413), and `/graft/`
+  isn't added to `.gitignore` when git already ignores the folder (#622).
+- Unchanged cards aren't rewritten on every build (#472).
+- Background task notifications no longer trigger retrieval in the prompt hook
+  (#551).
+- Deep builds: stringified concept-pass nodes are read, empty batches don't
+  tick (#395), and concept batches run in parallel (#521).
+- LLM providers: a 200 carrying an error is retried, a forced `tool_choice`
+  that isn't honoured falls back (#502), and structured message content from
+  OpenAI-compatible providers is read (#479).
+- The viewer keeps the selection after a pan (#630).
+
+## 0.23.1
+
+### Fixed
+
+- **Learnings reach Claude when it opens the file they're about** (#642). When
+  Claude reads or edits a file, it gets the learnings whose `touches` name that
+  file, at most two, once a session, without calling trail first.
+- **A learning's `touches` come from what the session did**: files edited, then
+  files named in the learning, then files read. They no longer list whatever
+  untracked files sat in the repo.
+- **An empty `trail grep` names the git-ignored code it didn't search.**
+- **Exploratory turns are asked for a learning too**, when trail's answers
+  saved 30k+ tokens of reading.
+- **`trail init` refuses your home folder**, and outside git it says the
+  learnings stay on this machine.
+- **The shared hook reads single-quoted learning titles** (#626), as Prettier
+  writes them, so teammates without trail see clean titles. `.trail/hook.cjs`
+  is updated at the next session; commit it once.
+
+
+## 0.23.0-nishadherath (git tags `enable-improved-support-by-default`, `v0.23.0-nishadherath`)
 
 ### Changed
 

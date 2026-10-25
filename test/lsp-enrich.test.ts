@@ -43,7 +43,7 @@ test("enrichWithLsp is a no-op when no server matches the repo's languages", asy
   assert.equal(graph.edges.length, before, "graph edges untouched");
 });
 
-test("pickServer finds a server by walking PATH, with PATHEXT on Windows (no shell, no `command -v`)", async () => {
+test("pickServer finds a server by walking PATH on Windows (no shell, no `command -v`)", async () => {
   const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");

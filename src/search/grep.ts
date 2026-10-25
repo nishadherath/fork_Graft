@@ -17,6 +17,7 @@ import { normalizePathPrefix } from "../util/paths.js";
 import { savingsFor, type Savings } from "../context/savings.js";
 import { readSourceFile } from "../util/source.js";
 import { renderingOf } from "../graph/structured/documents/extract.js";
+import { userRegExp } from "./user-regexp.js";
 
 export interface GrepHit {
   line: number;
@@ -141,8 +142,9 @@ function toSymbolRef(n: NodeV1, path: string): GrepSymbolRef {
 
 export function grepGraph(graph: GraphV1, repoRoot: string, pattern: string, opts: GrepOptions = {}): GrepResult {
   const maxHits = opts.maxHits ?? DEFAULT_MAX_HITS;
-  const source = opts.fixed ? escapeRegExp(pattern) : pattern;
-  const regex = new RegExp(source, opts.ignoreCase ? "i" : "");
+  const flags = opts.ignoreCase ? "i" : "";
+  // A pattern is a regex by design; userRegExp rebuilds it from escaped literals and refuses a nested repeat.
+  const regex = opts.fixed ? new RegExp(escapeRegExp(pattern), flags) : userRegExp(pattern, flags);
 
   const inDegree = computeInDegree(graph);
   // Same segment-aware prefix rule as `ask --in` / `callers --in`, and the same

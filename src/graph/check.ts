@@ -39,6 +39,11 @@ import { cmd } from "../brand.js";
 
 export interface GraphCheckResult {
   ok: boolean;
+  /** `ok` without the card drift: the nodes agree with the code and no summary is stale.
+   * `graft status` and the MCP check tool judge freshness by this and report cards as a
+   * warning, because the Stop hook rewrites the cards at the end of every turn (D14);
+   * `graft check` still exits on `ok`. */
+  inSync: boolean;
   /** True when there is no graph.json (a graph has never been built). */
   missing: boolean;
   added: string[];
@@ -76,6 +81,7 @@ export async function checkGraph(
 
   const result: GraphCheckResult = {
     ok: false,
+    inSync: false,
     missing: false,
     added: [],
     removed: [],
@@ -176,17 +182,36 @@ export async function checkGraph(
   const cards = result.cards;
   const cardsOk = cards.missing.length + cards.stale.length + cards.orphan.length === 0 && !cards.index;
 
-  result.ok =
-    cardsOk &&
+  result.inSync =
     result.added.length === 0 &&
     result.removed.length === 0 &&
     result.changed.length === 0 &&
     result.stale.length === 0;
+  result.ok = cardsOk && result.inSync;
   return result;
 }
 
+/** The cards the wiring disagrees with, one entry per path, spelled for a warning line. */
+export function cardDriftPaths(c: CardDrift | undefined): string[] {
+  if (!c) return [];
+  return [...c.missing, ...c.stale, ...c.orphan, ...(c.index ? ["INDEX.md"] : [])];
+}
+
+export interface GraphCheckFormatOptions {
+  /** Report card drift as a warning line under an OK verdict when the wiring is in sync
+   * (D14). Without it, card drift reads STALE, as `graft check` prints it. */
+  cardsAsWarning?: boolean;
+}
+
 /** Render a graph-check result as a human-readable report. */
-export function formatGraphCheckReport(r: GraphCheckResult): string {
+export function formatGraphCheckReport(r: GraphCheckResult, opts: GraphCheckFormatOptions = {}): string {
+  if (opts.cardsAsWarning && r.inSync && !r.ok) {
+    const ok = formatGraphCheckReport({ ...r, ok: true });
+    const paths = cardDriftPaths(r.cards);
+    const shown = paths.slice(0, PENDING_SAMPLE).join(", ") + (paths.length > PENDING_SAMPLE ? `, … +${paths.length - PENDING_SAMPLE} more` : "");
+    return `${ok}
+warning: ${paths.length} card file(s) out of step with the wiring (${shown}). The Stop hook rewrites them at the end of the turn; or run \`${cmd("graft build")}\`.`;
+  }
   if (r.missing) {
     return `graph check: NO GRAPH\n\nNo graft/.graph/wiring.json found. Run \`${cmd("graft build")}\` first.`;
   }

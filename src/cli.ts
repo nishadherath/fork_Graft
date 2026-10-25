@@ -2604,7 +2604,9 @@ function statusCommand(name = "status"): Command {
       const repo = queryRoot(dirArg);
       const graph = loadGraphCached(contextDirFor(repo, program.opts<GlobalOpts>().dir));
       const g = graph ? await (await engineFrom()).checkGraph(repo) : null;
-      const fresh = g && !g.missing ? g.ok : null;
+      // D14: card drift is a warning row, not "behind the code" (the Stop hook rewrites the cards).
+      const fresh = g && !g.missing ? g.inSync : null;
+      const cardPaths = g && !g.missing ? (await import("./graph/check.js")).cardDriftPaths(g.cards) : [];
       const kept = keepsNotes(repo);
       // Only what still holds: a retired, held or replaced learning reaches no agent.
       const all = kept ? liveLearnings(listNotes(repo)) : [];
@@ -2619,7 +2621,7 @@ function statusCommand(name = "status"): Command {
         console.log(
           JSON.stringify(
             {
-              codeMap: graph ? { nodes: graph.meta.nodeCount, inSync: fresh } : null,
+              codeMap: graph ? { nodes: graph.meta.nodeCount, inSync: fresh, cardsInSync: cardPaths.length === 0 } : null,
               learnings: kept ? { repo: inRepo, branches: onBranches, personal } : null,
               workspace: cloud ? { name: cloud.workspace.name, url: cloud.workspace.url, repos: cloud.repos.length, thisRepo: shared } : null,
               week: { savedTokens: saved },
@@ -2635,6 +2637,10 @@ function statusCommand(name = "status"): Command {
       if (!graph) row("code map", `✗ not built · run ${cmd("graft build")}`);
       else if (fresh === false) row("code map", `⚠ ${fmt(graph.meta.nodeCount)} nodes · behind the code, refreshed on the next query`);
       else row("code map", `✓ ${fmt(graph.meta.nodeCount)} nodes · in sync with the code`);
+      if (cardPaths.length) {
+        const shown = cardPaths.slice(0, 3).join(", ") + (cardPaths.length > 3 ? `, … +${cardPaths.length - 3} more` : "");
+        row("cards", `⚠ ${cardPaths.length} out of step (${shown}) · rewritten at the end of the turn, or run ${cmd("graft build")}`);
+      }
       if (kept) {
         const parts = [`${inRepo} added to this repo, in ${LEARNINGS_DIR}/`];
         if (onBranches) parts.push(`${onBranches} on teammates' branches`);

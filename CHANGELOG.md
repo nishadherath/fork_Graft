@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- **Card drift is a warning in `status` and the MCP check tool, not "behind the code".**
+  `graft check` still exits 1 for it. `status` keeps the code map ✓ and adds a `cards`
+  row naming the files, `status --json` gains `codeMap.cardsInSync`, and
+  `graft_check_freshness` reports OK with a `warning:` line, because the Stop hook rewrites
+  the cards at the end of each turn. A real change in the code still reads stale.
+
 ### Fixed
 
 - **`graft check` now compares the cards with the wiring.** It names a card that is

@@ -278,7 +278,7 @@ async function callSingleTool(
         const r = engine.check(root);
         const g = await engine.checkGraph(root);
         const parts = [formatCheckReport(r)];
-        if (!g.missing) parts.push(formatGraphCheckReport(g));
+        if (!g.missing) parts.push(formatGraphCheckReport(g, { cardsAsWarning: true }));
         return { text: parts.join('\n\n'), isError: false };
       }
       case 'graft_trace_calls': {

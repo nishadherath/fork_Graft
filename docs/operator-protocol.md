@@ -286,10 +286,13 @@ about the operator's machine and this repository, not preferences.
   (measured 2026-10-25). Upstream's skills probes give git 300 ms per call,
   and many new hook tests have wall-clock bars; here a bare `git --version`
   takes 460 to 1,030 ms during a run. Plain `upstream/main` fails the same
-  tests. The suite is 4,222 tests and takes about 27 minutes. Until the
-  operator decides otherwise, a merge passes when it fails no test that plain
-  upstream does not fail in a full run on this machine. Compare by test name,
-  and rerun a test that fails on one side only, alone, before calling it a fault.
+  tests. The suite is 4,222 tests and takes about 27 minutes. By the
+  operator's decision D13 (option A, 2026-10-25), a change passes when it
+  fails no test that plain upstream does not fail in a full run on this
+  machine. Compare by test name, and rerun a test that fails on one side only,
+  alone, before calling it a fault. Each merge therefore needs a baseline run of
+  plain upstream (another 27 minutes). The fork does not fix or skip upstream's
+  machine-speed tests; that is for an upstream issue.
 - **`npm test` is near the Windows command-line limit.** `scripts/run-tests.mjs`
   passes every test file as an absolute path on one command line: 28,371 of
   32,767 characters here on 2026-10-25 (486 files). A longer checkout path

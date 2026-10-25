@@ -14,7 +14,7 @@ from: "Opus 5.5 session of 2026-10-25, on the operator's request to merge the la
 `main` carries upstream 0.25.0 with every fork feature intact, the global `graft` runs
 `0.25.0-nishadherath` from the fork's own tarball, and the tarball sits in
 `D:\Code\Claude\fork_graft_releases\` beside the earlier releases. Done on 2026-10-25,
-under the gate assumption in decision D13 below.
+under the gate rule of decision D13 (option A) below.
 
 ## Decisions already made
 
@@ -32,6 +32,10 @@ under the gate assumption in decision D13 below.
 - `cleanSubject` moved to `src/notes/flatten.ts` so `--version` stays off the builder.
 - Upstream's brains entry test expects the installed `trail` binary, as the fork's
   `serverEntry` is a constant (operator decision of 2026-10-15).
+- D13, operator decision of 2026-10-25, option A: from 0.25.0 on, a change passes the gate
+  when it fails no test that plain upstream does not fail in a full run on this machine,
+  compared by test name (protocol section 10). The fork does not fix or skip upstream's
+  machine-speed tests.
 
 ## Files and links that matter
 
@@ -74,16 +78,8 @@ under the gate assumption in decision D13 below.
 
 ## Unresolved questions
 
-- Operator decision D13, what the gate means from 0.25.0 on.
-  A: no failure beyond plain upstream's in a full run on this machine, compared by name
-  (the assumption taken here). B: zero failures, so upstream's machine-speed tests are
-  fixed or skipped in the fork. C: zero failures, with those tests marked skip on this
-  machine through an environment switch. Pros and cons: A costs no code but needs a
-  baseline run (27 minutes) for each merge; B and C give a plain green gate, but B
-  diverges from upstream in many tests and C hides real slowness. Blast radius: A, a
-  regression that only shows as a timing failure can slip through; B, merge conflicts in
-  upstream's tests; C, the same tests silent on every machine with the switch set.
-  Recommended: A now, and an upstream issue on the probe budget and the wall-clock bars.
+- D13 is decided (option A, see Decisions). Still open: an upstream issue on the skills
+  probe budget and the wall-clock bars in hook tests.
 - Operator: tag `v0.25.0-nishadherath` and push `main` and the tag to `origin`? Not done.
 - Later stage: `run-tests.mjs` passes absolute paths; relative paths (the runner's `cwd`
   is the repository) would halve the line. A small upstream pull request.
@@ -92,7 +88,7 @@ under the gate assumption in decision D13 below.
 
 ## Exact next action
 
-Operator: decide D13 and the tag. Then Stage 19, `docs/handoffs/2026-10-21-stage-19-cards-check.md`
+Operator: decide the tag and push. Then Stage 19, `docs/handoffs/2026-10-21-stage-19-cards-check.md`
 (Sonnet 5.5, medium), with a recheck of its facts against `e3ff66e` first.
 
 ## Cost projection

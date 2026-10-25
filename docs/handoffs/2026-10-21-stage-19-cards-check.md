@@ -2,7 +2,7 @@
 stage: "Stage 19: cards-against-wiring check, refresh-path pruning, structured tier on here"
 model: claude-sonnet-5-5
 effort: medium
-status: ready
+status: done
 created: 2026-10-21
 from: "Stage 18r session (Sonnet 5.5, high), after startup per-command loading"
 ---
@@ -50,34 +50,58 @@ is green with its counts, the global install is synced, the work is committed on
 - Commit `24608e3` loads modules per command: keep `cli.ts` imports lazy and rerun
   `test/startup-imports.test.ts`.
 
-## Verified facts
+## Verified facts (rechecked 2026-10-25 against main at `e3ff66e`, Node 26.7.0)
 
-- Gate on `24608e3`: 1,668 tests, 1,656 passed, 0 failed, 12 skipped, 583 s.
-- This repository's graph on 2026-10-18 had no structured nodes and no summaries, and
-  `.graft/config.json` did not exist (assessment section 8). Not re-checked since the merge
-  and the defaults-on change; re-check with `git status --short` and a read of the files.
-- `.trail/cache/` is where upstream's `mapDirFor` puts this checkout's map (operator
-  decision D12, decided A on 2026-10-21: keep it there); the cards the assessment names
-  are under `graft/`.
-  Confirm which folder holds the stale cards before writing the test.
+- The map is in `.trail/cache/`, not `graft/` (D12); the "stale cards" of the assessment
+  had been rebuilt, so tests use temporary repositories. Cards are written through
+  `writeIfChanged` (upstream #472).
+- Root-level cards were never pruned: `listExistingCards` walked subfolders only, because
+  root cards share the folder with concept nodes. That, not the refresh path alone, is why
+  a tier switched off left `README.md` and `package.md` cards behind. The refresh path is
+  `graphOnly`, which writes no cards; it now calls `pruneCards`.
+- The `INDEX.md` header is spelled in the brand of the command that wrote it, so `check`
+  compares only from the first `## ` section down (`test/trail-name.test.ts` caught this).
+- Gate 1 (before the brand fix): 4,227 tests, 4,103 passed, 35 failed, 89 skipped, 1,314 s.
+  The one extra failure was mine (`trail-name`); it passed without my change, failed with it,
+  and passed after the fix.
+- Gate 2 (final tree, byte-identical to the three commits): 4,227 tests, 4,106 passed, 32
+  failed, 89 skipped, 1,906 s. The failures are the Trail hook, probe and wall-clock tests
+  of the Stage 20 baseline class. Four names appear only in gate 2 (`skills-check-readonly`,
+  `trace-repairs-review`, `claude-hooks`, `skills-anchors-review`); each passes with its
+  file run alone, so they are load flakes under D13. A same-name comparison against a fresh
+  plain-upstream run was not made; the Stage 20 handoff holds only part of the baseline list.
+- `build --structured` here wrote `.graft/config.json` as `{"structured": true}`
+  (git-ignored). The wiring is 9,599 nodes, 997 files, 997 cards; `check` is OK with no card drift.
+- `build --deep` here: 833 concept nodes, 9,042 symbols summarised, 557 pending (94% complete).
+  `tokens: 2067 calls, 6,104,158 input, 806,912 cached, 1,310,478 output,
+  openai:deepseek-flash, reasoning none`. Dollar cost is not computed: the fork keeps no
+  vendor price in source, so price it from the provider's list at the time.
+- After the pass the context-layer check says STALE for `test/cards-check.test.ts` only,
+  because that test was edited while the pass ran; a plain `graft build` clears it.
 
 ## Work completed
 
-None.
+Three commits on `main`, none pushed, tests with each fix:
+
+1. `92a51fa` the concept listing skips a root card for an extensionless file.
+2. `5585de0` the refresh prunes cards for files that left the wiring and rewrites `INDEX.md`
+   (`rootFileCardPaths` in `node-file.ts`, `pruneCards` in `cards.ts`).
+3. `eacef09` `graft check` reports missing, stale and orphan cards and a differing
+   `INDEX.md` (`cardDrift`, `GraphCheckResult.cards`), and exits 1 for any.
+
+`test/cards-check.test.ts` holds the tests. Global install synced (15 changed). The
+three agent files graft rewrote are not committed and not mine.
 
 ## Unresolved questions
 
-- Whether the stale cards still exist after the move to `.trail/cache/` (D12). If they do
-  not, build the fixture in a temporary repository instead.
-- Whether pruning belongs in `refresh.ts` or `write.ts`; pick the place the cards are
-  already written and say why in the commit.
+- `status` and the MCP `check` tool treat card drift as not fresh, so after a query-path
+  refresh that added files (cards not rewritten until the Stop hook builds) they read stale.
+  Left as is; say if it should be softened.
+- The deep pass left 557 symbols pending; whether to rerun for them is the operator's call.
 
 ## Exact next action
 
-Read assessment section 3 and section 5 item 4, then in a temporary repository reproduce
-a stale card (build with a file, delete the file, build again) and write the failing test
-for `graft check` reporting it. Escalate on the persona's section 3.3 triggers (a change
-to the card format or `graph.json` shape is one).
+Stage 22 of the roadmap (retrieval evaluation harness), or Stage 23 acceptance of 17 to 19.
 
 ## Cost projection
 

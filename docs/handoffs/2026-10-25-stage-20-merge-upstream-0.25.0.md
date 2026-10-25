@@ -56,7 +56,8 @@ under the gate rule of decision D13 (option A) below.
 - `git merge upstream/main` conflicted in 13 files; `merge-tree` named the same 13.
 - Gate on the merge: 4,222 tests, 4,099 passed, 34 failed, 89 skipped, 1,619 s.
 - Plain `upstream/main` (worktree at `D:\Code\Claude\ub`, same Node): 4,012 tests,
-  3,885 passed, 38 failed, 89 skipped, 1,635 s.
+  3,885 passed, 38 failed, 89 skipped, 1,635 s. The 38 failing test names, one per line,
+  are in `docs/baselines/upstream-4e7d0f5-failures.txt`: the list a D13 comparison uses.
 - By test name, 31 of the merge's 34 failures also fail on plain upstream. The other 3
   (`claude-journeys-recall`, `claude-hooks-perf`, `claude-hook-timeouts`) pass with their
   file run alone. Upstream's own causes here: skills probes give git 300 ms, and

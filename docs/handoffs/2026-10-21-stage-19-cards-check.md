@@ -92,12 +92,34 @@ Three commits on `main`, none pushed, tests with each fix:
 `test/cards-check.test.ts` holds the tests. Global install synced (15 changed). The
 three agent files graft rewrote are not committed and not mine.
 
-## Unresolved questions
+## Follow-up of 2026-10-26 (operator's decisions)
 
-- `status` and the MCP `check` tool treat card drift as not fresh, so after a query-path
-  refresh that added files (cards not rewritten until the Stop hook builds) they read stale.
-  Left as is; say if it should be softened.
-- The deep pass left 557 symbols pending; whether to rerun for them is the operator's call.
+```
+D14 Decision:   card or INDEX.md drift in status and the MCP check tool
+    Option:     warn, don't mark stale (chosen)
+    Result:     `graft check` keeps exiting 1. `GraphCheckResult.inSync` is `ok` without
+                card drift; `trail status` shows the code map as in sync and adds a `cards`
+                row naming the files, `status --json` gains `codeMap.cardsInSync`, and
+                `graft_check_freshness` reports OK with a `warning:` line. A real code
+                change still reads stale. Commit `f5827f4`, tests in
+                `test/cards-drift-warning.test.ts` (failed first, 4 of 4).
+```
+
+- Pending symbols: `build --deep` rerun once: 34 calls, 106,752 input, 108,544 cached,
+  94,524 output tokens, `openai:deepseek-flash`, reasoning none; 54 computed, 944 concept
+  nodes. The pending count stayed 557 (of 9,607). They are not retries that failed: they sit in
+  files the crux pass leaves alone (`docs/architecture/system-diagram.html` 225,
+  `viewer/style.css` 155, `CHANGELOG.md` 43, `package.json` 43, and so on; kinds: selector
+  310, section 113, key 64, function 45, element 25). Rerunning will not clear them.
+- Gate 3 (after D14, deep rerun done, Node 26.7.0): 4,231 tests, 4,100 passed, 42 failed,
+  89 skipped, 2,073 s. By name against `docs/baselines/upstream-4e7d0f5-failures.txt`: 33 are
+  baseline names; 9 are not (`claude-hook-timeouts`, `claude-journeys-2`,
+  `skills-check-readonly`, `skills-prompt-attacks`, `skills-session-start`,
+  `skills-ship-credit`: the D137, J13, compaction, SessionStart, dontAsk, ship and prompt-hook
+  budget tests). Their six files run alone: 47 tests, 45 pass, and the 2 that fail are
+  baseline names. So all 9 are load flakes of the baseline class, none a fault of D14, and D13 holds.
+- Global install synced after the build of `f5827f4`.
+- Open: none from this stage.
 
 ## Exact next action
 
@@ -117,5 +139,6 @@ Actual: session API spend was not measured (no usage tool run). The deep pass is
 ## Time projection
 
 Projected: 30 to 60 minutes, two gates of about ten minutes. Actual: roughly three hours of
-wall clock, dominated by two full gates (1,314 s and 1,906 s on this machine, against the
+wall clock for the first pass; the follow-up added a third gate (2,073 s), the deep rerun and
+the D14 change, about an hour more. First pass: roughly three hours of wall clock, dominated by two full gates (1,314 s and 1,906 s on this machine, against the
 projection's 583 s from 0.23.0) and the deep pass. Operator review about 15 minutes.

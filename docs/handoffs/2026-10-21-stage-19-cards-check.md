@@ -65,11 +65,11 @@ is green with its counts, the global install is synced, the work is committed on
   The one extra failure was mine (`trail-name`); it passed without my change, failed with it,
   and passed after the fix.
 - Gate 2 (final tree, byte-identical to the three commits): 4,227 tests, 4,106 passed, 32
-  failed, 89 skipped, 1,906 s. The failures are the Trail hook, probe and wall-clock tests
-  of the Stage 20 baseline class. Four names appear only in gate 2 (`skills-check-readonly`,
-  `trace-repairs-review`, `claude-hooks`, `skills-anchors-review`); each passes with its
-  file run alone, so they are load flakes under D13. A same-name comparison against a fresh
-  plain-upstream run was not made; the Stage 20 handoff holds only part of the baseline list.
+  failed, 89 skipped, 1,906 s. By name against `docs/baselines/upstream-4e7d0f5-failures.txt`
+  (38 names, plain upstream 4e7d0f5): all 32 are in the baseline and none is outside it, so
+  D13 holds. The four that first looked new (`skills-check-readonly`, `trace-repairs-review`,
+  `claude-hooks`, `skills-anchors-review`) are baseline names that flake under load; each
+  also passed with its file run alone. No rerun was needed for the rest.
 - `build --structured` here wrote `.graft/config.json` as `{"structured": true}`
   (git-ignored). The wiring is 9,599 nodes, 997 files, 997 cards; `check` is OK with no card drift.
 - `build --deep` here: 833 concept nodes, 9,042 symbols summarised, 557 pending (94% complete).
@@ -101,16 +101,21 @@ three agent files graft rewrote are not committed and not mine.
 
 ## Exact next action
 
-Stage 22 of the roadmap (retrieval evaluation harness), or Stage 23 acceptance of 17 to 19.
+Stage 22 of the roadmap (retrieval evaluation harness). Next stage: **Opus 5.5, effort high.**
+
+```
+Take over Stage 22 of docs/assessment-2026-10-18.md section 6: the retrieval evaluation harness (section 5 item 6). Read AGENTS.md, docs/operator-protocol.md (gate rule: section 10, D13) and docs/handoffs/2026-10-21-stage-19-cards-check.md first. Write your own handoff first and check your model (claude-opus-5-5) and effort (high) against it. Twenty questions about this repository, each with the span that answers it; a script that runs `graft ask` and reports hit-at-1 and hit-at-3; run it on the lexical graph and on the deep-pass graph now in .trail/cache, with the deep pass's tokens line beside the numbers. Test fails first; Australian English, no em-dashes; run gates one at a time; commit on main, do not push.
+```
 
 ## Cost projection
 
-Sonnet 5.5, medium ($2.00 in, $10.00 out, $0.10 cache read per million). 40 turns, average
-context 60k, 3k fresh and 1.5k output per turn: cache 2.4M x $0.10 = $0.24; fresh 120k x
-$2.50 = $0.30; output 60k x $10.00 = $0.60. About $1.14; quote $1 to $2.50, plus the
-`--deep` pass's own spend from its `tokens:` line.
+Projected: Sonnet 5.5, medium, about $1.14 (quote $1 to $2.50) plus the `--deep` pass.
+Actual: session API spend was not measured (no usage tool run). The deep pass is
+2067 calls, 6,104,158 input (806,912 cached) and 1,310,478 output tokens on
+`openai:deepseek-flash`; price it from the provider's list.
 
 ## Time projection
 
-Wall clock 30 to 60 minutes including two gates of about ten minutes each, run one at a
-time. Operator review about 15 minutes.
+Projected: 30 to 60 minutes, two gates of about ten minutes. Actual: roughly three hours of
+wall clock, dominated by two full gates (1,314 s and 1,906 s on this machine, against the
+projection's 583 s from 0.23.0) and the deep pass. Operator review about 15 minutes.

@@ -19,7 +19,7 @@ import { dirname, join } from "node:path";
 import { relPosix } from "../util/paths.js";
 import { matter } from "../util/front-matter.js";
 import type { GraphV1, NodeV1 } from "./types.js";
-import { CACHE_DIR, readNodes } from "../context/node-file.js";
+import { CACHE_DIR, readNodes, rootFileCardPaths } from "../context/node-file.js";
 import { GRAPH_DIR } from "./write.js";
 import { inBrand } from "../brand.js";
 
@@ -125,7 +125,8 @@ function renderCard(
   return lines.join("\n") + "\n";
 }
 
-/** Every existing card file (`.md` inside subdirs of outDir; not concept nodes). */
+/** Every existing card file: `.md` inside subdirs of outDir, and the root-level cards
+ * that share the dir with concept nodes (never a concept node itself). */
 function listExistingCards(outDir: string): string[] {
   const out: string[] = [];
   const walk = (dir: string): void => {
@@ -139,12 +140,14 @@ function listExistingCards(outDir: string): string[] {
     }
   };
   for (const e of readdirSync(outDir, { withFileTypes: true })) {
-    // Concept nodes and INDEX.md are top-level files — skip. Cards live in
-    // subdirs (`src/…`, and `_root/` when a root card would collide with a concept).
+    // Top-level files are walked separately below: concept nodes, INDEX.md and root
+    // cards share them. Cards live in subdirs (`src/…`, and `_root/` when a root card
+    // would collide with a concept).
     if (e.isDirectory() && e.name !== CACHE_DIR && e.name !== GRAPH_DIR) {
       walk(join(outDir, e.name));
     }
   }
+  out.push(...rootFileCardPaths(outDir));
   return out;
 }
 
@@ -171,28 +174,28 @@ function pruneEmptyDirs(outDir: string): void {
   if (existsSync(outDir)) visit(outDir);
 }
 
-/**
- * Write one wiring card per source file into `outDir`, mirroring the source tree,
- * and prune cards whose source no longer exists. Returns what changed.
- */
-export function writeCards(graph: GraphV1, outDir: string): CardStats {
+/** Nodes grouped by the source path they belong to. */
+function groupByPath(graph: GraphV1): Map<string, NodeV1[]> {
   const byPath = new Map<string, NodeV1[]>();
   for (const n of graph.nodes) {
     const list = byPath.get(n.path) ?? [];
     list.push(n);
     byPath.set(n.path, list);
   }
+  return byPath;
+}
 
-  const concepts = conceptsByPath(outDir);
-  const written = new Set<string>();
-  const files: CardFileInfo[] = [];
-
-  // Two sources can swap to the same card name (`config.json` and `config.yml`,
-  // `guide.md` and `guide.json`): the second would overwrite the first and the
-  // INDEX would point two files at one card. The first claimant keeps the short
-  // name and each later one keeps its extension (`config.yml.md`), so the result
-  // depends only on which files exist. A `.md` source claims first: its card name
-  // is its own path, and it should never become `guide.md.md`.
+/**
+ * The card path for every indexed source file.
+ *
+ * Two sources can swap to the same card name (`config.json` and `config.yml`,
+ * `guide.md` and `guide.json`): the second would overwrite the first and the
+ * INDEX would point two files at one card. The first claimant keeps the short
+ * name and each later one keeps its extension (`config.yml.md`), so the result
+ * depends only on which files exist. A `.md` source claims first: its card name
+ * is its own path, and it should never become `guide.md.md`.
+ */
+function planCards(byPath: Map<string, NodeV1[]>, outDir: string): Map<string, string> {
   const claimed = new Set<string>();
   const cardOf = new Map<string, string>();
   const isMarkdown = (p: string): number => (p.endsWith(".md") ? 0 : 1);
@@ -204,6 +207,57 @@ export function writeCards(graph: GraphV1, outDir: string): CardStats {
     claimed.add(cardPath);
     cardOf.set(sourcePath, cardPath);
   }
+  return cardOf;
+}
+
+/** The card roster for a graph, as `writeCards` would report it. */
+function cardFiles(byPath: Map<string, NodeV1[]>, cardOf: Map<string, string>, outDir: string): CardFileInfo[] {
+  const files: CardFileInfo[] = [];
+  for (const [sourcePath, group] of byPath) {
+    const symbols = group.filter((n) => n.kind !== "file").length;
+    files.push({ card: relPosix(outDir, cardOf.get(sourcePath)!), path: sourcePath, symbols });
+  }
+  return files.sort((a, b) => a.card.localeCompare(b.card));
+}
+
+/**
+ * Remove the cards whose source file the wiring no longer indexes, and rewrite
+ * `INDEX.md` when any went. This is the part of the markdown surface the query-path
+ * refresh may touch: a card for a file that has left the graph points at nodes that no
+ * longer exist, so leaving it is worse than the one deletion. It never writes or
+ * rewrites a card for a file that is still indexed, and does nothing in a context dir
+ * whose cards were never built. Returns how many cards it removed.
+ */
+export function pruneCards(graph: GraphV1, outDir: string): number {
+  if (!existsSync(outDir)) return 0;
+  const existing = listExistingCards(outDir);
+  if (existing.length === 0) return 0;
+  const byPath = groupByPath(graph);
+  const cardOf = planCards(byPath, outDir);
+  const expected = new Set(cardOf.values());
+  let pruned = 0;
+  for (const card of existing) {
+    if (expected.has(card)) continue;
+    rmSync(card);
+    pruned++;
+  }
+  if (pruned === 0) return 0;
+  pruneEmptyDirs(outDir);
+  writeIndex(outDir, cardFiles(byPath, cardOf, outDir));
+  return pruned;
+}
+
+/**
+ * Write one wiring card per source file into `outDir`, mirroring the source tree,
+ * and prune cards whose source no longer exists. Returns what changed.
+ */
+export function writeCards(graph: GraphV1, outDir: string): CardStats {
+  const byPath = groupByPath(graph);
+
+  const concepts = conceptsByPath(outDir);
+  const written = new Set<string>();
+  const files: CardFileInfo[] = [];
+  const cardOf = planCards(byPath, outDir);
 
   for (const [sourcePath, group] of byPath) {
     const fileNode = group.find((n) => n.kind === "file");
@@ -232,6 +286,11 @@ export function writeCards(graph: GraphV1, outDir: string): CardStats {
  * nodes on disk and the per-file cards. Deterministic order; no timestamps.
  */
 export function writeIndex(outDir: string, files: CardFileInfo[]): void {
+  writeIfChanged(join(outDir, INDEX_FILE), renderIndex(outDir, files));
+}
+
+/** The text `writeIndex` writes, so `check` can compare it with what is on disk. */
+function renderIndex(outDir: string, files: CardFileInfo[]): string {
   // Spelled by the name that built it: a trail-only machine has no `graft` to run.
   const lines: string[] = [
     "# graft — repo map",
@@ -272,7 +331,7 @@ export function writeIndex(outDir: string, files: CardFileInfo[]): void {
     );
   }
 
-  writeIfChanged(join(outDir, INDEX_FILE), lines.join("\n"));
+  return lines.join("\n");
 }
 
 /** One symbol a concept node covers: its name, kind, and `path:span` pointer. */

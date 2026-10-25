@@ -43,7 +43,7 @@ import { filterByOnlyDirs, listSourceStats, sourceWalkOptions } from "./source-f
 import { resolveEdges, type GoModule } from "./resolve.js";
 import { enrichGraph, type EnrichStats } from "./enrich.js";
 import { readGraph, writeGraph, wiringPath } from "./write.js";
-import { writeCards, writeIndex, writeCovers, type CardStats } from "./cards.js";
+import { writeCards, writeIndex, writeCovers, pruneCards, type CardStats } from "./cards.js";
 import { writeAskIndex } from "../ask/index-file.js";
 import { discoverScopes, scopeOf } from "./scopes.js";
 import type { GraphV1, Kind, NodeV1, Relation, ScopeV1 } from "./types.js";
@@ -546,6 +546,10 @@ export async function buildGraph(
     // Backfill concept nodes with their `covers:` symbol/file:line list (the
     // OKF↔Wiring link). No-op when there are no concept nodes (a $0 build).
     writeCovers(graph, outDir);
+  } else {
+    // The query path writes no card, but a card for a file that has left the graph
+    // (a tier switched off, a file deleted) would keep naming nodes that are gone.
+    pruneCards(graph, outDir);
   }
 
   const byKind = {} as Record<Kind, number>;

@@ -382,6 +382,22 @@ function isRootFileCard(
   return isWiringCardHeading(content) || isWiringCardBody(content);
 }
 
+/** Absolute paths of the per-file wiring cards at the top level of a context dir,
+ * which share it with the concept nodes. The card writer needs them to prune a card
+ * whose file left the wiring; a concept node (it carries a `slug`) is never among them. */
+export function rootFileCardPaths(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  const fileCardStems = rootFileCardStems(dir);
+  const out: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    if (!entry.endsWith(".md") || entry === "INDEX.md") continue;
+    const parsed = matter(readFileSync(join(dir, entry), "utf8"));
+    const fm = parsed.data as Record<string, unknown>;
+    if (isRootFileCard(entry.replace(/\.md$/, ""), fm, parsed.content, fileCardStems)) out.push(join(dir, entry));
+  }
+  return out;
+}
+
 /** Read and parse every concept-node `.md` in a context dir (skips INDEX.md
  * and root-level per-file cards). */
 export function readNodes(dir: string): ParsedNode[] {

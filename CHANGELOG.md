@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- **A card for a file that left the wiring is pruned on the query path,** and
+  `INDEX.md` is rewritten. Root-level cards (`README.md`, `package.md`) were never
+  pruned at all, because they share the folder with concept nodes; switching a tier off
+  left them behind for good.
 - **The concept listing no longer lists a root card for a file without an extension**
   (`Dockerfile`, `Makefile`) once that file has left the wiring.
 

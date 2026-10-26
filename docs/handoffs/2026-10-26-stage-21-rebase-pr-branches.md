@@ -2,7 +2,8 @@
 stage: "Stage 21: rebase the five PR branches onto upstream 0.25.0, gate each, open the pull requests"
 model: claude-sonnet-5-5
 effort: high
-status: blocked
+status: superseded
+superseded-by: "docs/handoffs/2026-10-26-stage-24-own-build-release.md (the operator closed D15 and D16 on 2026-10-26: SCSS stays vendored, no upstream pull requests; the pr/* branches are deleted)"
 created: 2026-10-26
 from: "Roadmap session (Haiku 5.5, local_2a1bae05) after Stage 20r (b96f716). Scope from assessment section 6 stage 21 and section 5 item 5; the 0.23.0 base there is now 0.25.0."
 ---

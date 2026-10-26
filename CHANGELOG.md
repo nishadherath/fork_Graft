@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- **A retrieval evaluation for this repository: `scripts/retrieval-eval.mjs`.** It runs
+  `graft ask --no-refresh` for twenty questions, each pinned to the graph node that answers it
+  (`.eval/retrieval-questions.json`), and reports hit-at-1, hit-at-3 and the file rate at 3 with
+  the sample size and 95% Wilson intervals, the graph's summary counts and the deep pass's
+  `tokens:` line. `--dir` measures a graph built elsewhere. An answer that has moved in the
+  source or the graph is reported, not scored as a miss. The set sits in a dot-folder because
+  graft never indexes one. First results: `.eval/retrieval-2026-10-26.md`.
+
 ### Changed
 
 - **Card drift is a warning in `status` and the MCP check tool, not "behind the code".**

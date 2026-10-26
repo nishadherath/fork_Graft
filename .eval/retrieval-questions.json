@@ -1,0 +1,105 @@
+{
+  "about": "Retrieval evaluation set for this repository (Stage 22). Each question names the graph node that answers it: `symbol` is the node id in the wiring graph, `file` and `span` are its locator. A hit is a ranked `graft ask` result in the same file whose span lies inside an answer span. scripts/retrieval-eval.mjs runs the set; an answer whose node has moved is reported, not scored silently. The set lives in a dot-folder because graft never indexes one: kept under docs/, the questions' own lines ranked first for 12 of the 20 (2026-10-26).",
+  "questions": [
+    {
+      "id": "crux-echoed-id",
+      "question": "How does the crux pass map an id the model echoed back onto one of the requested symbols?",
+      "answers": [{ "symbol": "src/ai/crux.ts#resolveTargetId", "file": "src/ai/crux.ts", "span": "L206-L218" }]
+    },
+    {
+      "id": "card-drift",
+      "question": "Where does graft check find cards that are missing, stale or orphaned compared with the wiring?",
+      "answers": [{ "symbol": "src/graph/cards.ts#cardDrift", "file": "src/graph/cards.ts", "span": "L241-L276" }]
+    },
+    {
+      "id": "prune-cards",
+      "question": "What deletes the cards of files that are no longer indexed and rewrites INDEX.md?",
+      "answers": [{ "symbol": "src/graph/cards.ts#pruneCards", "file": "src/graph/cards.ts", "span": "L286-L303" }]
+    },
+    {
+      "id": "ask-index-corrupt",
+      "question": "What happens when the ask sidecar index is corrupt or has an unknown version?",
+      "answers": [{ "symbol": "src/ask/index-file.ts#readAskIndex", "file": "src/ask/index-file.ts", "span": "L138-L159" }]
+    },
+    {
+      "id": "test-path-derank",
+      "question": "How are test files recognised so that ask can rank them lower?",
+      "answers": [{ "symbol": "src/ask/ask.ts#isTestPath", "file": "src/ask/ask.ts", "span": "L206-L208" }]
+    },
+    {
+      "id": "path-probe-no-spawn",
+      "question": "How do we check that a command is on PATH without spawning it, so Windows .cmd shims are found?",
+      "answers": [{ "symbol": "src/brand.ts#commandOnPath", "file": "src/brand.ts", "span": "L142-L155" }]
+    },
+    {
+      "id": "file-first-round-robin",
+      "question": "How are ranked hits interleaved so every file gets one result before any file gets a second?",
+      "answers": [{ "symbol": "src/ask/file-selection.ts#fileFirstRoundRobin", "file": "src/ask/file-selection.ts", "span": "L18-L45" }]
+    },
+    {
+      "id": "learning-signals",
+      "question": "How does the Stop hook decide that a session found something worth saving as a learning?",
+      "answers": [{ "symbol": "src/claude/note-signals.ts#noteSignals", "file": "src/claude/note-signals.ts", "span": "L161-L337" }]
+    },
+    {
+      "id": "extraction-tier",
+      "question": "Which extraction tier handles a file, and when does a language fall back to the WASM stand-in?",
+      "answers": [{ "symbol": "src/graph/build.ts#tierOf", "file": "src/graph/build.ts", "span": "L77-L89" }]
+    },
+    {
+      "id": "repo-relative-posix",
+      "question": "Where is the canonical repo-relative posix path computed for paths that land in the graph?",
+      "answers": [{ "symbol": "src/util/paths.ts#relPosix", "file": "src/util/paths.ts", "span": "L40-L42" }]
+    },
+    {
+      "id": "map-dir",
+      "question": "How does graft decide whether the code map lives in graft/ or in .trail/cache?",
+      "answers": [{ "symbol": "src/context/map-dir.ts#mapDirFor", "file": "src/context/map-dir.ts", "span": "L31-L37" }]
+    },
+    {
+      "id": "supported-languages",
+      "question": "Which languages and file types does graft index?",
+      "answers": [{ "symbol": "README.md#section:supported-languages", "file": "README.md", "span": "L503-L593" }]
+    },
+    {
+      "id": "tokens-line",
+      "question": "How is the tokens line printed after a deep pass formatted?",
+      "answers": [{ "symbol": "src/ai/llm/metered.ts#formatUsageLine", "file": "src/ai/llm/metered.ts", "span": "L61-L73" }]
+    },
+    {
+      "id": "pdf-pages",
+      "question": "How is a PDF turned into page units for the documents tier?",
+      "answers": [{ "symbol": "src/graph/structured/documents/pdf.ts#convertPdf", "file": "src/graph/structured/documents/pdf.ts", "span": "L87-L115" }]
+    },
+    {
+      "id": "optional-converter-import",
+      "question": "How is an optional converter package imported lazily, and what is the refusal when it is not installed?",
+      "answers": [{ "symbol": "src/graph/structured/documents/load.ts#importOptional", "file": "src/graph/structured/documents/load.ts", "span": "L39-L60" }]
+    },
+    {
+      "id": "deep-unit-bound",
+      "question": "Which units of a structured file are left out of the deep pass because the file has too many?",
+      "answers": [{ "symbol": "src/graph/enrich.ts#structuredUnitsBeyondBound", "file": "src/graph/enrich.ts", "span": "L92-L113" }]
+    },
+    {
+      "id": "refresh-before-query",
+      "question": "How does a query bring the graph up to date before it answers, and what does --no-refresh skip?",
+      "answers": [{ "symbol": "src/cli.ts#refreshBefore", "file": "src/cli.ts", "span": "L281-L292" }]
+    },
+    {
+      "id": "sync-global-report",
+      "question": "How does sync-global report missing converters and the Kotlin binary in the global install?",
+      "answers": [{ "symbol": "scripts/sync-global-checks.mjs#checkGlobalInstall", "file": "scripts/sync-global-checks.mjs", "span": "L35-L61" }]
+    },
+    {
+      "id": "stage-cost-projection",
+      "question": "How is the API cost of a stage projected from turns, context and output?",
+      "answers": [{ "symbol": "docs/operator-protocol.md#section:6-cost-projection-method", "file": "docs/operator-protocol.md", "span": "L162-L187" }]
+    },
+    {
+      "id": "test-runner-windows",
+      "question": "How does the test runner hand every test file to node --test so it works under cmd.exe?",
+      "answers": [{ "symbol": "scripts/run-tests.mjs", "file": "scripts/run-tests.mjs", "span": "L1-L73" }]
+    }
+  ]
+}

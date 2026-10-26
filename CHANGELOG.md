@@ -11,6 +11,12 @@
   `tokens:` line. `--dir` measures a graph built elsewhere. An answer that has moved in the
   source or the graph is reported, not scored as a miss. The set sits in a dot-folder because
   graft never indexes one. First results: `.eval/retrieval-2026-10-26.md`.
+- **`graft build` says what the LSP pass did.** One `lsp:` line under the build summary names
+  the server that ran and the edges it added, says that none was found on PATH, or that a
+  server was found and never became ready (a `rust-analyzer` rustup shim with no component
+  installed behaved like that in silence). The pass is reported through `lsp` on the build
+  result instead of a progress event, which left `summarizing 1/0: lsp:none` on the terminal
+  at the end of every build.
 
 ### Changed
 
@@ -22,6 +28,12 @@
 
 ### Fixed
 
+- **Card drift in a workspace child read `STALE ()`.** The federated check (`graft check` at a
+  workspace parent, and `graft_check_freshness` there) judged each child by the card-inclusive
+  verdict and listed only structural counts, so a child whose only drift was a card printed an
+  empty list. It now reads `OK` with the same `warning:` line as a single repository, and a
+  child with both kinds of drift counts the cards (`STALE (2 added, 1 card)`). `graft check`
+  still exits 1 at the parent.
 - **`graft check` now compares the cards with the wiring.** It names a card that is
   missing, a card whose text differs from what the wiring renders, a card left for a
   file the wiring no longer indexes, and an `INDEX.md` that differs, and it exits

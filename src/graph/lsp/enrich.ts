@@ -30,7 +30,11 @@ const parseSpan = (s: string): [number, number] | null => {
   return m ? [Number(m[1]), Number(m[2])] : null;
 };
 
-export interface LspEnrichResult { added: number; queried: number; server: string | null }
+/** What the pass did, for the build to report: `server` is the resolved command or null when
+ * none on PATH covers the repo's languages; `ready` is false when a server was found but did not
+ * start, refused `initialize` or never finished indexing, so `queried` 0 can be told from
+ * "nothing to ask". */
+export interface LspEnrichResult { added: number; queried: number; server: string | null; ready: boolean }
 
 export async function enrichWithLsp(
   graph: GraphV1,
@@ -40,7 +44,7 @@ export async function enrichWithLsp(
   const languagesPresent = new Set<string>();
   for (const n of graph.nodes) { const l = langOf(n.path); if (l) languagesPresent.add(l); }
   const server = pickServer(languagesPresent);
-  if (!server) return { added: 0, queried: 0, server: null };
+  if (!server) return { added: 0, queried: 0, server: null, ready: false };
 
   // Canonicalize the root: servers (rust-analyzer/clangd) report callee URIs
   // against the REAL path, so under a symlinked checkout (macOS /tmp →
@@ -75,8 +79,8 @@ export async function enrichWithLsp(
   // spawn throws synchronously when Windows refuses the program (e.g. a .cmd that isn't an
   // npm shim: EINVAL), before any error listener exists — no enrichment, not a failed build.
   try { client = new LspClient(server.command, server.args, root, server.languageId); }
-  catch { return { added: 0, queried: 0, server: server.command }; }
-  if (!(await client.initialize())) { await client.dispose(); return { added: 0, queried: 0, server: server.command }; }
+  catch { return { added: 0, queried: 0, server: server.command, ready: false }; }
+  if (!(await client.initialize())) { await client.dispose(); return { added: 0, queried: 0, server: server.command, ready: false }; }
 
   const existing = new Set(graph.edges.map((e) => `${e.source}\0${e.relation}\0${e.target}`));
   const fileLines = new Map<string, string[]>();
@@ -107,7 +111,7 @@ export async function enrichWithLsp(
     const wp = namePos(warm)!;
     if (!(await client.waitUntilReady(join(root, warm.path), wp))) {
       await client.dispose();
-      return { added: 0, queried: 0, server: server.command }; // never became ready
+      return { added: 0, queried: 0, server: server.command, ready: false }; // never became ready
     }
   }
 
@@ -140,5 +144,5 @@ export async function enrichWithLsp(
     }
   }
   await client.dispose();
-  return { added, queried, server: server.command };
+  return { added, queried, server: server.command, ready: true };
 }

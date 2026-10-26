@@ -44,7 +44,7 @@
     {
       "id": "extraction-tier",
       "question": "Which extraction tier handles a file, and when does a language fall back to the WASM stand-in?",
-      "answers": [{ "symbol": "src/graph/build.ts#tierOf", "file": "src/graph/build.ts", "span": "L77-L89" }]
+      "answers": [{ "symbol": "src/graph/build.ts#tierOf", "file": "src/graph/build.ts", "span": "L79-L91" }]
     },
     {
       "id": "repo-relative-posix",

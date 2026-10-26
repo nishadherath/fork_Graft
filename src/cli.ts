@@ -778,6 +778,14 @@ grouped(program.command("build"), GROUP.setup)
     process.stderr.write("\n");
     console.log(`✓ wiring: ${g.nodes} nodes (${fmt(g.byKind)}), ${g.edges} edges, ${g.cards} cards [${g.languages.join(", ")}]`);
     console.log(`  parsed: ${g.parsed} of ${g.files} files (${g.reused} replayed from cache)`);
+    // The LSP pass is on by default, so one line says what it did; a server that was found
+    // and never answered used to be silent.
+    if (g.lsp) {
+      const l = g.lsp;
+      if (!l.server) console.log("  lsp: no language server on PATH for this repo's languages; edges are the parser's");
+      else if (!l.ready) console.log(`  lsp: ${basename(l.server)} was found but never became ready; no edges added (--no-lsp skips the pass)`);
+      else console.log(`  lsp: ${basename(l.server)} added ${l.added} edge${l.added === 1 ? "" : "s"} from ${l.queried} symbol${l.queried === 1 ? "" : "s"} queried`);
+    }
     // Worth one line: this build started from a graph the user never built *here*.
     if (g.seededFrom) console.log(`  seeded: copied a starting graph from ${g.seededFrom} (git worktree)`);
     if (deep) {

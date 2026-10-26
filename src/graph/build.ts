@@ -27,6 +27,8 @@ import { documentFormatOf } from "./structured/documents/index.js";
 import { textlessUnits } from "./structured/documents/render.js";
 import { documentNotices } from "./structured/documents/notices.js";
 import { missingNativePackages, nativeReady, type NativeFallback } from "./native.js";
+// Type-only: the pass itself loads inside the build that asks for it.
+import type { LspEnrichResult } from "./lsp/enrich.js";
 import { contentHash } from "../util/id.js";
 import { relPosix } from "../util/paths.js";
 import { readSourceFile } from "../util/source.js";
@@ -197,6 +199,9 @@ export interface GraphBuildResult {
   /** Things the build chose to skip or could only partly read, each naming the
    * file and why: a document past its size cap, one with no text. */
   warnings: string[];
+  /** What the LSP pass did, when it ran (`lsp: true`): the server found or none, whether it
+   * became ready, and the edges it added. Absent when the pass was off. */
+  lsp?: LspEnrichResult;
 }
 
 /** Every Go module in the repo: each `go.mod`'s declared `module` path and the repo
@@ -491,11 +496,13 @@ export async function buildGraph(
   // Opt-in compiler-grade enrichment (adds lsp_resolved call edges in place).
   // Runs on the assembled graph so callee positions map back to nodes; never
   // touches the extraction cache (Tier-1 stays pristine, cold==incremental).
+  // Reported through `lsp` on the result, not as progress: the pass is one call, and a
+  // progress event here read as `summarizing 1/0: lsp:none` at the end of every build.
+  let lsp: LspEnrichResult | undefined;
   if (opts.lsp) {
     const { enrichWithLsp } = await import("./lsp/enrich.js");
-    const r = await enrichWithLsp(graph, root);
+    lsp = await enrichWithLsp(graph, root);
     graph.meta.edgeCount = graph.edges.length;
-    opts.onProgress?.({ phase: "enrich", index: r.added, total: r.queried, file: `lsp:${r.server ?? "none"}` });
   }
 
   const graphPath = writeGraph(graph, outDir);
@@ -576,5 +583,6 @@ export async function buildGraph(
     meaning,
     errors,
     warnings,
+    ...(lsp ? { lsp } : {}),
   };
 }

@@ -435,3 +435,32 @@ D11 Decision:      GRAFT_REASONING for the deep pass
 - `git status --short` at session start: `M docs/operator-protocol.md` only;
   `git log origin/main..main` and the reverse both printed 0.
 - The gate run by this session is quoted in the Stage 15 handoff.
+
+## 9. Own-build pivot and the roadmap after Stage 23 (added 2026-10-26)
+
+The roadmap in section 6 ends at Stage 23. What followed, from the handoffs:
+
+- **Decision D8 closed as option B, with SCSS kept (operator, 2026-10-26).**
+  The fork is the operator's own build, not a staging area for upstream. No
+  pull requests are sent, `main` is the only branch, and pushes go to
+  `origin` only. The `upstream` remote is read-only.
+- **Stage 24** released `v0.25.0-nishadherath.1`, pushed `main` to
+  `origin` and deleted the `pr/*` stack and leftover worktrees; Stage 21
+  (rebasing the pull-request branches) is superseded.
+- **Stage 25** closed out the pivot on the operator's answers D17 to D23:
+  AGENTS.md and the protocol reworded to the merge rule below (D17); the
+  retrieval question set resolves spans from symbols (D19); `status`
+  registered under the graft brand (D20); a machine-wide gate lock in
+  `scripts/run-tests.mjs` (D21); this section (D22); release
+  `0.25.0-nishadherath.2` and its tarball (D23). The record is
+  `docs/handoffs/2026-10-26-stage-25-own-build-close-out.md`.
+- **Standing merge rule (D17, D18).** Upstream is merged into `main` by a
+  recorded stage, never rebased onto, and only when the operator decides to.
+  The first such stage is whichever upstream release the operator names;
+  it runs on Opus 5.5 at high effort, costs about $6.50 and two hours plus
+  review at Stage 17's measure (more after a long gap), and ends with the
+  gate judged by name under D13.
+- **Open work.** None is scheduled. Section 5's remaining items are taken up
+  only when the operator names them; the next body of work is the operator's
+  to set, and a fresh assessment on the six-question brief (protocol section
+  1.1) is the Fable-class stage to ask for when it is unknown.

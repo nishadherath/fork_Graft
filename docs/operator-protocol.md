@@ -278,14 +278,23 @@ about the operator's machine and this repository, not preferences.
   which GitHub redirects; pull requests are opened against
   `trailhq/Trail-Code`. Its 0.23.0 publishes as both `@nanonets/graft`
   and `@trailhq/trail-code`.
-- **Pull-request branches start at `upstream/main`.** `main` here carries
-  the operator's files (AGENTS.md, the persona, this protocol,
-  `docs/handoffs/`, plan documents). A branch for upstream cherry-picks
-  only the feature's source, tests, changelog, credits and README changes;
-  `git log upstream/main..<branch> --stat` is checked before handing the
-  branch to the operator, who pushes and opens the pull request by hand.
+- **Upstream is merged into `main` by a recorded stage, never rebased
+  onto** (the operator's decisions D8 and D17, 2026-10-26). The fork is the
+  operator's own build, so no pull-request branches are kept and `main` is
+  the only branch; pushes go to `origin` only. A merge stage is named by
+  the operator (decision D18: only when they decide to), runs on Opus 5.5
+  at high effort, resolves conflicts in favour of the fork's own files, and
+  ends with the gate judged under D13 and a handoff.
 - **The gate here is `npm run build && npm test`** (about 7 minutes on
   this machine; 1,329 tests on 2026-10-13), quoted with its counts.
+- **One gate at a time, enforced by a lock** (decision D21, 2026-10-26). `npm test`
+  takes `gate.lock` in `scripts/gate-lock.mjs` before it runs and waits while another
+  gate holds it, whichever worktree or session that is. The folder is
+  `GRAFT_GATE_LOCK_DIR`, else `graft-gate-lock` under the user's temp directory
+  (`%TEMP%`, shared by every session of one user); `owner.json` inside names the
+  pid and folder. A gate that was killed leaves a lock whose pid is no longer
+  running, and the next gate takes it over. `GRAFT_GATE_LOCK_TIMEOUT_MS` bounds
+  the wait. A kickoff prompt need not mention the lock or poll the process list.
 - **Since upstream 0.25.0 the gate cannot exit zero on this machine**
   (measured 2026-10-25). Upstream's skills probes give git 300 ms per call,
   and many new hook tests have wall-clock bars; here a bare `git --version`

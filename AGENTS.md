@@ -15,8 +15,9 @@ This repository is the operator's fork of
 Upstream also publishes the same code as `@trailhq/trail-code` with a
 `trail` command; this fork keeps the `graft` command, the
 `@nanonets/graft` package and the `graft/` folder.
-It exists to carry local fixes and new file-type indexing that are
-upstreamed by pull request. The global install on the operator's
+It is the operator's own build of `@nanonets/graft`, merging upstream
+releases only when the operator decides to; it carries local fixes and
+new file-type indexing and sends no pull requests. The global install on the operator's
 machine (`npm root -g`, Node 26.7.0 under nvm4w) is built from this
 fork, so what this tree builds is what every other repository's
 `graft` command runs.
@@ -36,12 +37,13 @@ fork, so what this tree builds is what every other repository's
    (section 10 of the protocol). The former `patch/patch_graft_crux.py`
    workflow is retired by `test/crux-id-echo.test.ts` and its fix in
    `src/ai/crux.ts`.
-3. **Upstream branches are cut from `upstream/main`, never from `main`.**
-   `main` carries the operator's files (this file, the persona, the
-   protocol, `docs/handoffs/`, `docs/*plan*`); a pull-request branch
-   cherry-picks only the feature's `src/`, `test/`, `CHANGELOG.md`,
-   `CREDITS.md` and `README.md` commits. `git log upstream/main..<branch>`
-   must show nothing else before a branch is handed to the operator.
+3. **Upstream is merged into `main` by a recorded stage, never rebased
+   onto, and only when the operator decides to.** `main` is the only
+   branch; no `pr/*` branches are kept, and pushes go to `origin` only
+   (the `upstream` remote is read-only). A merge stage is named by the
+   operator, runs on the model class the protocol assigns it, resolves
+   conflicts in favour of the fork's own files, and ends with the gate
+   judged under D13 and a handoff.
 4. **graft's promise is an exact locator.** Every node this fork adds
    carries a span that `--source` can print verbatim: a `file:line` span
    in the file itself, or a span into a cached text rendering whose

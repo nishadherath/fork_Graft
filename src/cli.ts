@@ -2670,6 +2670,9 @@ function statusCommand(name = "status"): Command {
     });
 }
 
+// Both brands: under graft it sits beside `stats`, which keeps its own meaning there.
+if (!TRAIL) program.addCommand(statusCommand());
+
 if (TRAIL) {
   for (const c of [teamCheckCommand(), teamCommand()]) program.addCommand(c.helpGroup(GROUP.memory));
   // Signing in waits until it gives a team more than committing .trail/ does.

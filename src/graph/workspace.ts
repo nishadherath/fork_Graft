@@ -23,7 +23,7 @@
  */
 import { join } from "node:path";
 import { contextDirFor } from "../context/node-file.js";
-import { checkGraph } from "./check.js";
+import { cardDriftPaths, checkGraph, formatCardDriftWarning } from "./check.js";
 import { loadGraphCached } from "./load.js";
 import { buildRepoMap, formatRepoMap } from "./map.js";
 import { discoverWorkspaceChildren } from "./scopes.js";
@@ -564,7 +564,10 @@ export function federateMap(
 }
 
 /** Per-child drift status. `ok` is false when any BUILT child is stale — an
- * unbuilt child is surfaced (coverage), never a failure. */
+ * unbuilt child is surfaced (coverage), never a failure. Card drift alone keeps `ok`
+ * false (so `graft check` exits 1 at a workspace parent as it does in one repository)
+ * but reads as an OK line with the D14 warning under it, as the single-repo report
+ * and the MCP freshness tool spell it; before this, it printed `STALE ()`. */
 export async function federateCheck(
   root: string,
   override?: string,
@@ -576,6 +579,9 @@ export async function federateCheck(
     const g = await checkGraph(join(root, child));
     if (g.ok) {
       lines.push(`${child}/: OK`);
+    } else if (g.inSync) {
+      ok = false;
+      lines.push(`${child}/: OK`, `  ${formatCardDriftWarning(g.cards)}`);
     } else {
       ok = false;
       const bits: string[] = [];
@@ -583,6 +589,8 @@ export async function federateCheck(
       if (g.removed.length) bits.push(`${g.removed.length} removed`);
       if (g.changed.length) bits.push(`${g.changed.length} changed`);
       if (g.stale.length) bits.push(`${g.stale.length} stale`);
+      const cards = cardDriftPaths(g.cards).length;
+      if (cards) bits.push(`${cards} card${cards === 1 ? "" : "s"}`);
       lines.push(`${child}/: STALE (${bits.join(", ")})`);
     }
   }

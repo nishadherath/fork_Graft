@@ -197,6 +197,15 @@ export function cardDriftPaths(c: CardDrift | undefined): string[] {
   return [...c.missing, ...c.stale, ...c.orphan, ...(c.index ? ["INDEX.md"] : [])];
 }
 
+/** The D14 warning line for card drift, or null when the cards agree with the wiring. One
+ * spelling for the single-repo report, the workspace check and the MCP freshness tool. */
+export function formatCardDriftWarning(c: CardDrift | undefined): string | null {
+  const paths = cardDriftPaths(c);
+  if (paths.length === 0) return null;
+  const shown = paths.slice(0, PENDING_SAMPLE).join(", ") + (paths.length > PENDING_SAMPLE ? `, … +${paths.length - PENDING_SAMPLE} more` : "");
+  return `warning: ${paths.length} card file(s) out of step with the wiring (${shown}). The Stop hook rewrites them at the end of the turn; or run \`${cmd("graft build")}\`.`;
+}
+
 export interface GraphCheckFormatOptions {
   /** Report card drift as a warning line under an OK verdict when the wiring is in sync
    * (D14). Without it, card drift reads STALE, as `graft check` prints it. */
@@ -206,11 +215,7 @@ export interface GraphCheckFormatOptions {
 /** Render a graph-check result as a human-readable report. */
 export function formatGraphCheckReport(r: GraphCheckResult, opts: GraphCheckFormatOptions = {}): string {
   if (opts.cardsAsWarning && r.inSync && !r.ok) {
-    const ok = formatGraphCheckReport({ ...r, ok: true });
-    const paths = cardDriftPaths(r.cards);
-    const shown = paths.slice(0, PENDING_SAMPLE).join(", ") + (paths.length > PENDING_SAMPLE ? `, … +${paths.length - PENDING_SAMPLE} more` : "");
-    return `${ok}
-warning: ${paths.length} card file(s) out of step with the wiring (${shown}). The Stop hook rewrites them at the end of the turn; or run \`${cmd("graft build")}\`.`;
+    return `${formatGraphCheckReport({ ...r, ok: true })}\n${formatCardDriftWarning(r.cards)}`;
   }
   if (r.missing) {
     return `graph check: NO GRAPH\n\nNo graft/.graph/wiring.json found. Run \`${cmd("graft build")}\` first.`;

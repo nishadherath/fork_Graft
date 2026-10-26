@@ -10,12 +10,16 @@
  *
  * Enumerating the files here instead means `npm test` behaves identically in
  * cmd.exe, PowerShell, bash and CI, on any supported Node.
+ *
+ * One gate runs at a time per machine: the run takes the lock in `gate-lock.mjs` first and
+ * waits while another gate holds it (a killed gate's lock is taken over once its pid is gone).
  */
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { acquireGateLock, releaseGateLock } from "./gate-lock.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const testDir = join(repoRoot, "test");
@@ -43,6 +47,22 @@ const gitEnv = {
   GIT_CONFIG_KEY_0: "commit.gpgsign", GIT_CONFIG_VALUE_0: "false",
   GIT_CONFIG_KEY_1: "tag.gpgsign", GIT_CONFIG_VALUE_1: "false",
 };
+
+// Two suites at once starve the MCP and CLI tests into timeouts, so wait for any other gate.
+// GRAFT_GATE_LOCK_TIMEOUT_MS bounds the wait (default: for ever); the lock folder is
+// GRAFT_GATE_LOCK_DIR (see gate-lock.mjs).
+let lock;
+try {
+  lock = await acquireGateLock({
+    timeoutMs: Number(process.env.GRAFT_GATE_LOCK_TIMEOUT_MS) || Infinity,
+    onWait: (m) => console.error(`… ${m}`),
+    onStale: (m) => console.error(`! ${m}`),
+  });
+} catch (e) {
+  console.error(`✗ ${e.message}`);
+  process.exit(1);
+}
+process.on("exit", () => releaseGateLock(lock));
 
 // Tests make thousands of scratch repos and homes under the temp folder and
 // don't all remove them: a day of runs left over 50,000 folders (6 GB). Give the

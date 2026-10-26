@@ -16,12 +16,16 @@
  * global `dist/` that the fork no longer builds are removed, so a renamed
  * module cannot leave a stale twin behind. `--dry-run` reports without writing.
  *
+ * After the copy, `sync-global-checks.mjs` reports missing optional converters and the
+ * Kotlin grammar binary, with the step that fixes each. Those lines never fail the sync.
+ *
  *   node scripts/sync-global.mjs [--dry-run]
  */
 import { execSync, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkGlobalInstall } from "./sync-global-checks.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const forkRoot = resolve(here, "..");
@@ -110,3 +114,8 @@ if (!dryRun) {
   if (version !== forkPkg.version) fail(`the synced CLI answers "${version}", expected ${forkPkg.version}`);
   console.log(`sync-global: global graft answers --version ${version}`);
 }
+
+// Read-only, so they run in a dry run too; they report the install as it is now.
+const report = checkGlobalInstall({ target, forkRoot, forkPkg });
+for (const line of report.lines) console.log(line);
+if (dryRun) console.log("sync-global: dry run, nothing written");

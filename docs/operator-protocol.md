@@ -236,6 +236,10 @@ about the operator's machine and this repository, not preferences.
   global install and checks the versions agree. Nothing in the global
   install is edited by hand any more; the old `patch/patch_graft_crux.py`
   is retired because its fix is in `src/ai/crux.ts` with a test.
+  After the copy, the sync reports the install (2026-10-26): each optional converter
+  missing from the global `node_modules`, with the reinstall command the next bullet
+  describes, and whether `tree-sitter-kotlin/build/Release` holds a `.node` binary, with
+  the copy step below if not. These lines never fail the sync; `--dry-run` prints them too.
 - **A merge that changes the base release needs a reinstall first.**
   `sync-global` refuses when the base releases differ, because the global
   `node_modules` would not match the new code (0.21.1 to 0.23.0 moved

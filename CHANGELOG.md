@@ -58,6 +58,13 @@
   `cleanSubject` from `notes/edit-overlap.ts`, which loads the builder; the helper now
   lives in `notes/flatten.ts`, and `edit-overlap.ts` re-exports it.
 
+### Added
+
+- **`scripts/sync-global` reports the global install after it copies.** It names each
+  optional converter missing from the global `node_modules` with the reinstall command,
+  and says whether the Kotlin grammar binary is there, naming the copy step if not. The
+  lines never fail the sync; `--dry-run` runs them too and writes nothing.
+
 ## 0.25.0
 
 ### Added

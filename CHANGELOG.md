@@ -45,6 +45,12 @@
   left them behind for good.
 - **The concept listing no longer lists a root card for a file without an extension**
   (`Dockerfile`, `Makefile`) once that file has left the wiring.
+- **A `--dir` on another Windows drive no longer writes into the repository's ignore
+  files.** `graft build --dir C:/elsewhere/out` from a repository on `D:` appended
+  `/C:/elsewhere/out/` to `.gitignore` and three lines to `.ignore`, because a path on
+  another drive has no relative form and the outside-the-repository check only looked for
+  a leading `..`. Both writers now treat any dir that is not strictly inside the repository
+  as outside.
 
 ## 0.25.0-nishadherath
 

@@ -17,7 +17,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { answerRank, checkAnswers, checkQuestionSet, summarise } from "./retrieval-eval-score.mjs";
+import { answerRank, checkQuestionSet, resolveAnswers, summarise } from "./retrieval-eval-score.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cli = join(repoRoot, "dist", "cli.js");
@@ -50,12 +50,13 @@ if (!existsSync(wiringPath)) {
 const graph = JSON.parse(readFileSync(wiringPath, "utf8"));
 const manifestPath = join(contextDir, "manifest.json");
 const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf8")) : null;
-const { questions } = JSON.parse(readFileSync(questionsPath, "utf8"));
+const recorded = JSON.parse(readFileSync(questionsPath, "utf8")).questions;
 
-// The set must still match the source, and the graph must hold each answer where the set says;
-// either kind of drift is reported, so a miss is never a stale answer in disguise.
+// Each answer is scored at the span its symbol has in this graph, so an edit above a pinned
+// symbol does not turn a hit into a miss. A moved answer is reported beside the recorded span;
+// a symbol the graph lacks is a fault in the set, and the set must still match the source.
+const { questions, moved: answersMoved, missing: answerProblems } = resolveAnswers(recorded, graph);
 const setProblems = checkQuestionSet(questions, repoRoot);
-const answerProblems = checkAnswers(questions, graph);
 
 const summaryStates = {};
 for (const n of graph.nodes) if (n.summary_state) summaryStates[n.summary_state] = (summaryStates[n.summary_state] ?? 0) + 1;
@@ -78,7 +79,7 @@ const results = questions.map((q) => {
 });
 const summary = summarise(results);
 
-const report = { label, contextDir, limit: Number(limit), facts, setProblems, answerProblems, summary, results };
+const report = { label, contextDir, limit: Number(limit), facts, setProblems, answerProblems, answersMoved, summary, results };
 if (saveTo) writeFileSync(saveTo, JSON.stringify(report, null, 2) + "\n");
 if (json) {
   console.log(JSON.stringify(report, null, 2));
@@ -94,6 +95,7 @@ if (json) {
     `  questions: ${questions.length}, ask limit ${limit}, --no-refresh`,
     ...setProblems.map((p) => `  ! question set: ${p}`),
     ...answerProblems.map((p) => `  ! answer ${p.id}: ${p.symbol} ${p.problem}`),
+    ...answersMoved.map((m) => `  ~ answer ${m.id}: ${m.symbol} recorded ${m.recorded}, scored at ${m.now}`),
     "",
     "  span  file  question",
     ...results.map((r) => `  ${String(r.span ?? "-").padStart(4)}  ${String(r.file ?? "-").padStart(4)}  ${r.id}`),

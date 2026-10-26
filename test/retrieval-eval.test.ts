@@ -7,13 +7,15 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { buildGraph } from "../src/graph/build.js";
 import {
   answerRank,
-  checkAnswers,
   checkQuestionSet,
   parsePointer,
+  resolveAnswers,
   summarise,
   wilson,
 } from "../scripts/retrieval-eval-score.mjs";
@@ -78,7 +80,7 @@ test("summarise counts hit-at-1, hit-at-3 and the file rate at 3", () => {
   assert.equal(s.hitAt3.rate, 0.5);
 });
 
-test("checkAnswers names an answer whose node is gone or has moved", () => {
+test("resolveAnswers takes each span from the graph and names what moved or is gone", () => {
   const graph = {
     nodes: [
       { id: "src/a.ts#f", path: "src/a.ts", span: "L10-L20" },
@@ -90,10 +92,12 @@ test("checkAnswers names an answer whose node is gone or has moved", () => {
     { id: "moved", answers: [{ symbol: "src/c.ts#g", file: "src/c.ts", span: "L1-L5" }] },
     { id: "gone", answers: [{ symbol: "src/d.ts#h", file: "src/d.ts", span: "L1-L2" }] },
   ];
-  assert.deepEqual(checkAnswers(questions, graph), [
-    { id: "moved", symbol: "src/c.ts#g", problem: "now at L2-L6" },
-    { id: "gone", symbol: "src/d.ts#h", problem: "not in the graph" },
-  ]);
+  const r = resolveAnswers(questions, graph);
+  assert.deepEqual(r.moved, [{ id: "moved", symbol: "src/c.ts#g", recorded: "L1-L5", now: "L2-L6" }]);
+  assert.deepEqual(r.missing, [{ id: "gone", symbol: "src/d.ts#h", problem: "not in the graph" }]);
+  assert.equal(r.questions[1].answers[0].span, "L2-L6");
+  assert.equal(r.questions[2].answers[0].span, "L1-L2", "a missing node keeps its recorded span");
+  assert.equal(questions[1].answers[0].span, "L1-L5", "the input is not changed");
 });
 
 test("checkQuestionSet names a span that no longer starts at its definition", () => {
@@ -108,8 +112,49 @@ test("checkQuestionSet names a span that no longer starts at its definition", ()
   ]);
 });
 
-test("the checked-in question set is twenty questions whose spans match the source", () => {
+/** The graph of just the files the answers name, copied to a scratch folder: a symbol's span
+ * depends on its file alone, so this resolves the same spans as the whole repository's map. */
+async function graphOfAnswerFiles(questions: { answers: { file: string }[] }[], root: string) {
+  const dir = mkdtempSync(join(tmpdir(), "graft-eval-set-"));
+  try {
+    for (const f of new Set(questions.flatMap((q) => q.answers.map((a) => a.file)))) {
+      mkdirSync(dirname(join(dir, f)), { recursive: true });
+      cpSync(join(root, f), join(dir, f));
+    }
+    const outDir = join(dir, "graft");
+    await buildGraph(dir, { contextDir: outDir, reuse: false });
+    return JSON.parse(readFileSync(join(outDir, ".graph", "wiring.json"), "utf8"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("an edit above a pinned symbol moves its lines without failing the set", async () => {
+  const root = mkdtempSync(join(tmpdir(), "graft-eval-moved-"));
+  try {
+    mkdirSync(join(root, "src"), { recursive: true });
+    // two lines above `util` that the recorded span (L1-L3) predates
+    writeFileSync(
+      join(root, "src", "util.ts"),
+      'import { a } from "./a.js";\nimport { b } from "./b.js";\nexport function util(): number {\n  return 1;\n}\n',
+    );
+    const questions = [{ id: "u", question: "q", answers: [{ symbol: "src/util.ts#util", file: "src/util.ts", span: "L1-L3" }] }];
+    assert.notDeepEqual(checkQuestionSet(questions, root), [], "the recorded span no longer starts at the definition");
+    const r = resolveAnswers(questions, await graphOfAnswerFiles(questions, root));
+    assert.deepEqual(r.missing, []);
+    assert.deepEqual(r.moved, [{ id: "u", symbol: "src/util.ts#util", recorded: "L1-L3", now: "L3-L5" }]);
+    assert.deepEqual(checkQuestionSet(r.questions, root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the checked-in question set is twenty questions whose symbols all resolve in the source", async (t) => {
   const set = JSON.parse(readFileSync(join(repoRoot, ".eval", "retrieval-questions.json"), "utf8"));
   assert.equal(set.questions.length, 20);
-  assert.deepEqual(checkQuestionSet(set.questions, repoRoot), []);
+  const r = resolveAnswers(set.questions, await graphOfAnswerFiles(set.questions, repoRoot));
+  assert.deepEqual(r.missing, []);
+  assert.deepEqual(checkQuestionSet(r.questions, repoRoot), []);
+  // an edit above a pinned symbol is reported, not failed: the recorded span stays as it was
+  for (const m of r.moved) t.diagnostic(`${m.id}: ${m.symbol} recorded ${m.recorded}, now ${m.now}`);
 });

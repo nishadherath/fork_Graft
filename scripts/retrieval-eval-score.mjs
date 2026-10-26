@@ -81,20 +81,33 @@ export function summarise(ranks) {
 }
 
 /**
- * Answers whose node is missing from `graph` or sits at another span there, so a run against a
- * graph built from different code reports the drift instead of scoring it as a miss.
+ * The question set with each answer's span taken from its symbol's node in `graph`, so an edit
+ * above a pinned symbol moves the answer with it instead of scoring a miss. The span stored in
+ * the set stays as the recorded answer: `moved` lists where the graph now differs from it, and
+ * `missing` the answers whose node is gone or sits in another file (these keep the recorded
+ * span; a renamed or deleted symbol is a real fault in the set). The input is not changed.
  */
-export function checkAnswers(questions, graph) {
+export function resolveAnswers(questions, graph) {
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
-  const problems = [];
-  for (const q of questions)
-    for (const a of q.answers) {
+  const moved = [];
+  const missing = [];
+  const resolved = questions.map((q) => ({
+    ...q,
+    answers: q.answers.map((a) => {
       const node = byId.get(a.symbol);
-      if (!node) problems.push({ id: q.id, symbol: a.symbol, problem: "not in the graph" });
-      else if (node.path !== a.file || node.span !== a.span)
-        problems.push({ id: q.id, symbol: a.symbol, problem: `now at ${node.span}` });
-    }
-  return problems;
+      if (!node) {
+        missing.push({ id: q.id, symbol: a.symbol, problem: "not in the graph" });
+        return a;
+      }
+      if (node.path !== a.file) {
+        missing.push({ id: q.id, symbol: a.symbol, problem: `now in ${node.path}` });
+        return a;
+      }
+      if (node.span !== a.span) moved.push({ id: q.id, symbol: a.symbol, recorded: a.span, now: node.span });
+      return { ...a, span: node.span };
+    }),
+  }));
+  return { questions: resolved, moved, missing };
 }
 
 /** A file's lines as graft counts them: a trailing newline leaves one more, empty, line,

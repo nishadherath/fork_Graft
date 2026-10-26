@@ -45,8 +45,9 @@ with a test that fails first, pass the gate under D13 (by name against
    ended its progress with `summarizing 1/0: lsp:none` (`node dist/cli.js build .` in any repo,
    stderr). `GraphBuildResult.lsp` now carries `{ server, ready, added, queried }` and the CLI
    prints one `lsp:` line. Test `test/lsp-build-summary.test.ts` (failed first, 2 of 2).
-3. **Medium, operator's machine, not code.** The startup budget is not met today and the global
-   copy is twice as slow as the fork's identical bytes. Three interleaved rounds, bash wall clock:
+3. **Low, closed by the operator (transient machine load, no action).** The startup budget was
+   not met on the day and the global copy ran at twice the fork's identical bytes. Three
+   interleaved rounds, bash wall clock:
    `node -e 0` 0.71, 0.93, 1.34 s; fork `dist/cli.js --version` 2.77, 2.32, 2.51 s; global
    `dist/cli.js --version` 4.55, 4.91, 5.64 s; `graft.cmd --version` 6.31, 4.73, 5.58 s;
    `ask --no-refresh -n 1` fork 2.35 to 2.86 s, shim 5.85 to 6.73 s. `cmp` shows the two
@@ -54,7 +55,9 @@ with a test that fails first, pass the gate under D13 (by name against
    29.7 MB `dist/` with `cat` takes 0.46 to 0.59 s on `D:` and 1.77 to 2.08 s on `C:` (two
    NVMe disks of the same model). The 0.21 to 1.4 s claims of Stage 18r were made with
    `node -e 0` at 0.38 to 0.65 s; the per-command loading itself holds (startup test passes).
-   Decision for the operator below.
+   The operator read the numbers as transient load on the machine and withdrew the decision
+   this finding had raised (it was numbered D15 here; the Stage 21 handoff's D15, the SCSS
+   question, and its D16 keep their numbers).
 4. **Low, reported.** The Stage 18r patch does not apply upstream as it stands:
    `git cherry-pick --no-commit 24608e3` onto `4e7d0f5` conflicts in `CHANGELOG.md` (1 hunk),
    `src/engine.ts` (4) and `src/cli.ts` (9). The engine hunks carry the fork's metered usage and
@@ -115,27 +118,18 @@ with a test that fails first, pass the gate under D13 (by name against
 
 ## Unresolved questions
 
-```
-D15 Decision:      the global install's startup on this machine
-    Options:       A move the nvm4w Node root (and so the global graft) to D:
-                   B add a Defender exclusion for C:\nvm4w (needs an administrator;
-                     Get-MpPreference refused to list exclusions here)
-                   C accept 5 to 6 s per shim call
-    Pros and cons: A halves every graft call from any repository, one-time nvm reinstall;
-                   B same effect if scanning is the cause (unproven: the disks are the same
-                     model, so a scan is the likely difference); C nothing to do
-    Blast radius:  A every global npm package and PATH entry; B security posture of C:;
-                   C every agent session pays 3 s extra per graft call
-    Recommended:   B first (reversible, confirms the cause), then A if B is refused.
-```
-
 - Operator: name the shared notes folder for `gate.lock`, or drop that clause from the kickoff
   prompts; the process-list check is what works today.
-- Later stage (21): re-derive the per-command loading on `upstream/main`.
+- Later stage (21): re-derive the per-command loading on `upstream/main` (finding 4).
+- A small follow-up stage for finding 6 (symbol-resolved question pins); kickoff in the Stage 23
+  report of 2026-10-26.
+- Finding 7: whether `status` should exist under the graft brand so D14's status row can be
+  read from the global install, or whether D14's text should drop the status claim.
 
 ## Exact next action
 
-Operator decides D15. Then Stage 21 continues as its handoff says (Sonnet 5.5, high).
+Stage 21 continues as its handoff says (Sonnet 5.5, high) once the operator answers its D15
+(SCSS) and D16 (push). Stage 23 is the roadmap's last stage; nothing else in section 6 is open.
 
 ## Cost projection
 

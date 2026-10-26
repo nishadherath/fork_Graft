@@ -3,10 +3,12 @@ Subject: [Advisory] @nanonets/graft: "graft init" writes an unpinned "npx -y" MC
 Date:     2026-10-15
 Product:  @nanonets/graft (Graft), MIT licence
 Upstream: https://github.com/trailhq/Trail-Code (renamed from NanoNets/context-graph-engine)
-Versions: 0.21.1 through 0.25.0 (the probe and the fallback are unchanged
+Versions: 0.19.0 through 0.25.0 (the probe and the fallback are unchanged
           from the 0.22.0 release commit d45a801 to upstream main 4e7d0f5,
-          release 0.25.0, checked 2026-10-26). Earlier versions were not
-          tested.
+          release 0.25.0, checked 2026-10-26; tags v0.19.0, v0.20.0 and
+          v0.21.0 carry the same two lines, found by reading the tagged
+          source with git, not by running those releases). Earlier versions
+          were not checked.
 Class:    Supply-chain exposure (CWE-1357, reliance on insufficiently
           trustworthy component; CWE-829, inclusion of functionality from
           untrusted control sphere), plus a logic fault (CWE-754, improper
@@ -196,18 +198,20 @@ form again. A manual correction can therefore revert after an upgrade.
 
 8. PATCH
 
-The patch below was written against upstream main at commit fe30ead. It does
-not apply to upstream main at 4e7d0f5 (release 0.25.0): git apply --check
-fails on CHANGELOG.md, src/hosts/mcp-config.ts and src/upkeep.ts.
+The patch below is against upstream main at commit 4e7d0f5 (release 0.25.0).
+It was tested on 0.25.0: git apply --check passes on 4e7d0f5, and the
+full test suite was run with it applied (section 9). An earlier form of this
+patch, written against fe30ead, no longer applies and is replaced by this one.
 It makes two changes:
 
-a) It replaces the spawn check with a file system search of PATH. The search
-   uses PATHEXT on Windows and the execute bit on POSIX. It does not start a
+a) It replaces the spawn check with a file system search of PATH. Upstream
+   already has such a search, commandOnPath() in src/brand.ts, which the
+   trail brand uses; graft now uses the same function. It does not start a
    process. It has no time limit and no shell.
 
-b) It pins the "npx" fallback to the running Graft version:
-   "@nanonets/graft@<version>". If the version cannot be read (0.0.0), the
-   fallback stays unpinned.
+b) It pins the "npx" fallback to the running version, for both brands:
+   "@nanonets/graft@<version>" and "@trailhq/trail-code@<version>". If the
+   version cannot be read (0.0.0), the fallback stays unpinned.
 
 The runningVersion() function moves from src/upkeep.ts to src/cli-meta.ts.
 This avoids an import cycle. src/upkeep.ts exports the function again, so
@@ -226,7 +230,7 @@ lines. Then run:
 
 ----- BEGIN PATCH graft-mcp-launcher.patch -----
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 5ef248a..deea42c 100644
+index fa8ca95..d9b8e5b 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -1,5 +1,11 @@
@@ -236,16 +240,16 @@ index 5ef248a..deea42c 100644
 +
 +### Fixed
 +
-+- **The MCP launcher probe works on Windows, and the `npx` fallback is pinned.** The probe spawned `graft` without a shell, which cannot see the `graft.cmd` shim, so `npx -y @nanonets/graft mcp` was written on every init and refresh. It is now a filesystem PATH lookup (`PATHEXT` on Windows, executable bit on POSIX). The fallback is now `@nanonets/graft@<running version>`, so it no longer runs whatever the registry serves at that moment.
++- **The MCP launcher probe works on Windows, and the `npx` fallback is pinned.** The probe spawned `graft` without a shell, which cannot start the `graft.cmd` shim, so `npx -y @nanonets/graft mcp` was written on every init and refresh. It is now a PATH lookup that starts no process (the one `trail` already used). The fallback, for both names, is now pinned to the running version (`@nanonets/graft@<version>`, `@trailhq/trail-code@<version>`), so it no longer runs whatever the registry serves at that moment.
 +
- ## 0.19.0
+ ## 0.25.0
  
  ### Added
 diff --git a/src/cli-meta.ts b/src/cli-meta.ts
-index f9cad44..59da844 100644
+index b8e559c..1b75d50 100644
 --- a/src/cli-meta.ts
 +++ b/src/cli-meta.ts
-@@ -31,6 +31,20 @@ export function readCurrentVersion(moduleUrl: string): string {
+@@ -46,6 +46,20 @@ export function readCurrentVersion(moduleUrl: string): string {
    return pkg.version ?? "0.0.0";
  }
  
@@ -267,99 +271,81 @@ index f9cad44..59da844 100644
   * `~/.npm/_npx/<hash>/node_modules/...`) rather than a regular global install.
   *
 diff --git a/src/hosts/mcp-config.ts b/src/hosts/mcp-config.ts
-index 111da50..1b07c41 100644
+index cf53817..08230df 100644
 --- a/src/hosts/mcp-config.ts
 +++ b/src/hosts/mcp-config.ts
-@@ -8,11 +8,11 @@
+@@ -8,12 +8,12 @@
   * `registerMcpConfigs()` walks that same list to do the writing.
   */
  import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
 -import { spawnSync } from 'node:child_process';
--import { dirname, join } from 'node:path';
-+import { dirname, delimiter, join } from 'node:path';
+ import { dirname, join } from 'node:path';
  import { homedir } from 'node:os';
  import type { PlannedWrite } from './plan.js';
  import { readJsonObject, type ConfigWrite } from './config-write.js';
+-import { trailOnPath, type Brand } from '../brand.js';
++import { commandOnPath, trailOnPath, PACKAGE_FOR, type Brand } from '../brand.js';
 +import { runningVersion } from '../cli-meta.js';
  
  /** MCP registration reports the same write-result record every installer does. */
  export type McpWrite = ConfigWrite;
-@@ -43,12 +43,50 @@ export interface McpTarget extends PlannedWrite {
+@@ -46,16 +46,28 @@ export interface McpTarget extends PlannedWrite {
   * bare `graft` works on any machine that has it installed; `npx` remains the
   * fallback for machines that don't.
   */
 -const NPX_LAUNCH = { command: 'npx', args: ['-y', '@nanonets/graft', 'mcp'] };
-+const PACKAGE = '@nanonets/graft';
  const BIN_LAUNCH = { command: 'graft', args: ['mcp'] };
-+/** Windows' own default when PATHEXT is unset. */
-+const DEFAULT_PATHEXT = '.COM;.EXE;.BAT;.CMD';
-+
+ // The same server under trail's name, for a repo that uses trail: its tools are
+ // `trail_*` (and it still answers `graft_*`).
+-const TRAIL_NPX_LAUNCH = { command: 'npx', args: ['-y', '@trailhq/trail-code', 'mcp'] };
+ const TRAIL_BIN_LAUNCH = { command: 'trail', args: ['mcp'] };
+ 
 +/**
 + * The `npx` fallback, pinned to the running version. An unpinned `npx -y` runs
 + * whatever the registry serves at that moment, on every session start. An
 + * unreadable version (`0.0.0`) stays unpinned.
 + */
-+function npxLaunch(): { command: string; args: string[] } {
++function npxLaunch(pkg: string): { command: string; args: string[] } {
 +  const v = runningVersion();
-+  return { command: 'npx', args: ['-y', v === '0.0.0' ? PACKAGE : `${PACKAGE}@${v}`, 'mcp'] };
++  return { command: 'npx', args: ['-y', v === '0.0.0' ? pkg : `${pkg}@${v}`, 'mcp'] };
 +}
 +
 +/**
-+ * Filesystem PATH lookup. A spawn cannot do this on Windows: the global `graft` is
-+ * a `graft.cmd` shim, which a shell-less spawn reports as ENOENT, so the old
-+ * probe always failed there. Returns the first match, or undefined.
++ * A path lookup, not a spawn: the global `graft` is a `graft.cmd` shim on Windows,
++ * which a shell-less spawn cannot start, so the old `graft --version` probe failed
++ * there every time and the unpinned `npx` form was written instead.
 + */
-+export function findOnPath(
-+  name: string,
-+  env: NodeJS.ProcessEnv = process.env,
-+  platform: NodeJS.Platform = process.platform,
-+): string | undefined {
-+  const win = platform === 'win32';
-+  const dirs = (win ? (env.PATH ?? env.Path ?? '') : (env.PATH ?? '')).split(win ? ';' : delimiter).filter(Boolean);
-+  const exts = win
-+    ? ['', ...(env.PATHEXT ?? DEFAULT_PATHEXT).split(';').filter(Boolean)].map((e) => e.toLowerCase())
-+    : [''];
-+  for (const dir of dirs) {
-+    for (const ext of exts) {
-+      const candidate = join(dir.replace(/^"|"$/g, ''), name + ext);
-+      try {
-+        const s = statSync(candidate);
-+        if (s.isFile() && (win || (s.mode & 0o111) !== 0)) return candidate;
-+      } catch { /* not here */ }
-+    }
-+  }
-+  return undefined;
-+}
- 
  function graftOnPath(): boolean {
 -  const r = spawnSync('graft', ['--version'], { stdio: 'ignore', timeout: 5000 });
 -  return r.status === 0;
-+  return findOnPath('graft') !== undefined;
++  return commandOnPath('graft');
  }
  
  /**
-@@ -61,8 +99,8 @@ function graftOnPath(): boolean {
-  */
- export function serverEntry(opts: { onPath?: boolean } = {}): { command: string; args: string[] } {
+@@ -69,9 +81,9 @@ function graftOnPath(): boolean {
+ export function serverEntry(opts: { onPath?: boolean; brand?: 'graft' | 'trail' } = {}): { command: string; args: string[] } {
+   const trail = opts.brand === 'trail';
    const forced = process.env.GRAFT_MCP_NPX;
--  if (forced !== undefined && forced !== '' && forced !== '0' && forced !== 'false') return NPX_LAUNCH;
+-  if (forced !== undefined && forced !== '' && forced !== '0' && forced !== 'false') return trail ? TRAIL_NPX_LAUNCH : NPX_LAUNCH;
+-  if (trail) return (opts.onPath ?? trailOnPath()) ? TRAIL_BIN_LAUNCH : TRAIL_NPX_LAUNCH;
 -  return (opts.onPath ?? graftOnPath()) ? BIN_LAUNCH : NPX_LAUNCH;
-+  if (forced !== undefined && forced !== '' && forced !== '0' && forced !== 'false') return npxLaunch();
-+  return (opts.onPath ?? graftOnPath()) ? BIN_LAUNCH : npxLaunch();
++  if (forced !== undefined && forced !== '' && forced !== '0' && forced !== 'false') return npxLaunch(PACKAGE_FOR[trail ? 'trail' : 'graft']);
++  if (trail) return (opts.onPath ?? trailOnPath()) ? TRAIL_BIN_LAUNCH : npxLaunch(PACKAGE_FOR.trail);
++  return (opts.onPath ?? graftOnPath()) ? BIN_LAUNCH : npxLaunch(PACKAGE_FOR.graft);
  }
  
  
 diff --git a/src/upkeep.ts b/src/upkeep.ts
-index 132fb28..5661ab4 100644
+index 41ea785..cc1f272 100644
 --- a/src/upkeep.ts
 +++ b/src/upkeep.ts
 @@ -31,23 +31,11 @@ import { homedir } from 'node:os';
  import { readJson, writeJsonAtomic, cacheDir } from './util/state.js';
- import { HOSTS } from './hosts/registry.js';
- import { START } from './hosts/sections.js';
+ import { HOSTS, hostRelPath } from './hosts/registry.js';
+ import { markersFor } from './hosts/sections.js';
 -import { getNpmViewVersion, readCurrentVersion } from './cli-meta.js';
 +import { getNpmViewVersion, runningVersion } from './cli-meta.js';
- import { cacheIsStale, markRulesChecked, readLink, readRulesCache } from './brain/link.js';
+ import { brand } from './brand.js';
  import { graftCliPath } from './claude/paths.js';
  
 -/**
@@ -380,7 +366,7 @@ index 132fb28..5661ab4 100644
  /** How long a registry answer is considered current. A day: graft ships far less
   * often than that, and this is a nudge, not a security update. */
 diff --git a/test/hosts-mcp-config.test.ts b/test/hosts-mcp-config.test.ts
-index f659667..6fd8827 100644
+index f659667..8fe62ce 100644
 --- a/test/hosts-mcp-config.test.ts
 +++ b/test/hosts-mcp-config.test.ts
 @@ -4,10 +4,11 @@ import assert from 'node:assert/strict';
@@ -391,8 +377,7 @@ index f659667..6fd8827 100644
 +import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, chmodSync } from 'node:fs';
  import { tmpdir } from 'node:os';
  import { join } from 'node:path';
--import { registerMcpConfigs, serverEntry } from '../src/hosts/mcp-config.js';
-+import { registerMcpConfigs, serverEntry, findOnPath } from '../src/hosts/mcp-config.js';
+ import { registerMcpConfigs, serverEntry } from '../src/hosts/mcp-config.js';
 +import { runningVersion } from '../src/cli-meta.js';
  
  function fresh(): string { return mkdtempSync(join(tmpdir(), 'graft-mcpcfg-')); }
@@ -433,42 +418,27 @@ index f659667..6fd8827 100644
      for (const e of [serverEntry({ onPath: true }), serverEntry({ onPath: false })]) {
        assert.ok(!e.command.startsWith('/'), 'never an absolute path — configs get shared');
      }
-@@ -106,6 +107,43 @@ test('serverEntry prefers the installed binary and falls back to npx', () => {
+@@ -106,6 +107,28 @@ test('serverEntry prefers the installed binary and falls back to npx', () => {
    }
  });
  
-+test('findOnPath finds a graft.cmd shim on win32 and honours PATHEXT', () => {
-+  const dir = fresh();
-+  writeFileSync(join(dir, 'graft.cmd'), '@echo off\r\n');
-+  assert.equal(findOnPath('graft', { PATH: dir, PATHEXT: '.CMD' }, 'win32'), join(dir, 'graft.cmd'));
-+  assert.equal(findOnPath('graft', { PATH: dir, PATHEXT: '.EXE' }, 'win32'), undefined);
-+  assert.equal(findOnPath('graft', { PATH: fresh() }, 'win32'), undefined);
-+});
-+
-+test('findOnPath requires the executable bit on POSIX', () => {
-+  const dir = fresh();
-+  writeFileSync(join(dir, 'graft'), '#!/bin/sh\n');
-+  chmodSync(join(dir, 'graft'), 0o644);
-+  assert.equal(findOnPath('graft', { PATH: dir }, 'linux'), undefined);
-+  chmodSync(join(dir, 'graft'), 0o755);
-+  if (process.platform !== 'win32') assert.equal(findOnPath('graft', { PATH: dir }, 'linux'), join(dir, 'graft'));
-+});
-+
-+test('serverEntry finds a graft shim on PATH without spawning', () => {
-+  const saved = { npx: process.env.GRAFT_MCP_NPX, path: process.env.PATH, Path: process.env.Path };
++test('serverEntry finds a graft shim on PATH without spawning it', () => {
++  const saved = { npx: process.env.GRAFT_MCP_NPX, path: process.env.PATH };
 +  delete process.env.GRAFT_MCP_NPX;
 +  const bin = fresh();
 +  try {
 +    const win = process.platform === 'win32';
 +    const shim = join(bin, win ? 'graft.cmd' : 'graft');
-+    writeFileSync(shim, win ? '@echo off\r\n' : '#!/bin/sh\n');
++    // Never answers `--version` with status 0: only a path lookup can find it.
++    writeFileSync(shim, win ? '@echo off\r\nexit /b 1\r\n' : '#!/bin/sh\nexit 1\n');
 +    if (!win) chmodSync(shim, 0o755);
-+    process.env.PATH = bin; process.env.Path = bin;
++    process.env.PATH = bin;
 +    assert.deepEqual(serverEntry(), { command: 'graft', args: ['mcp'] });
-+    process.env.PATH = fresh(); process.env.Path = process.env.PATH;
++    process.env.PATH = fresh();
 +    assert.deepEqual(serverEntry(), { command: 'npx', args: ['-y', `@nanonets/graft@${runningVersion()}`, 'mcp'] });
++    assert.deepEqual(serverEntry({ brand: 'trail' }), { command: 'npx', args: ['-y', `@trailhq/trail-code@${runningVersion()}`, 'mcp'] });
 +  } finally {
-+    for (const [k, v] of [['GRAFT_MCP_NPX', saved.npx], ['PATH', saved.path], ['Path', saved.Path]] as const) {
++    for (const [k, v] of [['GRAFT_MCP_NPX', saved.npx], ['PATH', saved.path]] as const) {
 +      if (v === undefined) delete process.env[k]; else process.env[k] = v;
 +    }
 +  }
@@ -477,31 +447,83 @@ index f659667..6fd8827 100644
  test('GRAFT_MCP_NPX overrides an installed binary', () => {
    process.env.GRAFT_MCP_NPX = '1';
    assert.equal(serverEntry({ onPath: true }).command, 'npx', 'the escape hatch wins');
+diff --git a/test/hosts-trail.test.ts b/test/hosts-trail.test.ts
+index 755e2be..a6bf042 100644
+--- a/test/hosts-trail.test.ts
++++ b/test/hosts-trail.test.ts
+@@ -108,14 +108,14 @@ test('trail init for every agent: trail-named files, trail commands, a trail ser
+   assert.match(readFileSync(join(repo, '.adal', 'skills', 'trail', 'SKILL.md'), 'utf8'), /^---\nname: trail\n/);
+ 
+   // The MCP server is trail's, under trail's name, in every config.
+-  const npx = { command: 'npx', args: ['-y', '@trailhq/trail-code', 'mcp'] };
++  const npx = { command: 'npx', args: ['-y', `@trailhq/trail-code@${runningVersion()}`, 'mcp'] };
+   for (const rel of [join('.cursor', 'mcp.json'), join('.gemini', 'settings.json'), join('.kiro', 'settings', 'mcp.json')]) {
+     assert.deepEqual(JSON.parse(readFileSync(join(repo, rel), 'utf8')).mcpServers, { trail: npx }, rel);
+   }
+-  assert.deepEqual(JSON.parse(readFileSync(join(repo, 'opencode.json'), 'utf8')).mcp, { trail: { type: 'local', command: ['npx', '-y', '@trailhq/trail-code', 'mcp'], enabled: true } });
++  assert.deepEqual(JSON.parse(readFileSync(join(repo, 'opencode.json'), 'utf8')).mcp, { trail: { type: 'local', command: ['npx', '-y', `@trailhq/trail-code@${runningVersion()}`, 'mcp'], enabled: true } });
+   assert.deepEqual(JSON.parse(readFileSync(join(home, '.gemini', 'config', 'mcp_config.json'), 'utf8')).mcpServers, { trail: npx });
+   for (const toml of [join(repo, '.grok', 'config.toml'), join(home, '.codex', 'config.toml')]) {
+-    assert.equal(readFileSync(toml, 'utf8'), '[mcp_servers.trail]\ncommand = "npx"\nargs = ["-y", "@trailhq/trail-code", "mcp"]\n', toml);
++    assert.equal(readFileSync(toml, 'utf8'), `[mcp_servers.trail]\ncommand = "npx"\nargs = ["-y", "@trailhq/trail-code@${runningVersion()}", "mcp"]\n`, toml);
+   }
+   assert.ok(existsSync(join(home, '.gemini', 'skills', 'trail', 'SKILL.md')));
+   assert.ok(!existsSync(join(home, '.gemini', 'skills', 'graft')));
+diff --git a/test/trail-connect-cli.test.ts b/test/trail-connect-cli.test.ts
+index 09f194c..411cef3 100644
+--- a/test/trail-connect-cli.test.ts
++++ b/test/trail-connect-cli.test.ts
+@@ -16,6 +16,7 @@ import { GOOD_CODE, TOKEN, startFakeTrail, type FakeTrail } from "./fake-trail-s
+ import { writeNote } from "../src/notes/notes.js";
+ import { buildGraph } from "../src/graph/build.js";
+ import { BRAND_ENV } from "../src/brand.js";
++import { runningVersion } from "../src/cli-meta.js";
+ 
+ process.env.DO_NOT_TRACK = "1";
+ process.env[BRAND_ENV] = "trail";
+@@ -223,7 +224,7 @@ test("connected with Claude Code wired, Claude Code gets one user-level trail en
+   assert.equal(r.status, 0, r.stderr);
+   assert.match(r.stderr, /✓ Claude Code gets your workspace's brains in every project · restart it to pick them up$/m);
+   const claudeJson = join(env.HOME!, ".claude.json");
+-  assert.deepEqual(JSON.parse(readFileSync(claudeJson, "utf8")).mcpServers.trail, { command: "npx", args: ["-y", "@trailhq/trail-code", "mcp", "--brains"] });
++  assert.deepEqual(JSON.parse(readFileSync(claudeJson, "utf8")).mcpServers.trail, { command: "npx", args: ["-y", `@trailhq/trail-code@${runningVersion()}`, "mcp", "--brains"] });
+ 
+   // A plain init later keeps it: it isn't the repo-tools server trail stopped giving Claude Code.
+   const again = await run(["init", repo, "--agents", "claude", "--no-build"], env);
 ----- END PATCH -----
 
 
 9. VERIFICATION OF THE PATCH
 
-Run on a clean checkout of upstream main (fe30ead) with the patch applied,
-on Windows 11 with Node.js 26.7.0:
+Run on a clean checkout of upstream main (4e7d0f5, release 0.25.0) with the
+patch applied, on Windows 11 with Node.js 26.7.0 (npm run build, then npm
+test):
 
-- TypeScript type check ("tsc --noEmit"): no errors.
-- Test files test/hosts-mcp-config.test.ts, test/upkeep.test.ts,
-  test/hosts-init.test.ts, test/claude-init.test.ts,
-  test/hosts-retract.test.ts and test/hosts-claude-global.test.ts:
-  105 tests, 105 pass, 0 fail.
+- TypeScript build ("tsc"): no errors.
+- Before the fix, the new and changed tests in test/hosts-mcp-config.test.ts
+  fail (5 of the 10 tests in that file). After the fix, that file and
+  test/hosts-trail.test.ts pass: 19 tests, 19 pass, 0 fail.
+- Full suite with the patch: 4013 tests, 3875 pass, 49 fail, 89 skipped.
+  A run of unmodified 4e7d0f5 on the same machine has 38 known failing tests
+  (timing and environment dependent: hook time budgets, process spawn,
+  workspace paths). Of the 49 failures, 35 have names on that list. The other
+  14 were re-run alone, in their 14 test files (108 tests, 103 pass, 3 fail),
+  and the 3 that fail again are on the list; the other 11 passed. No
+  failure is in a file the patch touches.
 
 The patch adds tests for these cases:
 
-- A directory that holds "graft.cmd" on PATH (Windows) makes serverEntry()
-  return {"command":"graft","args":["mcp"]}.
-- An empty PATH directory makes serverEntry() return the pinned "npx" form.
-- PATHEXT is respected; a file without the execute bit (POSIX) does not match.
+- A directory that holds a "graft" shim on PATH (graft.cmd on Windows, an
+  executable file on POSIX), where the shim exits with status 1 so that only a
+  path search can find it, makes serverEntry() return
+  {"command":"graft","args":["mcp"]}.
+- An empty PATH directory makes serverEntry() return the pinned "npx" form,
+  for both brands.
+- The existing expectations for the "npx" form (cursor, gemini, kiro, codex,
+  grok, opencode, and the trail connect flow) now expect the pinned package.
 
-The full upstream test suite was not run against this patch. Run it before
-you merge. The POSIX branch of the search is tested only through its logic
-on Windows (the execute-bit assertion is skipped there). Run the tests on
-Linux or macOS too.
+The POSIX branch was not run on Linux or macOS. Run the tests there too
+before you merge.
 
 
 10. TIMELINE

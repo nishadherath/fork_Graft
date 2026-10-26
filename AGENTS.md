@@ -104,7 +104,7 @@ that every session applies without being asked:
    analysis instructions are recorded verbatim in the protocol, section
    1.1. A session asked to analyse the project answers them in a dated
    `docs/assessment-YYYY-MM-DD.md`. The newest is
-   `docs/assessment-2026-10-18.md`; the staged roadmap in its section 6
+   `docs/assessment-2026-10-27.md`; the staged roadmap in its section 6
    is the current plan, and its section 7 holds the open decisions.
 
 ## Daily commands

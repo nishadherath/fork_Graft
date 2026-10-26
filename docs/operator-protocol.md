@@ -14,8 +14,8 @@ is binding.
 Recorded exactly as given. The six-question analysis request that
 accompanies them in the operator's standard onboarding message is recorded
 in section 1.1 below. For this fork it was answered on 2026-10-13 by
-`docs/plan-file-type-indexing-2026-10-13.md` and on 2026-10-18 by
-`docs/assessment-2026-10-18.md`; the 2026-10-11 assessment an earlier
+`docs/plan-file-type-indexing-2026-10-13.md`, on 2026-10-18 by
+`docs/assessment-2026-10-18.md` and on 2026-10-27 by `docs/assessment-2026-10-27.md`; the 2026-10-11 assessment an earlier
 version of this paragraph named belongs to the repository this protocol was
 seeded from and does not exist here.
 

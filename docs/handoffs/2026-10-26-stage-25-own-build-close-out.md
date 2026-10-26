@@ -2,7 +2,7 @@
 stage: "Stage 25: close out the own-build pivot; decisions D17 to D23, the remaining fixes, release and tarball"
 model: claude-sonnet-5-5
 effort: high
-status: pending
+status: done
 created: 2026-10-26
 from: "Stage 23 session (Fable 5.1, local_60e06b5a) after Stage 24 (b3db337) on the operator's instruction of 2026-10-26"
 ---
@@ -188,3 +188,50 @@ fresh 70 x 3k x 1.25 x $2.00 = $0.53; output 70 x 1.5k x $10 = $1.05. About $2.2
 Waiting for the operator's seven answers, then about two hours: 60 minutes of text and code,
 one gate of about 25 to 41 minutes, 20 minutes of release, tarball, sync and clean-up.
 Operator review about 20 minutes plus the decision time.
+
+## Result (2026-10-26, Sonnet 5.5, high)
+
+Operator's answers: D17 A, with the purpose paragraph reading "merging upstream releases only
+when the operator decides to"; D18 B (only when the operator decides to; the rule is in
+AGENTS.md rule 3 and protocol section 10); D19 A; D20 A; D21 A; D22 A; D23 A.
+
+Commits on `main` (all pushed): `902efac` docs (D17, D18, D21 text, D22: AGENTS.md, protocol,
+assessment section 9); `d0dac98` retrieval eval resolves spans from symbols (D19,
+`resolveAnswers` replaces `checkAnswers`; test fails first on the missing export); `e312bff`
+`status` under the graft brand (D20, `test/cli-status-graft.test.ts`, both tests failed first with
+"unknown command 'status'"); `82cf6f9` gate lock (D21, `scripts/gate-lock.mjs`,
+`test/gate-lock.test.ts`, failed first on the missing module); `a640144` release 0.25.0-nishadherath.2
+(D23 A, dated CHANGELOG section, both lock-file version fields). Annotated tag
+`v0.25.0-nishadherath.2` on `a640144`; `git ls-remote origin` shows `refs/heads/main` and the
+tag (peeled) at `a640144`.
+
+Decision taken inside D21: the lock folder defaults to `graft-gate-lock` under the user's temp
+directory rather than a hard-coded `D:\Code\Claude\.gates`, so it needs no machine path in
+source and is shared by every session of one user, worktrees included. Set
+`GRAFT_GATE_LOCK_DIR` to move it. `GRAFT_GATE_LOCK_TIMEOUT_MS` bounds the wait. Kickoff prompts
+no longer need a lock clause or a process-list poll.
+
+Gate (Node 26.7.0, build exit 0, then `npm test` taking the new lock itself): 4,261 tests, 4,135
+passed, 37 failed, 89 skipped, 1,630.9 s. By name, 34 of the 37 are in
+`docs/baselines/upstream-4e7d0f5-failures.txt`; three were not and each file was rerun alone:
+`claude-hook-timeouts` 8/8 and `claude-journeys-save` 2/2 pass; `skills-prompt-attacks` passes the
+named test ("a needs-fix or retired skill never comes back") and fails only a baseline name
+(probes the file asks for that are off the allowlist never run). All three were load flakes of the
+baseline class; D13 holds. The source change since `6f23969` is three lines of `src/cli.ts`.
+
+Clean-up: `git branch -a` showed only `main` (plus the `upstream/*` and `origin` refs);
+`git worktree list` showed only this checkout; `git ls-remote --heads origin` shows only `main`.
+Nothing to delete; `git worktree prune` run.
+
+Tarball: `D:\Code\Claude\fork_graft_releases\nanonets-graft-0.25.0-nishadherath.2.tgz`
+(4,407,260 bytes, 1,646 files), packed with `npm pack --ignore-scripts` from the tree built at
+`a640144`; `tar -tzf` lists `package/dist/bin/graft.js` and
+`package/dist/vendor/wasm/tree-sitter-scss.wasm`. No tarball was made for `.1`; `.2` supersedes it.
+
+Global install: `node scripts/sync-global.mjs` reported 2 changed, 1,628 unchanged, 0 stale
+removed, both converters and the Kotlin binary present; `graft --version` from a temporary folder
+prints `0.25.0-nishadherath.2`, and `graft status --help` now works.
+
+Next stage: none scheduled. The next body of work is the operator's to name; an upstream merge
+runs only when the operator decides to (AGENTS.md rule 3), and a fresh six-question assessment
+(protocol section 1.1) is the Fable 5.1 stage to ask for if the direction is unknown.

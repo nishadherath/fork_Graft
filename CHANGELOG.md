@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.25.0-nishadherath.2 (2026-10-26)
+
+### Added
+
+- **`graft status` works under the graft brand.** It was registered only under `trail`, so the
+  `graft` command answered "unknown command" and the code-map and cards rows of `status`, and
+  `status --json`, could not be reached. `graft stats` keeps its own meaning.
+- **`npm test` takes a machine-wide lock.** `scripts/run-tests.mjs` now waits while another gate
+  holds `gate.lock` (`GRAFT_GATE_LOCK_DIR`, else a folder under the temp directory), so two
+  sessions' suites no longer run at once and starve the MCP and CLI tests into timeouts. A gate
+  that was killed leaves a lock whose pid is gone, and the next gate takes it over;
+  `GRAFT_GATE_LOCK_TIMEOUT_MS` bounds the wait.
+
+### Changed
+
+- **The retrieval evaluation resolves each answer's span from its symbol in the graph.** An edit
+  above a pinned symbol no longer turns a hit into a miss or fails `test/retrieval-eval.test.ts`.
+  The span in `.eval/retrieval-questions.json` stays as the recorded answer, and the run and
+  the test report where the graph now differs from it (`~ answer …`). A symbol the graph lacks
+  is still a fault in the set.
+
 ## 0.25.0-nishadherath.1 (2026-10-26)
 
 ### Added

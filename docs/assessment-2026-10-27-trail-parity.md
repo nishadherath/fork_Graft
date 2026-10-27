@@ -438,6 +438,7 @@ D28 Decision:      how the fork provides the `trail` command (the reversal of D9
                    both packages, and the release script already rewrites what a release touches.
                    B is right only if the fork ever needs its trail at a different version from
                    its graft, which the one-tree design makes impossible anyway.
+    Answered:      A, by the operator on 2026-10-27.
 
 D29 Decision:      what the repositories on this machine do once trail is on PATH
     Facts:         ten graft-wired repositories (section 3.2); each moves itself to trail's
@@ -470,6 +471,7 @@ D29 Decision:      what the repositories on this machine do once trail is on PAT
                    layout the fork alone exercises. Do it with the switch set, so each move is a
                    stage with a commit, and start with a scratch repository to see the result
                    before this checkout moves.
+    Answered:      B, by the operator on 2026-10-27.
 
 D30 Decision:      whether parity waits for the 0.26.0 merge
     Facts:         section 3.3: the parity changes add no conflicting line to the merge; 0.26.0's
@@ -480,6 +482,7 @@ D30 Decision:      whether parity waits for the 0.26.0 merge
                      reinstall first, for features the fork does not use, and reopens D26.
     Blast radius:  A: none beyond the parity stages. B: src/cli.ts and the global install, now.
     Recommended:   A.
+    Answered:      A, by the operator on 2026-10-27.
 
 D31 Decision:      what the fork's own tests pin about the layout
     Facts:         test/graft-brand-layout.test.ts asserts that the graft brand keeps graft/ and
@@ -493,6 +496,7 @@ D31 Decision:      what the fork's own tests pin about the layout
                      which is what makes the two commands safely interchangeable. B loses it.
     Blast radius:  test/ only.
     Recommended:   A.
+    Answered:      A, by the operator on 2026-10-27.
 ```
 
 ## 5. Staged plan

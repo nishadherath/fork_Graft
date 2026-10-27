@@ -131,15 +131,20 @@ The three questions, as the document must answer them:
 - Parity on the current base (D30 A, recommended): it adds no conflicting line to the 0.26.0 merge.
   D26 stays A.
 
-## Open questions, for the operator
+## Open questions, answered by the operator on 2026-10-27
 
-- D28 (how the fork provides `trail`), D29 (what the ten graft-wired repositories do), D30
-  (parity before or after the merge), D31 (which layout tests the fork keeps): section 4 of the
-  analysis. The next stage waits on D28 and D30; D29 and D31 can be answered before Stage 35.
+- D28 A: one package, two bins (`"trail": "dist/bin/trail.js"` beside `graft`).
+- D29 B: the ten graft-wired repositories move to trail's layout deliberately, behind
+  `GRAFT_NO_TRAIL_SWITCH=1`, a scratch repository and this checkout first (Stage 35), the other
+  nine one commit each (Stage 36).
+- D30 A: parity on the current base; D26 stays A.
+- D31 A: keep `test/graft-brand-layout.test.ts` and add the trail twins.
+- The `Answered:` line in each block of section 4 of the analysis records the same. None left
+  open.
 
 ## Exact next action
 
-Done. The next stage is Stage 33 (Sonnet 5.5, high) once the operator answers D28 and D30; its
+Done. D28 and D30 are answered, so Stage 33 (Sonnet 5.5, high) can start; its
 scope, cost and time are in section 5 of `docs/assessment-2026-10-27-trail-parity.md`, and its
 kickoff prompt is in this session's closing report. Under D28 A it ends with a release, a tarball
 reinstall by the operator (protocol section 10) and `GRAFT_NO_TRAIL_SWITCH=1` set in the user

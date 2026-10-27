@@ -23,7 +23,7 @@ that failed first, the gate judged under D13, and a judgement on whether a new a
   operator naming a release, D26 A); the trail-parity assessment of the same day already extends the
   roadmap (Stages 33 to 37) and holds the open decisions. Due again after Stage 37, or when the
   operator names an upstream release for Stage 30 (new base, new D13 baseline), whichever is first.
-- Stage 37 (acceptance of 33 to 36) is not folded in: Stage 33 was still working when this ran.
+  Stage 37 (acceptance of 33 to 36) is not folded in: Stage 33 was still working when this ran.
 
 ## Findings, by severity (none high or medium)
 
@@ -58,9 +58,6 @@ that failed first, the gate judged under D13, and a judgement on whether a new a
   `node scripts/sync-global.mjs` and `fork_graft_releases`, exits 1, stub never called; `status` with
   a seeded `~/.graft/update-check.json` at 0.26.0 prints the fork line ("Merging it is the operator's
   decision. No action needed.") and no `upgrade`; the installed package.json carries the marker.
-- Stage 27 stats: a probe through the hook entry point (`main("tool-savings")`) gave BashOutput
-  graftReads 2 (finding 1) and `--dir` form savedTokens 0; two owed footers paid by one Read 27,928;
-  a transcript quoting two footers with nothing owed adds nothing.
 - Stage 28, scratch clone at `ae5cefd`: `node scripts/release.mjs 0.25.0-nishadherath.99` changed
   the four files only (package.json 1 field, lockfile 2, CHANGELOG dated heading under an empty
   Unreleased, README heading, anchor, tarball and `--version` lines), exit 0; `v1.2.3`, the current
@@ -88,7 +85,6 @@ that failed first, the gate judged under D13, and a judgement on whether a new a
   baseline, 1 not (`test/skills-session-start.test.ts`, J13 compact). That file rerun alone
   (`node --import tsx --test`): 10 of 11, J13 passes, the one failure a baseline name ("compact:
   the cut block's failed ready probes…"). Green under D13.
-- Session: `get_session self` model `claude-fable-5-1`, effort `high`.
 
 ## Work completed
 

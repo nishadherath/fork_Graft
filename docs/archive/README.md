@@ -1,0 +1,3 @@
+# Archive
+
+This folder keeps documents for plans that have closed. The plan to send pull requests upstream closed on 2026-10-26, when the operator decided the fork is its own build and no pull-request branches are kept. The texts in `upstream/` (five pull requests and a design issue, written for `trailhq/Trail-Code`) and `graft-assessment-6.0-astra.md` (a review of the stock 0.21.1) are kept here as a record and are no longer maintained; they describe the state of upstream at their dates, not the fork's current state. The live security advisory stays in `docs/security/` because the operator sends it personally. For the current plan, read `docs/assessment-2026-10-27.md`.

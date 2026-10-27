@@ -8,6 +8,9 @@
   checkout.** `ask` runs inside the copy (a clone under the temp folder) and the question set is
   checked against the copy's files; `--dir` still names the graph folder when it is elsewhere.
   Without `--root` the run is as before.
+- **A blind retrieval question set: `.eval/retrieval-questions-blind.json`.** Twenty questions
+  written by an agent that read only the source in a clone with the earlier set, its results,
+  the handoffs and the assessments removed, and never ran `ask`. Pass it with `--questions`.
 
 ## 0.25.0-nishadherath.4 (2026-10-27)
 

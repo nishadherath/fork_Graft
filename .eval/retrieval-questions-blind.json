@@ -1,0 +1,105 @@
+{
+  "about": "A blind question set: twenty questions about this repository, written by a fresh agent that read only the source (Read, Grep, Glob) in a clone with the earlier eval sets, handoffs and assessments removed, and never ran graft ask or saw its rankings. Answers were chosen from the source first, then looked up by node id in a keyless lexical graph built with the frozen CLI.",
+  "questions": [
+    {
+      "id": "regex-backtracking-guard",
+      "question": "How does a search pattern typed by the user get checked so one that could backtrack for minutes is refused?",
+      "answers": [{ "symbol": "src/search/user-regexp.ts#userRegExp", "file": "src/search/user-regexp.ts", "span": "L56-L137" }]
+    },
+    {
+      "id": "trust-recorded-stat",
+      "question": "When can the staleness check skip reading a file and trust what the last build recorded about its size and modification time?",
+      "answers": [{ "symbol": "src/graph/fingerprint.ts#statUnchanged", "file": "src/graph/fingerprint.ts", "span": "L127-L134" }]
+    },
+    {
+      "id": "dollars-saved-rate",
+      "question": "How is the dollar figure for tokens saved worked out from what the session has actually been charged?",
+      "answers": [{ "symbol": "src/context/price.ts#dollarsSaved", "file": "src/context/price.ts", "span": "L82-L92" }]
+    },
+    {
+      "id": "find-root-from-subfolder",
+      "question": "If I run the command from inside a subfolder, how does it find the folder that holds the index?",
+      "answers": [{ "symbol": "src/graph/root.ts#nearestGraftRoot", "file": "src/graph/root.ts", "span": "L35-L45" }]
+    },
+    {
+      "id": "renamed-mcp-tool",
+      "question": "How is a tool name requested by an MCP client turned into the current name when the client uses an older or differently branded one?",
+      "answers": [{ "symbol": "src/mcp/tool-names.ts#canonicalToolName", "file": "src/mcp/tool-names.ts", "span": "L47-L50" }]
+    },
+    {
+      "id": "area-name-cache-key",
+      "question": "What decides whether a generated name for a group of changed files is reused or has to be asked for again?",
+      "answers": [{ "symbol": "src/blast/name.ts#clusterHash", "file": "src/blast/name.ts", "span": "L153-L156" }]
+    },
+    {
+      "id": "branch-name-cleaning",
+      "question": "How is a git branch name made safe before it reaches text the agent will read?",
+      "answers": [{ "symbol": "src/notes/branches.ts#safeRef", "file": "src/notes/branches.ts", "span": "L134-L136" }]
+    },
+    {
+      "id": "env-overrides-saved-switch",
+      "question": "For a feature that is on unless turned off, which wins between the environment variable and the saved setting?",
+      "answers": [{ "symbol": "src/util/state.ts#defaultOn", "file": "src/util/state.ts", "span": "L191-L195" }]
+    },
+    {
+      "id": "gitignored-source-report",
+      "question": "How does the tool notice that some of the repository's source code is hidden from the index by a git ignore rule?",
+      "answers": [{ "symbol": "src/search/ignored-code.ts#ignoredCode", "file": "src/search/ignored-code.ts", "span": "L43-L60" }]
+    },
+    {
+      "id": "codex-config-cleanup",
+      "question": "How is the tool's entry removed from a user's Codex TOML config without reformatting the rest of the file?",
+      "answers": [{ "symbol": "src/hosts/retract.ts#removeTomlSection", "file": "src/hosts/retract.ts", "span": "L211-L221" }]
+    },
+    {
+      "id": "reply-mentions-savings",
+      "question": "How does the tool decide whether the agent's reply told the person how many tokens were saved?",
+      "answers": [{ "symbol": "src/claude/tally.ts#hasSavingsTally", "file": "src/claude/tally.ts", "span": "L41-L43" }]
+    },
+    {
+      "id": "connect-link-secret",
+      "question": "Where is the unguessable random value created for the link that connects a repository to the team cloud?",
+      "answers": [{ "symbol": "src/cloud/nudge.ts#newState", "file": "src/cloud/nudge.ts", "span": "L108-L110" }]
+    },
+    {
+      "id": "windows-lock-delete-pending",
+      "question": "Why does opening a lock file sometimes fail with a permission error on Windows and still count as the lock being held?",
+      "answers": [{ "symbol": "src/util/private-fs.ts#lockHeld", "file": "src/util/private-fs.ts", "span": "L175-L177" }]
+    },
+    {
+      "id": "forward-slash-relative-path",
+      "question": "Which helper gives a relative path between two folders with forward slashes on every platform, for storing in the graph?",
+      "answers": [{ "symbol": "src/util/paths.ts#relPosix", "file": "src/util/paths.ts", "span": "L40-L42" }]
+    },
+    {
+      "id": "abandoned-test-lock",
+      "question": "How does a test run waiting for the shared lock work out that the run holding it has died and the lock can be taken over?",
+      "answers": [{ "symbol": "scripts/gate-lock.mjs#staleReason", "file": "scripts/gate-lock.mjs", "span": "L52-L60" }]
+    },
+    {
+      "id": "split-long-file-list",
+      "question": "How does the test runner avoid exceeding the Windows command-line length limit when passing many test files?",
+      "answers": [{ "symbol": "scripts/test-runner-lib.mjs#chunkByLength", "file": "scripts/test-runner-lib.mjs", "span": "L23-L39" }]
+    },
+    {
+      "id": "release-needs-changelog-entry",
+      "question": "What stops me cutting a release when the changelog has nothing new listed?",
+      "answers": [{ "symbol": "scripts/release.mjs#checkUnreleased", "file": "scripts/release.mjs", "span": "L50-L54" }]
+    },
+    {
+      "id": "turn-off-usage-stats",
+      "question": "What are all the ways to stop anonymous usage statistics being sent?",
+      "answers": [{ "symbol": "TELEMETRY.md#section:opting-out", "file": "TELEMETRY.md", "span": "L175-L191" }]
+    },
+    {
+      "id": "report-vulnerability-process",
+      "question": "Where do I send a security bug privately, and how fast will I hear back?",
+      "answers": [{ "symbol": "SECURITY.md#section:reporting-a-vulnerability", "file": "SECURITY.md", "span": "L9-L18" }]
+    },
+    {
+      "id": "review-app-hostile-fork",
+      "question": "What protections stop a stranger's fork pull request from running code or leaking the access token when the review app checks it out?",
+      "answers": [{ "symbol": "docs/github-app.md#section:security", "file": "docs/github-app.md", "span": "L88-L103" }]
+    }
+  ]
+}

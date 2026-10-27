@@ -166,12 +166,15 @@ test("an edit above a pinned symbol moves its lines without failing the set", as
   }
 });
 
-test("the checked-in question set is twenty questions whose symbols all resolve in the source", async (t) => {
-  const set = JSON.parse(readFileSync(join(repoRoot, ".eval", "retrieval-questions.json"), "utf8"));
-  assert.equal(set.questions.length, 20);
-  const r = resolveAnswers(set.questions, await graphOfAnswerFiles(set.questions, repoRoot));
-  assert.deepEqual(r.missing, []);
-  assert.deepEqual(checkQuestionSet(r.questions, repoRoot), []);
-  // an edit above a pinned symbol is reported, not failed: the recorded span stays as it was
-  for (const m of r.moved) t.diagnostic(`${m.id}: ${m.symbol} recorded ${m.recorded}, now ${m.now}`);
-});
+// The Stage 22 set and the blind set of Stage 31 (written without seeing ask's rankings).
+for (const name of ["retrieval-questions.json", "retrieval-questions-blind.json"]) {
+  test(`the checked-in question set ${name} is twenty questions whose symbols all resolve in the source`, async (t) => {
+    const set = JSON.parse(readFileSync(join(repoRoot, ".eval", name), "utf8"));
+    assert.equal(set.questions.length, 20);
+    const r = resolveAnswers(set.questions, await graphOfAnswerFiles(set.questions, repoRoot));
+    assert.deepEqual(r.missing, []);
+    assert.deepEqual(checkQuestionSet(r.questions, repoRoot), []);
+    // an edit above a pinned symbol is reported, not failed: the recorded span stays as it was
+    for (const m of r.moved) t.diagnostic(`${m.id}: ${m.symbol} recorded ${m.recorded}, now ${m.now}`);
+  });
+}

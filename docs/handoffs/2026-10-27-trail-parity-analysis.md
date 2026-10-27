@@ -2,7 +2,7 @@
 stage: "Trail parity analysis: what upstream's trail command means for the fork, and the blast radius of making graft and trail interchangeable with trail as the configured name"
 model: claude-fable-5-1
 effort: high
-status: in-progress
+status: done
 created: 2026-10-27
 from: "Stage 23 session (Fable 5.1, local_d2cce6fb) on the operator's request of 2026-10-27, dispatched under the session-dispatch skill; the record is at the end of this file"
 ---
@@ -113,29 +113,37 @@ The three questions, as the document must answer them:
 
 ## Work completed
 
-- This handoff and the dispatch decision below. Nothing else yet.
+- `docs/assessment-2026-10-27-trail-parity.md` (trail parity analysis session, Fable 5.1, high,
+  2026-10-27): the three questions answered with spans from `main` (`b91165f`) and
+  `upstream/release/0.26.0` (`cc48a9d`), decisions D28 to D31 in the five-part format, a staged
+  plan (Stages 33 to 37) with model class, effort, cost and time per stage. No source change, no
+  release, no push, no change to the global install; no gate (docs only).
+- This handoff: status `done`, the answers below.
 
-## Open questions (for the analysis to answer, not this handoff)
+## Open questions, answered by the analysis
 
-- Whether `trail` in the fork should be the same binary under a second `bin` entry (one package,
-  two shims) or a second package name; what upstream's `@trailhq/trail-code` tarball does.
-- Whether the `[graft]` prefix the fork's hooks and skills look for can accept `[trail]` too
-  without breaking the stats and savings accounting.
-- Whether reversing D9 A is better done by merging 0.26.0 first (D26) or on the fork's current base.
+- One package, two bins: the fork's `package.json` gains `"trail": "dist/bin/trail.js"` (D28 A,
+  recommended); upstream's `@trailhq/trail-code` tarball is the same build with `bin: trail` only,
+  laid out by `scripts/pack-trail.mjs`. A second package is possible (D28 B) and doubles the install.
+- The `[trail]` prefix breaks nothing: the footer parser (`src/context/savings.ts:146`), the
+  command classifier (`src/claude/session-metrics.ts:78-86`) and the MCP tool classifier already
+  accept both names; the fork's stats fix is tested with `trail ask`.
+- Parity on the current base (D30 A, recommended): it adds no conflicting line to the 0.26.0 merge.
+  D26 stays A.
+
+## Open questions, for the operator
+
+- D28 (how the fork provides `trail`), D29 (what the ten graft-wired repositories do), D30
+  (parity before or after the merge), D31 (which layout tests the fork keeps): section 4 of the
+  analysis. The next stage waits on D28 and D30; D29 and D31 can be answered before Stage 35.
 
 ## Exact next action
 
-1. Check model (`claude-fable-5-1`) and effort (`high`) against this front matter; stop on a mismatch.
-2. Read `AGENTS.md`, `ENGINEERING_PERSONA.md`, `ENGINEERING_PERSONA_LANGUAGES/node-ts-js.fable.md`,
-   `docs/operator-protocol.md`, this file, `src/brand.ts`, `GRAFT_init.md`,
-   `docs/assessment-2026-10-27.md` sections 3, 6 and 7.
-3. Answer the three questions in `docs/assessment-2026-10-27-trail-parity.md` with spans and
-   tables; end with the decision blocks (D28 onward) and a staged plan with model class, effort,
-   cost and time projections per stage (protocol sections 6 and 7).
-4. Commit the document and this handoff (status `done`, work completed, open questions) on `main`
-   with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Do not push; the operator says when.
-5. End the report with the decisions for the operator, then the next stage's model, effort and
-   exact kickoff prompt.
+Done. The next stage is Stage 33 (Sonnet 5.5, high) once the operator answers D28 and D30; its
+scope, cost and time are in section 5 of `docs/assessment-2026-10-27-trail-parity.md`, and its
+kickoff prompt is in this session's closing report. Under D28 A it ends with a release, a tarball
+reinstall by the operator (protocol section 10) and `GRAFT_NO_TRAIL_SWITCH=1` set in the user
+environment before the reinstall.
 
 ## Cost projection (this stage)
 

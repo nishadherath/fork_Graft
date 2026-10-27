@@ -1,5 +1,5 @@
 ---
-stage: "Stage 27: fork-aware upgrade and update nudge (D24), release 0.25.0-nishadherath.3"
+stage: "Stage 27: fork-aware upgrade and update nudge (D24), the stats saving lost on backgrounded commands, release 0.25.0-nishadherath.3"
 model: claude-sonnet-5-5
 effort: high
 status: ready
@@ -13,7 +13,9 @@ from: "Stage 26 session (Fable 5.1, local_4edbf0b9), roadmap item 1 of docs/asse
 
 On a fork build, `graft upgrade` refuses and names the fork's own install route, and the update
 nudge names upstream's version without telling anyone to run a command. An unmarked build
-behaves exactly as upstream. Each change has a test that failed first. The gate is green under
+behaves exactly as upstream. Second item, added by the operator on 2026-10-27: `graft stats`
+counts the saving of a graft command whose output reached the agent through a file rather than
+the tool response, once and only once. Each change has a test that failed first. The gate is green under
 D13, the release `0.25.0-nishadherath.3` is tagged and pushed to `origin`, its tarball is in
 `D:\Code\Claude\fork_graft_releases\`, the global install runs it, and this handoff is at
 status `done` with the counts.
@@ -46,6 +48,30 @@ status `done` with the counts.
 - `src/upkeep-run.ts` L98: the session-start hook's nudge from the cache.
 - `docs/assessment-2026-10-27.md` sections 0, 5 (item 1), 7 (D24), 8 (the facts).
 - `README.md` L80, L104, L121 to L123 (the "This build" section, still says `0.25.0-nishadherath`).
+- `src/brand.ts` L193 to L194: the once-a-day "graft is now trail. this ran trail status" notice;
+  its second line, "run graft upgrade to get the trail command too", prints when `trail` is not
+  on `PATH`. The first line is upstream's prose (commit `8dc7a63`, upstream pull request 585, on
+  `upstream/main`): leave it. The second line is one more place that sends an agent to
+  `graft upgrade`, so on a fork build it names the fork's install route or is dropped.
+
+Item 2, the stats saving (spans at `main` `ce953bd`):
+
+- `src/claude/hooks.ts`: `handleToolUse` L156 to L159 passes the tool response to
+  `classifyAndScore` L222 to L232, which returns `savedTokens: 0` for a `source` kind without
+  looking at the payload, and sums footers only for other kinds.
+- `src/claude/session-metrics.ts`: `commandInvokesGraft` L78 to L86, `classifyToolUse` L93
+  to L100, `parseSavings` L105, `recordToolUse` L131 to L146 (read-modify-write of the session
+  file, unlocked, no-op when kind is null and saving is 0), `latestSession` L154,
+  `formatSessionStats` about L196 to L206 (the `tokens saved: ~N` line).
+- `src/claude/state.ts`: `SessionState.savedTokens` L36 to L37, `turnUsedGraft` L59 (the
+  pattern for a per-session flag), `readSession` L123, `writeSession` L129.
+- `src/context/savings.ts` L131 to L140: `sumSavingsFooters`, the one reader of the footer.
+- `src/ask/ask.ts` L1535 to L1581: `formatAskWithSaved` and the footer writer; `src/cli.ts`
+  L859 to L880 `afterAsk` (the CLI side after an `ask`; `recordLookup` is the cloud record,
+  not the session file); `src/mcp/tools.ts` L264 to L267 (the MCP side).
+- `src/cli.ts` L1014 to L1030: the `stats` command, hidden under trail, reads `latestSession`.
+- Existing tests to keep green and extend: `test/session-metrics.test.ts`,
+  `test/claude-stats.test.ts`, `test/claude-hooks-1b.test.ts`.
 
 ## Verified facts (Stage 26, 2026-10-27)
 
@@ -55,6 +81,17 @@ status `done` with the counts.
   24 h, so the nudge appears at the next successful check in every wired repository.
 - `npm view @nanonets/graft version` 0.26.0. Global install `0.25.0-nishadherath.2`.
 - The fork's 34 test files alone: `node --import tsx --test <files>` 248 of 248 in 143 s.
+- Item 2, the operator's transcript (2026-10-27, session `eb3e1c9c-0905-4953-acb7-3ec7ce34fd1a`):
+  `graft stats` printed graft reads 3, source reads 1, mix 75% graft, tokens saved ~0, after a
+  `graft ask` run through the harness's Bash tool had exceeded its 120-second timeout, been
+  moved to the background, and had its output file read later with the Read tool, where the
+  footer said "tokens saved ≈ 13,964 (90%)". By the code above: the Bash call is classified
+  `graft` from its command text and its saving summed from the tool response, which for a
+  backgrounded command is the harness's notice, not graft's output; the later Read is a
+  `source` read and its payload is never scanned. The read counts, the saving is lost.
+- The "graft is now trail. this ran trail status" line on `graft stats` is upstream's intended
+  stats-to-status mapping, not a fork regression from D20 (commit `8dc7a63` is on
+  `upstream/main`). Its prose stays.
 
 ## Exact next action, in order
 
@@ -77,22 +114,50 @@ status `done` with the counts.
    sites, `cli.ts` and `upkeep-run.ts`); `runUpgrade` refuses on a marker before any spawn;
    `formatUpgradeReport` prints the refusal; `upgrade` exits 1 and never reaches
    `moveHereToTrail`. `_update-check` keeps running so the cached fact stays current.
-4. CHANGELOG under Unreleased: one Added or Changed entry per user-visible change.
-5. Quick loop: `node --import tsx --test test/fork-upgrade-guard.test.ts test/startup-imports.test.ts
-   test/cli-status-graft.test.ts` and `npx tsc --noEmit`.
-6. Release: `package.json` and both `package-lock.json` version fields to
+   The rename notice's second line (`src/brand.ts` L194) takes the same marker: on a fork build
+   it names the fork's install route or is dropped; add that case to test (a). Commit item 1
+   on its own (`fix(upgrade): …`) before starting item 2.
+4. Item 2, tests first, in a new `test/stats-background-saving.test.ts`, failing before the
+   code, driving `handleToolUse` (or the hook's stdin entry point, as `test/claude-hooks-1b.test.ts`
+   does) against a temporary repository and session id: (a) a Bash PostToolUse payload whose
+   command is `graft ask "…" --source` and whose `tool_response` is a background notice with
+   no footer, then a Read payload whose `tool_response` carries
+   `[graft] tokens saved ≈ 13,964 (90%) — …`: expect `graftReads` 1, `sourceReads` 1,
+   `savedTokens` 13964; (b) a second Read of the same file adds nothing to any counter but
+   `sourceReads`; (c) the ordinary case is unchanged: a Bash graft call whose response carries
+   the footer records the saving once, and a later Read carrying the same footer adds nothing;
+   (d) a Read carrying a footer with no unresolved graft read in the session records nothing
+   (an agent reading a transcript must not inflate the count). Then `graft stats` on the
+   session file, through `formatSessionStats`, prints `tokens saved: ~13,964`.
+5. Item 2, code, landing the saving once and never twice. Two shapes are acceptable; pick one,
+   state why in the Result section: (i) hook side: `recordToolUse` sets a per-session flag
+   (beside `turnUsedGraft` in `state.ts`) when a graft-kind use carried no footer, and
+   `classifyAndScore` scans a `source` read's payload only while that flag is set, clearing it
+   when a footer lands; (ii) CLI side: `ask` and the other footer-printing commands record their
+   own saving into the session file when they print the footer, and the hook's sweep becomes
+   the fallback that must then skip a footer the CLI already recorded. Shape (ii) touches every
+   footer writer and has to know the session id from inside the CLI (`latestSession` is a
+   guess, not a key), so prefer (i) unless `state.ts` already gives the CLI a keyed place.
+   Whichever shape, the payload scan on `source` reads stays off in the common case: the
+   comment at `hooks.ts` L213 to L221 says why. Commit item 2 on its own (`fix(stats): …`).
+6. CHANGELOG under Unreleased: one Added, Changed or Fixed entry per user-visible change.
+7. Quick loop: `node --import tsx --test test/fork-upgrade-guard.test.ts
+   test/stats-background-saving.test.ts test/session-metrics.test.ts test/claude-stats.test.ts
+   test/claude-hooks-1b.test.ts test/startup-imports.test.ts test/cli-status-graft.test.ts` and
+   `npx tsc --noEmit`.
+8. Release: `package.json` and both `package-lock.json` version fields to
    `0.25.0-nishadherath.3`; CHANGELOG heading `## 0.25.0-nishadherath.3 (<date>)`; README
    "This build" section to `.3` (heading, anchor at L80, tarball name, `--version` lines);
    commit `chore(release): version 0.25.0-nishadherath.3`.
-7. Gate: `npm run build && npm test`; D13 by name; rerun non-baseline failures alone; quote.
-8. Annotated tag `v0.25.0-nishadherath.3`; `git push origin main` and the tag; confirm with
-   `git ls-remote origin`. Approval for this outward step: the operator's D24 answer recorded
-   below, under the standing D23 A rule. Then `npm pack --ignore-scripts --pack-destination
-   D:\Code\Claude\fork_graft_releases`; `tar -tzf` lists `package/dist/bin/graft.js`;
-   `node scripts/sync-global.mjs` (quote the counts); from the scratchpad, `graft --version`
-   prints `.3` and `graft upgrade` prints the refusal and exits 1.
-9. Update this file (status `done`, counts, commits), commit, push. End the report with the
-   next stage's model, effort and kickoff prompt (Stage 28 from the assessment's section 6).
+9. Gate: `npm run build && npm test`; D13 by name; rerun non-baseline failures alone; quote.
+10. Annotated tag `v0.25.0-nishadherath.3`; `git push origin main` and the tag; confirm with
+    `git ls-remote origin`. Approval for this outward step: the operator's D24 answer recorded
+    below, under the standing D23 A rule. Then `npm pack --ignore-scripts --pack-destination
+    D:\Code\Claude\fork_graft_releases`; `tar -tzf` lists `package/dist/bin/graft.js`;
+    `node scripts/sync-global.mjs` (quote the counts); from the scratchpad, `graft --version`
+    prints `.3` and `graft upgrade` prints the refusal and exits 1.
+11. Update this file (status `done`, counts, commits), commit, push. End the report with the
+    next stage's model, effort and kickoff prompt (Stage 28 from the assessment's section 6).
 
 Commit messages end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
 Australian English, no em-dashes, none of the persona's banned words. When blocked, stop with
@@ -101,12 +166,14 @@ the five-line escalation of the persona's section 3.4.
 ## Cost projection
 
 Sonnet 5.5, high, as a subagent of the Stage 26 session: see the dispatch record below,
-$2.32 (quote $2 to $4).
+$2.32 for item 1 at T = 50. Item 2 adds about 15 turns (two tests, one module change, one
+quick loop) at the same per-turn figures: $2.32 x 65 / 50 = $3.02 (quote $3 to $5).
 
 ## Time projection
 
-45 to 90 minutes of tests and code, one gate of 27 to 41 minutes, 15 minutes of release, pack
-and sync: 90 to 150 minutes. Operator review about 15 minutes plus the D24 to D27 answers.
+45 to 90 minutes of tests and code for item 1, 30 to 45 for item 2, one gate of 27 to 41
+minutes, 15 minutes of release, pack and sync: 120 to 190 minutes. Operator review about 15
+minutes plus the D24 to D27 answers.
 
 ## Session dispatch decision
 
@@ -226,5 +293,10 @@ subagent.
 | Priced | 7,000 x 12.50e-6 + 2,500 x 50e-6 = $0.21 at Fable rates | table `pricing/2026-10-18.json` |
 
 ## Result
+
+Scope widened on 2026-10-27 by the operator, relayed by the Stage 23 session: item 2, the
+`graft stats` saving lost when a graft command's output reaches the agent through a file. The
+dispatch verdict is unchanged (one piece, serial, same class and effort; the second item is
+scoped module work with a stated test).
 
 (The operator's answers to D24 to D27, then the stage's commits and counts.)

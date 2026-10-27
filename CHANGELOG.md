@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- **`node scripts/release.mjs <version>` cuts a fork release.** It bumps the version in `package.json` and both places in `package-lock.json`, turns the CHANGELOG's Unreleased section into a dated heading (with a fresh empty one above it), rewrites the README's "This build" section (heading, contents anchor, tarball name, `--version` lines), and keeps the `fork` marker or writes one. It refuses on a dirty tree, a version that is not semver or is the current one, and a missing or empty Unreleased section. It prints the commit, tag, push and pack commands and runs none of them.
+- **`npm run test:fork` runs only the test files this fork added or changed** since the merge base with `upstream/main`, for the inner loop. The full `npm test` still ends every stage.
+
+### Changed
+
+- **`npm test` no longer puts every test path on one command line.** On Node 22 and later the runner passes the glob to `node --test`; on Node 20 (and for `test:fork`) it runs the files in chunks under the Windows command-line limit and adds the chunks' counts. A test runs a 600-file list to prove it.
+
 ### Fixed
 
 - **`scripts/sync-global.mjs` copies the `fork` marker into the global install's `package.json`.** It copied `dist/` and the version only, so a synced global `graft` read an unmarked package.json and still ran upstream's `upgrade`. It now mirrors the marker (or removes it when the fork has none) and says so.

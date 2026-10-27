@@ -16,19 +16,31 @@
  */
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { acquireGateLock, releaseGateLock } from "./gate-lock.mjs";
+import { forkTestFiles, runSuite } from "./test-runner-lib.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const testDir = join(repoRoot, "test");
 
+// `--fork` runs only the test files this fork added or changed since upstream's merge base: the
+// inner loop (npm run test:fork). The full run still ends every stage.
+const forkOnly = process.argv.includes("--fork");
+
 // Sorted so a failure is reported in the same order on every platform and run.
-const files = readdirSync(testDir)
-  .filter((f) => f.endsWith(".test.ts"))
-  .sort()
-  .map((f) => join(testDir, f));
+let files;
+try {
+  files = forkOnly
+    ? forkTestFiles(repoRoot)
+    : readdirSync(testDir)
+        .filter((f) => f.endsWith(".test.ts"))
+        .sort()
+        .map((f) => join(testDir, f));
+} catch (e) {
+  console.error(`✗ ${e.message}`);
+  process.exit(1);
+}
 
 if (files.length === 0) {
   console.error(`✗ no test files found in ${testDir}`);
@@ -73,20 +85,29 @@ const tmpEnv = { TMPDIR: runTmp, TEMP: runTmp, TMP: runTmp };
 // A graft repo moves to trail when a session opens on a machine with the trail
 // command, so a contributor who has trail installed would see test repos move.
 // Off for the run; the tests of the move turn it back on.
-const result = spawnSync(process.execPath, ["--import", "tsx", "--test", ...files], {
-  cwd: repoRoot,
-  stdio: "inherit",
-  env: { ...process.env, ...gitEnv, ...tmpEnv, GRAFT_NO_TRAIL_SWITCH: "1" },
-});
+// Node 22 and later takes the glob itself, so the full suite is one command line of any length;
+// older Nodes and the fork-only list run in chunks (test-runner-lib.mjs).
+let result;
+let startError;
+try {
+  result = await runSuite({
+    files,
+    glob: forkOnly ? undefined : "test/*.test.ts",
+    cwd: repoRoot,
+    env: { ...process.env, ...gitEnv, ...tmpEnv, GRAFT_NO_TRAIL_SWITCH: "1" },
+  });
+} catch (e) {
+  startError = e;
+}
 try {
   rmSync(runTmp, { recursive: true, force: true });
 } catch {
   /* best effort: a locked file on Windows must not fail the run */
 }
 
-if (result.error) {
-  console.error(`✗ could not start the test runner: ${result.error.message}`);
+if (startError) {
+  console.error(`✗ could not start the test runner: ${startError.message}`);
   process.exit(1);
 }
-// A signal-killed run reports null status; treat anything non-zero as failure.
-process.exit(result.status ?? 1);
+// A signal-killed run reports a non-zero status; treat anything non-zero as failure.
+process.exit(result.status);

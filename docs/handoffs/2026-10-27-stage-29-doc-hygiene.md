@@ -20,8 +20,8 @@ send; fix every path that pointed at a moved file. Documentation only, no releas
 - Moved with `git mv` so history follows: `docs/upstream/` to `docs/archive/upstream/` (six files),
   and `docs/graft-assessment-6.0-astra.md` to `docs/archive/graft-assessment-6.0-astra.md`.
 - The note is one paragraph in `docs/archive/README.md`, covering both moves and the closed plan.
-- `docs/graft-decisions-6.0-astra.md` stays where it is. D25 names only the assessment. Open question
-  below.
+- `docs/graft-decisions-6.0-astra.md` moved to `docs/archive/graft-decisions-6.0-astra.md` in commit
+  `18fac1c`, on the operator's word after this handoff was first written.
 - Path references are changed in place; the words of dated records (assessments, acceptance notes,
   handoffs) are not. Two passages keep the old paths on purpose: roadmap item 4 in
   `docs/assessment-2026-10-27.md` (the instruction as written) and the D25 "Facts" line in the same
@@ -66,9 +66,6 @@ send; fix every path that pointed at a moved file. Documentation only, no releas
 
 ## Open questions
 
-- `docs/graft-decisions-6.0-astra.md`: it is the companion of the astra assessment and describes the
-  same stock-0.21.1 era (its opening discusses OpenAI Decisions as options). Move it to
-  `docs/archive/` too? One `git mv` if the operator agrees; left in place for now.
 - The non-baseline hook failures are timing bars on a loaded machine. They passed alone; whether
   the bars should widen is a separate decision, not taken here.
 

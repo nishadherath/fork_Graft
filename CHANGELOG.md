@@ -44,6 +44,14 @@
   so its saving is no longer lost when the output arrives through a file.
 - **`scripts/release.mjs` dates the CHANGELOG heading with the local calendar date.** It used the
   UTC date, which east of Greenwich is yesterday's for a release cut in the morning.
+- **The registry check reaches npm on Windows.** `npm view` was spawned without a shell, which on
+  Windows is ENOENT for `npm.cmd`, so `graft version` always said "latest: unreachable" and the
+  daily `_update-check` always cached `latest: null`: the update line never printed on Windows.
+  It now goes through the shell there, as the global-root lookup already did, and the detached
+  check waits up to 30 seconds for npm (its start-up alone runs to 11 seconds on a slow machine,
+  past the interactive check's 2 seconds, which `graft version` keeps). On this build the line
+  that then appears is the fork's: upstream's version, and that merging it is the operator's
+  decision.
 
 ## 0.25.0-nishadherath.4 (2026-10-27)
 

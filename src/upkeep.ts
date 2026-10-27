@@ -59,6 +59,11 @@ export function runningFork(): ForkMarker | null {
  * often than that, and this is a nudge, not a security update. */
 export const UPDATE_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** How long the detached registry check may wait for npm. Nothing user-facing waits on it, and
+ * npm's own start-up runs to ten seconds on a slow machine (measured 2026-10-27: 11 s here),
+ * far past the interactive check's two-second budget, which left the cache at `latest: null`. */
+export const BACKGROUND_REGISTRY_TIMEOUT_MS = 30_000;
+
 /* -------------------------------------------------------------------------- */
 /* version comparison                                                         */
 /* -------------------------------------------------------------------------- */
@@ -114,7 +119,7 @@ function writeUpdateCache(cache: UpdateCache, home?: string): void {
  * Runs in a detached child so nothing user-facing ever waits on the network.
  */
 export function refreshUpdateCache(home?: string, now = Date.now()): UpdateCache {
-  const res = getNpmViewVersion();
+  const res = getNpmViewVersion(undefined, BACKGROUND_REGISTRY_TIMEOUT_MS);
   const cache: UpdateCache = { latest: res.ok ? (res.version ?? null) : null, checkedAt: now };
   writeUpdateCache(cache, home);
   return cache;

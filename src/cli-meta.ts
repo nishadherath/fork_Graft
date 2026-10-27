@@ -95,14 +95,18 @@ export interface NpmViewResult {
 }
 
 /** `npm view <pkg> version`, offline-safe: any failure (no npm, no network,
- * timeout) resolves to `{ ok: false }` rather than throwing. */
+ * timeout) resolves to `{ ok: false }` rather than throwing. Through the shell on
+ * Windows, where npm is `npm.cmd` and a bare spawn is ENOENT (as `globalRoot` does). */
 export function getNpmViewVersion(pkgName: string = PKG_NAME, timeoutMs = 2000): NpmViewResult {
   try {
-    const res = spawnSync("npm", ["view", pkgName, "version"], {
-      encoding: "utf8",
-      timeout: timeoutMs,
-      windowsHide: true,
-    });
+    const args = ["view", pkgName, "version"];
+    const opts = { encoding: "utf8" as const, timeout: timeoutMs, windowsHide: true };
+    // One command string under the shell (an args array with `shell` is deprecated, DEP0190),
+    // only for a name shaped like npm's own (`@scope/name`), which the shell reads literally.
+    const res =
+      process.platform === "win32" && /^[@\w./-]+$/.test(pkgName)
+        ? spawnSync(`npm ${args.join(" ")}`, { ...opts, shell: true })
+        : spawnSync("npm", args, opts);
     if (res.error || res.signal || res.status !== 0) return { ok: false };
     const version = res.stdout?.trim();
     if (!version) return { ok: false };

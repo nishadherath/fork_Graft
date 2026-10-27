@@ -158,10 +158,12 @@ function handleToolUse(input: any, dir: string): void {
   const id = payloadSessionId(input);
   const toolName = input?.tool_name;
   const command = input?.tool_input?.command;
-  // Footers owed to the session are read only for a source read, the one kind whose payload is
-  // scanned (and only while something is owed). The harness moves a long graft command to the
-  // background, so its footer reaches the agent later in a Read of the output file.
-  const owed = classifyToolUse(toolName, command) === 'source' ? (readSession(dir, id).footersOwed ?? 0) : 0;
+  // Footers owed to the session are read for the tool uses that can carry one back: a source
+  // read (the one kind whose payload is otherwise never scanned) and a tool the classifier does
+  // not know, such as the harness's own reader of a backgrounded command's output. A graft
+  // command's own response never pays one. The harness moves a long graft command to the
+  // background, so its footer reaches the agent later, in a Read of the output file or that reader.
+  const owed = classifyToolUse(toolName, command) === 'graft' ? 0 : (readSession(dir, id).footersOwed ?? 0);
   recordToolUse(dir, id,
     { ...classifyAndScore(toolName, command, () => input?.tool_response ?? input, owed), host: telemetryHost(input) });
 }
@@ -247,6 +249,13 @@ function classifyAndScore(
     return { kind, savedTokens: paid.reduce((a, b) => a + b, 0), footersPaid: paid.length };
   }
   const amounts = savingsFooterAmounts(JSON.stringify(payload() ?? ''));
+  if (kind === null && owed) {
+    // A footer arriving while one is owed is the backgrounded command's own, read back through a
+    // tool the classifier does not know (the harness's output reader, a shell `cat` of the output
+    // file): it pays the debt and is not a second graft read.
+    const paid = amounts.slice(0, owed);
+    return { kind, savedTokens: paid.reduce((a, b) => a + b, 0), footersPaid: paid.length };
+  }
   const savedTokens = amounts.reduce((a, b) => a + b, 0);
   if (savedTokens > 0) kind = 'graft';
   if (owed === undefined) return { kind, savedTokens };

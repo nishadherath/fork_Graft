@@ -165,3 +165,37 @@ test("only the commands that print a footer can owe one", async () => {
     assert.equal(commandPrintsFooter(c), false, c);
   }
 });
+
+// Stage 32 acceptance: two shapes of the same hazard the fix above did not cover.
+
+test("(e) the output read back through the harness's own output tool counts the saving and no second graft read", async () => {
+  await withRepo(async (repo) => {
+    await repo.post(bash(ASK, NOTICE));
+    await repo.post({
+      tool_name: "BashOutput",
+      tool_input: { bash_id: "bxk3p2" },
+      tool_response: { stdout: `${FOOTER}\n\n- src/lock.ts:L10-L40 function takeLock`, stderr: "", status: "completed" },
+    });
+    const s = repo.state();
+    assert.equal(s.graftReads, 1, "one graft command is one graft read, whatever tool read its output");
+    assert.equal(s.sourceReads ?? 0, 0);
+    assert.equal(s.savedTokens, 13964);
+    assert.equal(s.footersOwed, undefined, "the footer is paid");
+  });
+});
+
+test("(f) a global option between the command name and ask still owes a footer", async () => {
+  await withRepo(async (repo) => {
+    await repo.post(bash('graft --dir D:\\maps\\lock ask "where is the lock taken" --source', NOTICE));
+    assert.equal(repo.state().footersOwed, 1);
+    await repo.post(read("tasks/bxk3p2.output", FOOTER));
+    assert.equal(repo.state().savedTokens, 13964);
+  });
+  const { commandPrintsFooter } = await import("../src/claude/session-metrics.js");
+  for (const c of ["graft --dir D:\\maps\\lock ask x", "graft --no-refresh grep foo", "trail --dir ./m -n 3 skeleton src/a.ts", "node dist/cli.js --dir m ask x"]) {
+    assert.equal(commandPrintsFooter(c), true, c);
+  }
+  for (const c of ["graft build && cat ask.txt", "graft --dir m build"]) {
+    assert.equal(commandPrintsFooter(c), false, c);
+  }
+});

@@ -93,8 +93,11 @@ const FOOTER_COMMANDS = 'ask|grep|skeleton|callers|map';
 export function commandPrintsFooter(command: string): boolean {
   const c = command.trim();
   const word = String.raw`(?:${FOOTER_COMMANDS})\b`;
-  if (new RegExp(String.raw`dist[/\\](?:cli|bin[/\\](?:trail|graft))\.js\s+${word}`, 'i').test(c)) return true;
-  return new RegExp(String.raw`(^|[|&;]\s*)(?:npx\s+(?:-y\s+)?(?:@nanonets/|@trailhq/)?)?(?:graft|trail)(?:-dev)?\s+${word}`, 'i').test(c);
+  // Global options may sit between the name and the subcommand (`graft --dir <map> ask …`): an
+  // option, with or without a value that is not itself an option.
+  const options = String.raw`(?:\s+--?[\w-]+(?:\s+[^-\s]\S*)?)*`;
+  if (new RegExp(String.raw`dist[/\\](?:cli|bin[/\\](?:trail|graft))\.js${options}\s+${word}`, 'i').test(c)) return true;
+  return new RegExp(String.raw`(^|[|&;]\s*)(?:npx\s+(?:-y\s+)?(?:@nanonets/|@trailhq/)?)?(?:graft|trail)(?:-dev)?${options}\s+${word}`, 'i').test(c);
 }
 
 /**

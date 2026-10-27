@@ -36,6 +36,12 @@
   covers Y"); plurals and the other test words (coverage, assert, fixture, mock) still do.
   Measured on this repository's lexical graph: file@3 14 of 20 (was 13) on the Stage 22 set and
   12 of 20 (unchanged) on the blind set; hit@3 unchanged on both.
+- **`graft stats` counts a backgrounded graft command once, whichever tool reads its output.** A
+  footer owed to the session (a graft command the harness moved to the background) is now paid by
+  the harness's own output reader or a shell read of the output file without counting a second
+  graft read; before, that read was counted as another graft read. A global option between the
+  command name and the subcommand (`graft --dir <map> ask …`) now owes a footer like the bare form,
+  so its saving is no longer lost when the output arrives through a file.
 
 ## 0.25.0-nishadherath.4 (2026-10-27)
 

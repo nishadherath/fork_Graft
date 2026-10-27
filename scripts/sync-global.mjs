@@ -11,7 +11,8 @@
  * Guards: the two package versions must agree up to a fork suffix (a sync across
  * 0.x.y releases would pair new JS with old dependencies; "0.21.1-name" and
  * "0.21.1" share their dependencies), the global package.json then takes the
- * fork's version so `graft --version` names the build, `dist/cli.js` must exist (the tree was
+ * fork's version, so `graft --version` names the build, and the fork's `fork` marker, so the
+ * installed `graft upgrade` refuses; `dist/cli.js` must exist (the tree was
  * built), and the copied CLI must answer `--version` afterwards. Files in the
  * global `dist/` that the fork no longer builds are removed, so a renamed
  * module cannot leave a stale twin behind. `--dry-run` reports without writing.
@@ -25,7 +26,7 @@ import { execSync, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkGlobalInstall } from "./sync-global-checks.mjs";
+import { checkGlobalInstall, syncedPackageJson } from "./sync-global-checks.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const forkRoot = resolve(here, "..");
@@ -104,11 +105,11 @@ console.log(
 );
 
 if (!dryRun) {
-  if (globalPkg.version !== forkPkg.version) {
-    const globalPkgPath = join(target, "package.json");
-    const text = readFileSync(globalPkgPath, "utf8");
-    writeFileSync(globalPkgPath, text.replace(/("version"\s*:\s*)"[^"]*"/, `$1"${forkPkg.version}"`));
-    console.log(`sync-global: global package.json version ${globalPkg.version} → ${forkPkg.version}`);
+  const globalPkgPath = join(target, "package.json");
+  const synced = syncedPackageJson(readFileSync(globalPkgPath, "utf8"), forkPkg);
+  if (synced.changed) {
+    writeFileSync(globalPkgPath, synced.text);
+    console.log(`sync-global: global package.json now carries version ${forkPkg.version}${forkPkg.fork ? " and the fork marker" : ""} (was ${globalPkg.version})`);
   }
   const version = execFileSync(process.execPath, [join(target, "dist", "cli.js"), "--version"], { encoding: "utf8" }).trim();
   if (version !== forkPkg.version) fail(`the synced CLI answers "${version}", expected ${forkPkg.version}`);

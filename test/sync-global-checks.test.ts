@@ -69,3 +69,21 @@ test("a complete global install reports no missing converter and the Kotlin bina
   assert.ok(!report.lines.some((line) => line.includes("missing")));
   assert.ok(report.lines.some((line) => line.includes("tree-sitter-kotlin binary present")));
 });
+
+// --- the fork marker reaches the global install (Stage 27) ---
+
+test("the synced package.json takes the fork's version and its fork marker, and nothing else", async () => {
+  const { syncedPackageJson } = await import("../scripts/sync-global-checks.mjs");
+  const marker = { upstream: "@nanonets/graft", install: "node scripts/sync-global.mjs", releases: "fork_graft_releases" };
+  const globalText = JSON.stringify({ name: "@nanonets/graft", version: "0.25.0-nishadherath.2", license: "MIT" }, null, 2) + "\n";
+  const out = syncedPackageJson(globalText, { ...forkPkg, version: "0.25.0-nishadherath.3", fork: marker });
+  assert.equal(out.changed, true);
+  assert.deepEqual(JSON.parse(out.text), { name: "@nanonets/graft", version: "0.25.0-nishadherath.3", license: "MIT", fork: marker });
+  assert.ok(out.text.endsWith("\n"));
+  // Already in step: nothing to write.
+  assert.equal(syncedPackageJson(out.text, { ...forkPkg, version: "0.25.0-nishadherath.3", fork: marker }).changed, false);
+  // A fork build without a marker leaves the global one unmarked, so it cannot refuse an upgrade it should allow.
+  const unmarked = syncedPackageJson(out.text, { ...forkPkg, version: "0.25.0-nishadherath.3" });
+  assert.equal(unmarked.changed, true);
+  assert.equal("fork" in JSON.parse(unmarked.text), false);
+});

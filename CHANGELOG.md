@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`scripts/sync-global.mjs` copies the `fork` marker into the global install's `package.json`.** It copied `dist/` and the version only, so a synced global `graft` read an unmarked package.json and still ran upstream's `upgrade`. It now mirrors the marker (or removes it when the fork has none) and says so.
+
 ## 0.25.0-nishadherath.3 (2026-10-27)
 
 ### Fixed

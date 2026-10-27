@@ -59,3 +59,18 @@ export function checkGlobalInstall({ target, forkRoot, forkPkg }) {
 
   return { lines, missing, kotlinPresent };
 }
+
+/**
+ * The global package.json as it should read after a sync: the fork's version, so `graft --version`
+ * names the build, and the fork's `fork` marker, which is what makes the installed `graft upgrade`
+ * refuse and the update line name no command. A fork build without a marker leaves none behind.
+ * Returns the text to write and whether it differs from `globalText`.
+ */
+export function syncedPackageJson(globalText, forkPkg) {
+  const pkg = JSON.parse(globalText);
+  pkg.version = forkPkg.version;
+  if (forkPkg.fork) pkg.fork = forkPkg.fork;
+  else delete pkg.fork;
+  const text = `${JSON.stringify(pkg, null, 2)}\n`;
+  return { text, changed: text !== globalText };
+}

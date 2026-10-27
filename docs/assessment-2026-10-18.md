@@ -375,6 +375,8 @@ D11 Decision:      GRAFT_REASONING for the deep pass
                    run-to-run variance; A is the state in force
     Blast radius:  none
     Recommended:   A, and close the question in the next handoff.
+    Answered:      B, by the operator on 2026-10-27, on Stage 31's measured passes
+                   (docs/handoffs/2026-10-27-stage-31-retrieval-round-two.md).
 ```
 
 ## 8. Verified facts (this session, 2026-10-18)

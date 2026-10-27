@@ -95,6 +95,8 @@ D11 Decision:      GRAFT_REASONING for the deep pass on this machine
     Recommended:   B, because the quality is equal within noise on both sets and output tokens
                    are the expensive ones; revisit only with a set large enough to see a
                    two-question difference (about 6 : 0 discordant is needed at n = 20).
+    Answered:      B, by the operator on 2026-10-27. Setting the variable is the operator's
+                   own step.
 ```
 
 ## Open questions

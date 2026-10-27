@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.25.0-nishadherath.4 (2026-10-27)
+
 ### Added
 
 - **`node scripts/release.mjs <version>` cuts a fork release.** It bumps the version in `package.json` and both places in `package-lock.json`, turns the CHANGELOG's Unreleased section into a dated heading (with a fresh empty one above it), rewrites the README's "This build" section (heading, contents anchor, tarball name, `--version` lines), and keeps the `fork` marker or writes one. It refuses on a dirty tree, a version that is not semver or is the current one, and a missing or empty Unreleased section. It prints the commit, tag, push and pack commands and runs none of them.

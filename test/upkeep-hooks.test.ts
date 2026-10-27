@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 import { main } from '../src/claude/hooks.js';
-import { readStamp, runningVersion, updateCachePath } from '../src/upkeep.js';
+import { readStamp, runningFork, runningVersion, updateCachePath } from '../src/upkeep.js';
 import { tmpRepo } from './helpers.js';
 import { timeBar } from './machine-speed.js';
 
@@ -89,8 +89,15 @@ test('session-start says nothing on a second run — the stamp now matches', asy
 test('session-start surfaces a cached upgrade nudge', async () => {
   const repo = wiredRepo('hook-nudge');
   const ctx = contextOf(await runHook('session-start', repo, homeWithCache('hook-nudge-home', '99.0.0')));
-  assert.match(ctx, /graft .* → 99\.0\.0 available/);
-  assert.match(ctx, /run `graft upgrade`/);
+  // This checkout is a fork build, whose nudge names no command (test/fork-upgrade-guard.test.ts);
+  // an unmarked build keeps upstream's line.
+  if (runningFork()) {
+    assert.match(ctx, /upstream .* 99\.0\.0 available/);
+    assert.doesNotMatch(ctx, /upgrade/);
+  } else {
+    assert.match(ctx, /graft .* → 99\.0\.0 available/);
+    assert.match(ctx, /run `graft upgrade`/);
+  }
 });
 
 test('an up-to-date install gets no nudge', async () => {
@@ -144,6 +151,11 @@ test('a repo graft set up, on a machine without trail, hands the agent the trail
   try {
     const home = homeWithCache('hook-handover-home', null);
     const first = contextOf(await runHook('session-start', wiredRepo('hook-handover'), home));
+    if (runningFork()) {
+      // A fork build has no route to trail, so it never advertises one.
+      assert.doesNotMatch(first, /graft is now Trail-code|upgrade/);
+      return;
+    }
     assert.match(first, /graft is now Trail-code/);
     assert.match(first, /`graft upgrade` adds it/);
     const again = contextOf(await runHook('session-start', wiredRepo('hook-handover-2'), home));

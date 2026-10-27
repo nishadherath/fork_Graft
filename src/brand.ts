@@ -19,6 +19,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
+import type { ForkMarker } from "./cli-meta.js";
 
 export type Brand = "trail" | "graft";
 
@@ -162,6 +163,9 @@ export interface NoticeInput {
   env?: NodeJS.ProcessEnv;
   home?: string;
   now?: number;
+  /** The running build's fork marker. A fork has no `upgrade` route to trail, so the line
+   * that advertises one is dropped. */
+  fork?: ForkMarker | null;
 }
 
 /**
@@ -191,7 +195,7 @@ export function graftNotice(input: NoticeInput): string | null {
     /* shown again next time */
   }
   const lines = [`· graft is now trail. this ran ${cmd(input.ran, "trail")}, and graft keeps working (shown once a day)`];
-  if (!trailOnPath(env)) lines.push("· run graft upgrade to get the trail command too");
+  if (!input.fork && !trailOnPath(env)) lines.push("· run graft upgrade to get the trail command too");
   return lines.join("\n");
 }
 
@@ -245,8 +249,10 @@ export function handoverStampPath(home: string = homedir()): string {
  * `graft upgrade` adds trail. Once trail is installed, the next session moves
  * the repo over by itself (see upkeep-run.ts), so this stops.
  */
-export function trailHandoverLine(input: { env?: NodeJS.ProcessEnv; home?: string; now?: number } = {}): string | null {
+export function trailHandoverLine(input: { env?: NodeJS.ProcessEnv; home?: string; now?: number; fork?: ForkMarker | null } = {}): string | null {
   const env = input.env ?? process.env;
+  // A fork build has no `upgrade` that reaches trail (it would install upstream over the fork).
+  if (input.fork) return null;
   if (brand(env) !== "graft" || env.CI || env.GRAFT_NO_RENAME_NOTICE || trailOnPath(env)) return null;
   const now = input.now ?? Date.now();
   const path = handoverStampPath(input.home);

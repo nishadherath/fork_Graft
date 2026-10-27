@@ -12,6 +12,11 @@
     "graft"
   ],
   "license": "MIT",
+  "fork": {
+    "upstream": "@nanonets/graft",
+    "install": "node scripts/sync-global.mjs",
+    "releases": "fork_graft_releases"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/trailhq/Trail-Code.git"

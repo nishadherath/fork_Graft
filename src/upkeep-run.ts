@@ -17,9 +17,11 @@ import {
   maybeRefreshInBackground,
   readUpdateCache,
   reconcileWiring,
+  runningFork,
   wiredHostIds,
   type WiringOpts,
 } from './upkeep.js';
+import type { ForkMarker } from './cli-meta.js';
 
 export interface UpkeepResult {
   /** Lines worth showing the agent/user, already formatted. Usually empty. */
@@ -81,11 +83,12 @@ export function shouldMoveToTrail(repo: string, env: NodeJS.ProcessEnv = process
  * @param current the running graft's version
  * @param opts.background  false in hook contexts: read the update cache, never
  *   spawn a fetch. Hooks run under a hard timeout and must stay off the network.
+ * @param opts.fork  the build's fork marker; read from the running package.json when omitted
  */
 export function runUpkeep(
   repo: string,
   current: string,
-  opts: { background?: boolean; home?: string } = {},
+  opts: { background?: boolean; home?: string; fork?: ForkMarker | null } = {},
 ): UpkeepResult {
   const lines: string[] = [];
   try {
@@ -95,7 +98,7 @@ export function runUpkeep(
   } catch { /* fail-soft: wiring refresh is never worth breaking a session for */ }
   try {
     if (opts.background !== false) maybeRefreshInBackground(opts.home);
-    const nudge = formatUpdateNudge(current, readUpdateCache(opts.home)?.latest);
+    const nudge = formatUpdateNudge(current, readUpdateCache(opts.home)?.latest, opts.fork === undefined ? runningFork() : opts.fork);
     if (nudge) lines.push(nudge);
   } catch { /* same */ }
   return { lines };

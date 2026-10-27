@@ -13,7 +13,7 @@ import { emit, emitHook, graftJson, payloadSessionId, withContextDirArg } from '
 import { codexPostBashPart, postBashPart, sessionStartPart } from './skills-wiring.js';
 import { handlePrompt } from './prompt-hook.js';
 import { runUpkeep } from '../upkeep-run.js';
-import { runningVersion, wiredHostIds } from '../upkeep.js';
+import { runningFork, runningVersion, wiredHostIds } from '../upkeep.js';
 import { hostsWiredForTrail } from '../hosts/registry.js';
 import { flushClosedSessions, summarizeSession } from '../telemetry/sessions.js';
 import { maybeFlushInBackground } from '../telemetry/flush.js';
@@ -505,7 +505,7 @@ export async function main(event: string): Promise<void> {
     const upkeep = runUpkeep(dir, runningVersion(), { background: false }).lines;
     // On graft without trail, in a repo graft set up: once a week, the agent
     // tells the person how to get it.
-    const handover = wiredHostIds(dir).includes('claude') ? trailHandoverLine() : null;
+    const handover = wiredHostIds(dir).includes('claude') ? trailHandoverLine({ fork: runningFork() }) : null;
     if (handover) upkeep.push(handover);
     // Roll up any session that ended since we were last here, then send the
     // queue from a detached child: what session end didn't get to (a killed

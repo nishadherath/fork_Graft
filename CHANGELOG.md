@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A fork build no longer sends anyone to upstream's `graft upgrade`.** `package.json` now
+  carries a `fork` object (`upstream` package, `install` command, `releases` folder). When it is
+  present, `graft upgrade` refuses before any npm call, prints the fork's own install route and
+  exits 1; the update nudge (on every command and at session start) names upstream's version and
+  this build's, says the merge is the operator's decision, and names no command; `graft version`
+  reports upstream's release the same way; and the once-a-day rename notice and the weekly trail
+  handover line drop their "run `graft upgrade`" advice, since that command would replace the
+  fork with upstream's release. A build without the marker behaves as upstream's does.
+
 ## 0.25.0-nishadherath.2 (2026-10-26)
 
 ### Added

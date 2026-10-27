@@ -39,6 +39,38 @@ export function readPackageName(moduleUrl: string): string {
 
 const PKG_NAME = readPackageName(import.meta.url);
 
+/**
+ * The `fork` object in package.json that marks a build as someone's own build of this
+ * package. Data, not a comparison against a name: a fork's release step writes it, and
+ * every place that would send a person to upstream's `upgrade` reads it instead.
+ */
+export interface ForkMarker {
+  /** The npm package this build forks, whose newer releases the update check reports. */
+  upstream: string;
+  /** The command, run from the fork's repository, that installs this build. */
+  install: string;
+  /** The folder holding the fork's release tarballs, named relative to the repository's parent. */
+  releases?: string;
+}
+
+/** The fork marker in the package.json this module belongs to, or null when the build is unmarked
+ * or the marker lacks an upstream package or an install command. */
+export function readForkMarker(moduleUrl: string): ForkMarker | null {
+  try {
+    const pkg = JSON.parse(readFileSync(resolvePackageJsonPath(moduleUrl), "utf8")) as { fork?: Partial<ForkMarker> | null };
+    const fork = pkg.fork;
+    if (!fork || typeof fork !== "object") return null;
+    if (typeof fork.upstream !== "string" || !fork.upstream || typeof fork.install !== "string" || !fork.install) return null;
+    return {
+      upstream: fork.upstream,
+      install: fork.install,
+      ...(typeof fork.releases === "string" && fork.releases ? { releases: fork.releases } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Reads the version of the graft package this module was loaded from. */
 export function readCurrentVersion(moduleUrl: string): string {
   const raw = readFileSync(resolvePackageJsonPath(moduleUrl), "utf8");
@@ -80,13 +112,16 @@ export function getNpmViewVersion(pkgName: string = PKG_NAME, timeoutMs = 2000):
   }
 }
 
-/** Pure formatter for `graft version` — no I/O, easy to unit-test. */
-export function formatVersionReport(current: string, latest: NpmViewResult): string {
+/** Pure formatter for `graft version` — no I/O, easy to unit-test. A fork build reports
+ * upstream's release without pointing at `upgrade`, which would replace the fork. */
+export function formatVersionReport(current: string, latest: NpmViewResult, fork: ForkMarker | null = null): string {
   const lines = [`${brand()} ${current}`];
   if (!latest.ok || !latest.version) {
     lines.push("latest: unreachable (offline?)");
   } else if (latest.version === current) {
     lines.push(`latest on npm: ${current} ✓ up to date`);
+  } else if (fork) {
+    lines.push(`latest on npm: ${latest.version} (${fork.upstream}); this build is a fork, and merging that release is the operator's decision`);
   } else {
     lines.push(`latest on npm: ${latest.version}, run ${brand()} upgrade`);
   }
@@ -133,10 +168,23 @@ export interface UpgradeResult {
   newVersion?: string;
   /** The `trail` package's version, when `graft upgrade` installed it alongside. */
   trailVersion?: string;
+  /** Present when the build is a fork and the upgrade was refused before any npm call. */
+  refusedFork?: ForkMarker;
+}
+
+/** The refusal a fork build prints in place of an upgrade: what happened, and the fork's own route. */
+function formatForkRefusal(oldVersion: string | undefined, fork: ForkMarker): string {
+  const lines = [
+    `✗ ${brand()} upgrade is off on this build (${oldVersion ?? "?"}): it is a fork of ${fork.upstream}, and npm's latest would replace it with upstream's release.`,
+    `To install this fork, run from its repository: ${fork.install}`,
+  ];
+  if (fork.releases) lines.push(`Its release tarballs are in the folder ${fork.releases}, beside that repository.`);
+  return lines.join("\n");
 }
 
 /** Pure formatter for a finished upgrade — no I/O, easy to unit-test. */
 export function formatUpgradeReport(result: UpgradeResult): string {
+  if (result.refusedFork) return formatForkRefusal(result.oldVersion, result.refusedFork);
   if (!result.ran) {
     return (
       `running via npx: npx already fetches the latest ${brand()} on every run.\n` +
@@ -155,6 +203,9 @@ export function formatUpgradeReport(result: UpgradeResult): string {
  * version. No-ops with guidance when running via npx. */
 export function runUpgrade(moduleUrl: string): UpgradeResult {
   const oldVersion = readCurrentVersion(moduleUrl);
+  // A fork is replaced by upstream's release if npm installs it, so nothing is spawned.
+  const fork = readForkMarker(moduleUrl);
+  if (fork) return { ran: false, ok: false, oldVersion, refusedFork: fork };
   if (isRunningViaNpx(moduleUrl)) {
     return { ran: false, ok: true, oldVersion };
   }

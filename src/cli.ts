@@ -37,7 +37,7 @@ import type { Retraction } from "./hosts/retract.js";
 import { compactWrites, formatNonInteractiveHelp, formatPlan, runPicker } from "./cli-picker.js";
 import { installBrainsServer, removeBrainsServer } from "./hosts/claude-global.js";
 import { homedir } from "node:os";
-import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, readPackageName, runUpgrade } from "./cli-meta.js";
+import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, readForkMarker, readPackageName, runUpgrade } from "./cli-meta.js";
 import { nativeFallbackNotice } from "./graph/native.js";
 import { patchBuildConfig, readDocuments, readLsp, readStructured, type BuildConfig } from "./util/state.js";
 import { normalizePathPrefix } from "./util/paths.js";
@@ -100,6 +100,8 @@ import {
 
 const program = new Command();
 const currentVersion = readCurrentVersion(import.meta.url);
+/** Set on a fork build: `upgrade` refuses and the update lines name no command (see cli-meta.ts). */
+const forkMarker = readForkMarker(import.meta.url);
 
 /**
  * Started as `trail` rather than `graft`. Decided once, before any command is
@@ -333,14 +335,14 @@ program.hook("preAction", (_parent, action) => {
   if (UPKEEP_SKIP.has(action.name())) return;
   // Someone typing graft by hand learns its new name, once a day. Agents,
   // hooks, CI and pipes never see it (see graftNotice).
-  const renamed = graftNotice({ ran: spelling(action), tty: Boolean(process.stderr.isTTY) });
+  const renamed = graftNotice({ ran: spelling(action), tty: Boolean(process.stderr.isTTY), fork: forkMarker });
   if (renamed) console.error(renamed);
   // Someone typing trail in a repo whose graft-era hooks can't reach it learns
   // the one command that moves it (init itself is that command).
   const stranded = action.name() === "init" ? null : strandedRepoNotice({ cwd: process.cwd(), tty: Boolean(process.stderr.isTTY) });
   if (stranded) console.error(stranded);
   maybeRefreshInBackground();
-  const nudge = formatUpdateNudge(currentVersion, readUpdateCache()?.latest);
+  const nudge = formatUpdateNudge(currentVersion, readUpdateCache()?.latest, forkMarker);
   if (nudge) console.error(nudge);
   // Telemetry, in the order a user should experience it: disclose first, then
   // record, then (at most once a day, detached) send. Every step is a no-op in a
@@ -458,7 +460,7 @@ program
   .description("Print the installed version and the latest published on npm")
   .action(() => {
     const latest = getNpmViewVersion();
-    console.log(formatVersionReport(currentVersion, latest));
+    console.log(formatVersionReport(currentVersion, latest, forkMarker));
   });
 
 grouped(program.command("upgrade"), GROUP.setup)
@@ -466,7 +468,7 @@ grouped(program.command("upgrade"), GROUP.setup)
   .action(async () => {
     const result = runUpgrade(import.meta.url);
     console.log(formatUpgradeReport(result));
-    if (result.ran && !result.ok) process.exit(1);
+    if (!result.ok) process.exit(1); // a failed install, or a fork build that refused
     if (!TRAIL && result.ok && result.trailVersion) await moveHereToTrail(process.cwd());
   });
 

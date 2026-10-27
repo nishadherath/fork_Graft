@@ -31,7 +31,7 @@ import { homedir } from 'node:os';
 import { readJson, writeJsonAtomic, cacheDir } from './util/state.js';
 import { HOSTS, hostRelPath } from './hosts/registry.js';
 import { markersFor } from './hosts/sections.js';
-import { getNpmViewVersion, readCurrentVersion } from './cli-meta.js';
+import { getNpmViewVersion, readCurrentVersion, readForkMarker, type ForkMarker } from './cli-meta.js';
 import { brand } from './brand.js';
 import { graftCliPath } from './claude/paths.js';
 
@@ -47,6 +47,12 @@ import { graftCliPath } from './claude/paths.js';
  */
 export function runningVersion(): string {
   try { return readCurrentVersion(import.meta.url); } catch { return '0.0.0'; }
+}
+
+/** The fork marker of the running build, or null for an unmarked one. Resolved from this
+ * module for the same reason as {@link runningVersion}. */
+export function runningFork(): ForkMarker | null {
+  try { return readForkMarker(import.meta.url); } catch { return null; }
 }
 
 /** How long a registry answer is considered current. A day: graft ships far less
@@ -151,9 +157,12 @@ export function maybeRefreshInBackground(
 }
 
 /** One line, or nothing. Nothing is the common case — don't spend context on
- * "you're up to date". */
-export function formatUpdateNudge(current: string, latest: string | null | undefined): string | null {
+ * "you're up to date". On a fork build the line reports upstream's release and
+ * leaves the merge to the operator: it names no command, because `upgrade` would
+ * replace the fork with upstream's release. */
+export function formatUpdateNudge(current: string, latest: string | null | undefined, fork: ForkMarker | null = null): string | null {
   if (!isNewer(latest, current)) return null;
+  if (fork) return `· upstream ${fork.upstream} ${latest} available; this build (${current}) is a fork. Merging it is the operator's decision. No action needed.`;
   // `upgrade`, not a bare npm install: under graft it brings the trail command along.
   return `⬆ ${brand()} ${current} → ${latest} available: run \`${brand()} upgrade\` (restart your agent after).`;
 }

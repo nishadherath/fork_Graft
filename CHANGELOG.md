@@ -12,6 +12,16 @@
   written by an agent that read only the source in a clone with the earlier set, its results,
   the handoffs and the assessments removed, and never ran `ask`. Pass it with `--questions`.
 
+### Fixed
+
+- **`graft ask` no longer ranks test files first for a question about test machinery.** The
+  test-file de-rank was lifted for any query holding the word "test", so "how are test files
+  recognised" or "the test runner" put test files above the source that answers them. A singular
+  "test" or "spec" now lifts it only when it heads a request ("the test for X", "a spec that
+  covers Y"); plurals and the other test words (coverage, assert, fixture, mock) still do.
+  Measured on this repository's lexical graph: file@3 14 of 20 (was 13) on the Stage 22 set and
+  12 of 20 (unchanged) on the blind set; hit@3 unchanged on both.
+
 ## 0.25.0-nishadherath.4 (2026-10-27)
 
 ### Added

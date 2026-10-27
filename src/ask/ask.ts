@@ -510,7 +510,12 @@ function lexical(
   // definition first. This stops a test that merely contains the query's literals
   // (e.g. `TestDownloadStall` matching "download stall") from outranking the
   // source it exercises — the "tests ranked above the actual code" trap.
-  const wantsTests = /\b(tests?|specs?|coverage|assert(?:ion)?s?|fixtures?|mocks?)\b/i.test(query);
+  // A singular "test"/"spec" counts only when it heads a request ("the test for X");
+  // as a modifier ("test files", "the test runner") the query is about test
+  // machinery, whose answer is source (fork, Stage 31: test/ask-test-intent.test.ts).
+  const wantsTests =
+    /\b(tests|specs|coverage|assert(?:ion)?s?|fixtures?|mocks?)\b/i.test(query) ||
+    /\b(test|spec)\s+(for|of|that|which|covering|cases?)\b/i.test(query);
   const testFactor = (path: string): number => (!wantsTests && isTestPath(path) ? TEST_RANK_PENALTY : 1);
 
   // ── Pass 1: tokenize every scored field once, and collect per-document token

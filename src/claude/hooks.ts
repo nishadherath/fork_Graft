@@ -19,7 +19,8 @@ import { flushClosedSessions, summarizeSession } from '../telemetry/sessions.js'
 import { maybeFlushInBackground } from '../telemetry/flush.js';
 import { handleStopEvent } from './stop.js';
 import { main as preBashMain } from './pre-bash.js';
-import { classifyToolUse, commandInvokesGraft, isMcpToolName, isGraftMcpTool, parseSavings, recordToolUse, type ToolKind } from './session-metrics.js';
+import { classifyToolUse, commandInvokesGraft, commandPrintsFooter, isMcpToolName, isGraftMcpTool, parseSavings, recordToolUse, type ToolKind } from './session-metrics.js';
+import { savingsFooterAmounts } from '../context/savings.js';
 import { adoptRepoBrand, brand, commandOnPath, repoWiredForTrail, tag, trailHandoverLine, trailOnPath } from '../brand.js';
 import { fitTrailServerToMachine } from '../hosts/claude-global.js';
 import { globalCopyCovers } from './hook-layers.js';
@@ -154,8 +155,15 @@ async function editOverlap(input: any, dir: string, file: string): Promise<strin
  * nothing is written.
  */
 function handleToolUse(input: any, dir: string): void {
-  recordToolUse(dir, payloadSessionId(input),
-    { ...classifyAndScore(input?.tool_name, input?.tool_input?.command, () => input?.tool_response ?? input), host: telemetryHost(input) });
+  const id = payloadSessionId(input);
+  const toolName = input?.tool_name;
+  const command = input?.tool_input?.command;
+  // Footers owed to the session are read only for a source read, the one kind whose payload is
+  // scanned (and only while something is owed). The harness moves a long graft command to the
+  // background, so its footer reaches the agent later in a Read of the output file.
+  const owed = classifyToolUse(toolName, command) === 'source' ? (readSession(dir, id).footersOwed ?? 0) : 0;
+  recordToolUse(dir, id,
+    { ...classifyAndScore(toolName, command, () => input?.tool_response ?? input, owed), host: telemetryHost(input) });
 }
 
 /**
@@ -218,17 +226,34 @@ function telemetryHost(input: unknown): AgentHost {
  * otherwise hit. So skip `payload()` entirely for them. For anything else, a
  * footer is itself proof graft ran (a bare `Bash graft …` the name couldn't
  * classify), so its presence upgrades the kind to 'graft'.
+ *
+ * One exception to the source-read rule, bounded by what is owed: when `owed` footers
+ * are outstanding (a footer-printing graft command returned none, because the harness
+ * moved it to the background), a source read's payload is scanned and at most `owed`
+ * footers in it count, each once. With nothing owed the payload stays untouched, and a
+ * footer quoted in a file or transcript the agent reads counts for nothing. `owed` is
+ * undefined for hosts that do not track it (Cursor).
  */
 function classifyAndScore(
   toolName: string | undefined,
   command: string | undefined,
   payload: () => unknown,
-): { kind: ToolKind | null; savedTokens: number } {
+  owed?: number,
+): { kind: ToolKind | null; savedTokens: number; owesFooter?: boolean; footersPaid?: number } {
   let kind = classifyToolUse(toolName, command);
-  if (kind === 'source') return { kind, savedTokens: 0 };
-  const savedTokens = parseSavings(JSON.stringify(payload() ?? ''));
+  if (kind === 'source') {
+    if (!owed) return { kind, savedTokens: 0 };
+    const paid = savingsFooterAmounts(JSON.stringify(payload() ?? '')).slice(0, owed);
+    return { kind, savedTokens: paid.reduce((a, b) => a + b, 0), footersPaid: paid.length };
+  }
+  const amounts = savingsFooterAmounts(JSON.stringify(payload() ?? ''));
+  const savedTokens = amounts.reduce((a, b) => a + b, 0);
   if (savedTokens > 0) kind = 'graft';
-  return { kind, savedTokens };
+  if (owed === undefined) return { kind, savedTokens };
+  // A graft command's own footer pays nothing owed; a footer that arrives by reading a stored output does.
+  const footersPaid = amounts.length > 0 && !(command && commandInvokesGraft(command)) ? amounts.length : 0;
+  const owesFooter = kind === 'graft' && savedTokens === 0 && Boolean(command && commandPrintsFooter(command));
+  return { kind, savedTokens, owesFooter, footersPaid };
 }
 
 /**

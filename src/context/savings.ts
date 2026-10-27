@@ -135,12 +135,18 @@ export function savingsLine(body: string, saved: Savings | undefined): string {
  * text is not miscounted here.
  */
 export function sumSavingsFooters(text: string): number {
-  let total = 0;
+  return savingsFooterAmounts(text).reduce((a, b) => a + b, 0);
+}
+
+/** Each footer's amount in a blob of text, in the order they appear: {@link sumSavingsFooters}
+ * without the sum, for a reader that may count only as many footers as it is owed. */
+export function savingsFooterAmounts(text: string): number[] {
+  const amounts: number[] = [];
   // The code a query saved reading, and the digging a reused learning saved.
   for (const m of text.matchAll(/\[(?:graft|trail)\] (?:tokens|learnings) saved ≈ ([\d,]+)/g)) {
-    total += Number(m[1].replace(/,/g, '')) || 0;
+    amounts.push(Number(m[1].replace(/,/g, '')) || 0);
   }
-  return total;
+  return amounts;
 }
 
 /** Render `body` with the savings line on TOP.

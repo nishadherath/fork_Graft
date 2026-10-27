@@ -57,6 +57,12 @@ export interface SessionState {
   /** Set by the tool-savings hook when the current turn touched graft, cleared
    * at Stop once the turn has been counted. Transient, not a total. */
   turnUsedGraft?: boolean;
+  /** Footers owed to this session: graft commands that print a savings footer but whose
+   * tool response carried none, because the harness moved the command to the background
+   * and the output reaches the agent later through a file. A source read that carries a
+   * footer pays one of these (see claude/session-metrics.ts); with none owed a read's
+   * payload is never scanned. Optional: absent on files written before it, and when zero. */
+  footersOwed?: number;
   /** `uuid` of the last assistant reply already examined, so a Stop that fires
    * without new prose (or fires twice) can't count one reply as two turns. */
   lastTallyUuid?: string;

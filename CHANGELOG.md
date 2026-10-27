@@ -12,6 +12,14 @@
   reports upstream's release the same way; and the once-a-day rename notice and the weekly trail
   handover line drop their "run `graft upgrade`" advice, since that command would replace the
   fork with upstream's release. A build without the marker behaves as upstream's does.
+- **`graft stats` counts the saving of a command whose output reached the agent through a file.**
+  When the harness moves a long `graft ask` to the background, the tool response is a notice with
+  no `tokens saved` footer, and the footer arrives later in a Read of the output file, a source
+  read whose payload was never scanned: the read counted and the saving was lost. A footer-printing
+  graft command that returns no footer now leaves one footer owed in the session file
+  (`footersOwed`); a later source read that carries a footer pays it, once, and a footer with
+  nothing owed (a transcript or a quoted example) still counts for nothing. With nothing owed a
+  read's payload is not scanned, as before.
 
 ## 0.25.0-nishadherath.2 (2026-10-26)
 

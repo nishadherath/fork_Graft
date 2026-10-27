@@ -85,6 +85,18 @@ export function commandInvokesGraft(command: string): boolean {
   return /(^|[|&;]\s*)(npx\s+(-y\s+)?(@nanonets\/|@trailhq\/)?)?(graft|trail)(-dev)?\b/i.test(c);
 }
 
+/** The CLI commands that print a savings footer (`withSavings` and the `ask` header). */
+const FOOTER_COMMANDS = 'ask|grep|skeleton|callers|map';
+
+/** Whether a shell command line runs a graft command that prints a savings footer, under either name
+ * and any install shape {@link commandInvokesGraft} knows. `graft build` and `graft status` print none. */
+export function commandPrintsFooter(command: string): boolean {
+  const c = command.trim();
+  const word = String.raw`(?:${FOOTER_COMMANDS})\b`;
+  if (new RegExp(String.raw`dist[/\\](?:cli|bin[/\\](?:trail|graft))\.js\s+${word}`, 'i').test(c)) return true;
+  return new RegExp(String.raw`(^|[|&;]\s*)(?:npx\s+(?:-y\s+)?(?:@nanonets/|@trailhq/)?)?(?:graft|trail)(?:-dev)?\s+${word}`, 'i').test(c);
+}
+
 /**
  * Classify one tool use as a graft retrieval, a source read, or neither
  * (an edit, a task spawn, an unrelated shell command — no retrieval signal).
@@ -111,6 +123,11 @@ export interface ToolUse {
   kind?: ToolKind | null;
   /** Tokens the retrieval saved, parsed from its footer. Added to the running total. */
   savedTokens?: number;
+  /** A graft command that prints a footer returned none: the harness moved it to the background,
+   * and its output reaches the agent later through a file. One more footer is owed to the session. */
+  owesFooter?: boolean;
+  /** Owed footers this use paid, because their text arrived in a source read or a shell read of the output file. */
+  footersPaid?: number;
   /** The host recording this use. Stamped on the session file (once) so the
    * `session_summary` is attributed correctly no matter which host later flushes it. */
   host?: AgentHost;
@@ -136,6 +153,10 @@ export function recordToolUse(dir: string, sessionId: string, use: ToolUse): voi
   if (use.kind === 'graft') s.graftReads = (s.graftReads ?? 0) + 1;
   else if (use.kind === 'source') s.sourceReads = (s.sourceReads ?? 0) + 1;
   if (saved > 0) s.savedTokens = (s.savedTokens ?? 0) + saved;
+  // A footer owed is paid by the next read that carries one (hooks.ts classifyAndScore), never twice.
+  if (use.owesFooter) s.footersOwed = (s.footersOwed ?? 0) + 1;
+  if (use.footersPaid) s.footersOwed = Math.max(0, (s.footersOwed ?? 0) - use.footersPaid);
+  if (!s.footersOwed) delete s.footersOwed;
   // A graft use owes a tally in this turn's reply; the Stop hook (countTallyTurn)
   // resolves whether it got one and clears the flag. A flag, not a count — a turn
   // with several graft calls is still one reply to the user.

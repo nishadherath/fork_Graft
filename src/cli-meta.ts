@@ -112,7 +112,7 @@ export function getNpmViewVersion(pkgName: string = PKG_NAME, timeoutMs = 2000):
   }
 }
 
-/** Pure formatter for `graft version` — no I/O, easy to unit-test. A fork build reports
+/** Pure formatter for `graft version`: no I/O, easy to unit-test. A fork build reports
  * upstream's release without pointing at `upgrade`, which would replace the fork. */
 export function formatVersionReport(current: string, latest: NpmViewResult, fork: ForkMarker | null = null): string {
   const lines = [`${brand()} ${current}`];

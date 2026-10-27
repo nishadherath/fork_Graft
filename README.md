@@ -77,7 +77,7 @@ npm install -g @trailhq/trail-code && trail init
 ## Contents
 
 - [How it works](#how-it-works)
-- [This build: 0.25.0-nishadherath](#this-build-0250-nishadherath)
+- [This build: 0.25.0-nishadherath.3](#this-build-0250-nishadherath3)
 - [Quick start](#quick-start)
 - [Part 1: The graft map](#part-1-the-graft-map), your code
 - [Part 2: Learnings](#part-2-learnings), what you, your agents and your team know
@@ -101,7 +101,7 @@ The graft map tells your agent *where* things are. Learnings tell it *why* they 
 
 ---
 
-## This build: 0.25.0-nishadherath
+## This build: 0.25.0-nishadherath.3
 
 This is a fork of upstream Trail-code 0.25.0 (`@nanonets/graft`, MIT), built from the fork's `main`. It carries every upstream 0.25.0 feature and adds the following. It keeps the `graft` command, the `@nanonets/graft` package and the `graft/` folder; it installs no `trail` command. The structured and documents tiers and LSP edges are on by default, each with a `--no-` switch to turn it off; the reasoning setting is opt-in; the token line shows on `--deep` and the fixes apply to every build.
 
@@ -113,17 +113,17 @@ This is a fork of upstream Trail-code 0.25.0 (`@nanonets/graft`, MIT), built fro
 - **`GRAFT_REASONING` / `--reasoning <level>`** sets the reasoning effort of every LLM call, in your provider's own words (`low`, `high`, `none`, ...). Unset sends nothing. A level the provider refuses stops the deep pass at once and names the variable.
 - **`graft build --deep` reports its token usage**: one `tokens:` line after the pass (calls, uncached and cached input, output with the reasoning share, model and level), also recorded as `deepUsage` in `graft/manifest.json`. Tokens only, no prices.
 - **The MCP launcher is always the installed `graft mcp`** (`trail mcp` in a repository already moved to trail), never `npx -y @nanonets/graft mcp`, which would fetch and run whatever the registry serves at each session start. `graft init` warns when no `graft` is on PATH, so `npx @nanonets/graft init` on a machine without a global install needs `npm install -g` before the server starts.
-- **Fixes**: cards for files that share a stem (`config.json`, `config.yml`) no longer overwrite each other.
+- **Fixes**: cards for files that share a stem (`config.json`, `config.yml`) no longer overwrite each other. `graft stats` counts the saving of a graft command whose output reached the agent through a file, once.
 
 Install this build from a tarball packed in a checkout of the fork, not from npm:
 
 ```bash
-npm pack                                           # writes nanonets-graft-0.25.0-nishadherath.tgz
-npm install -g ./nanonets-graft-0.25.0-nishadherath.tgz
-graft --version                                    # 0.25.0-nishadherath
+npm pack                                           # writes nanonets-graft-0.25.0-nishadherath.3.tgz
+npm install -g ./nanonets-graft-0.25.0-nishadherath.3.tgz
+graft --version                                    # 0.25.0-nishadherath.3
 ```
 
-`graft version` and `graft upgrade` compare against the `@nanonets/graft` release on npm, which is upstream's, so `graft upgrade` would replace this build with upstream's and also install upstream's `trail` command (`@trailhq/trail-code`). Once a `trail` command is on `PATH`, a repository wired by graft moves to trail the next time Claude Code opens in it. Details of each change are in [CHANGELOG.md](CHANGELOG.md).
+This build carries a `fork` marker in its `package.json`. `graft upgrade` refuses and names the install route (`node scripts/sync-global.mjs` from the fork), because npm's latest is upstream's release and would replace this build with it and install upstream's `trail` command (`@trailhq/trail-code`). The update line and `graft version` report upstream's newer release and say the merge is the operator's decision, with no command to run. Details of each change are in [CHANGELOG.md](CHANGELOG.md).
 
 Two living documents under `docs/architecture/` describe the whole system and are kept current with the code: [system-reference.md](docs/architecture/system-reference.md) lists every command, MCP tool, hook and indexed file type with the limits that apply, in Simplified Technical English; [system-diagram.html](docs/architecture/system-diagram.html) is an interactive single-file diagram of the system (open it in a browser from a local checkout). The assessment that set the current roadmap is [docs/assessment-2026-10-18.md](docs/assessment-2026-10-18.md).
 

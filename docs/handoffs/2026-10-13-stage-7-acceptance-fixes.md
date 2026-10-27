@@ -23,7 +23,7 @@ widened if the kickoff prompt says so (section 6, first decision); the three
 upper branches rebased onto the fixed core; `git log upstream/main..<branch>
 --name-only` still showing only the allowed paths; the gate green on all five
 branches, one at a time, with counts quoted in the commit messages and in
-`docs/upstream/*.md`. Nothing pushed.
+`docs/archive/upstream/*.md`. Nothing pushed.
 
 ## Decisions already made
 
@@ -49,7 +49,7 @@ branches, one at a time, with counts quoted in the commit messages and in
   (`sourceWalkOptions`).
 - Tests to extend: `test/structured-spans.test.ts` or the YAML family file,
   the Markdown scanner test, `test/structured-deep.test.ts`, the secret test.
-- `docs/upstream/pr-structured-tier-core.md`, `pr-structured-edges.md`,
+- `docs/archive/upstream/pr-structured-tier-core.md`, `pr-structured-edges.md`,
   `pr-documents-tier.md`: update tips, gate figures and the secret-rule sentence.
 
 ## Verified facts
@@ -81,7 +81,7 @@ are in `docs/acceptance-2026-10-13.md` section 8.
   0 fail, 5 skipped.
 - Documents rebased (one README conflict, resolved), tip `9cd4e9b`: 1,537
   tests, 1,532 pass, 0 fail, 5 skipped.
-- `docs/upstream/*.md` carry the new tips, gate figures and the secret-rule
+- `docs/archive/upstream/*.md` carry the new tips, gate figures and the secret-rule
   sentence. Path audit: only the allowed paths on every branch, plus
   `package.json` and `package-lock.json` on documents.
 - Worktrees left in place beside the repository: `fork_graft-stage7-core`,

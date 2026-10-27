@@ -84,7 +84,7 @@ operator depends on them:
    `pr/structured-tier-markup-build`, `pr/structured-edges`,
    `pr/documents-tier` (based on upstream `fe30ead`, 2026-10-13) and
    `fix/windows-mcp-launcher` (pushed to origin, not opened upstream), with
-   their texts in `docs/upstream/` and a draft advisory in `docs/security/`.
+   their texts in `docs/archive/upstream/` and a draft advisory in `docs/security/`.
 7. **The operator's process assets**: `AGENTS.md`, the engineering persona and
    its language profiles, `docs/operator-protocol.md`, the session-start hook,
    sixteen stage handoffs under `docs/handoffs/`, the acceptance report and its
@@ -226,7 +226,7 @@ handoff; the model class is justified by the judgement the work needs, not
 its size.
 
 1. **Open the design issue and decide the upstream question.** The text
-   exists (`docs/upstream/design-issue.md`); it needs the 0.23.0 facts (new
+   exists (`docs/archive/upstream/design-issue.md`); it needs the 0.23.0 facts (new
    repository name, the `.trail/cache/` layout, the brand split) and then
    posting through the REST API with the credential-manager token, as the
    memory note records. The answer, or its absence after a fortnight,

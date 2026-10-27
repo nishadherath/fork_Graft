@@ -77,7 +77,7 @@ Every branch counts about 30 more tests than its commit message quotes (crux
 the same on the crux branch, which changes one source file and no lockfile, so
 it is the installed `node_modules` of a fresh `npm ci` of each branch's
 lockfile, not the branches. The documents figure to quote in
-`docs/upstream/pr-documents-tier.md` is the one in the table.
+`docs/archive/upstream/pr-documents-tier.md` is the one in the table.
 
 ## 4. Cases
 

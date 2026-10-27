@@ -103,8 +103,8 @@ the order the operator depends on them:
    `docs/baselines/upstream-4e7d0f5-failures.txt` (38 names), and the
    machine-wide gate lock in `scripts/gate-lock.mjs`.
 6. **Historical texts that no longer describe a plan**: five pull-request
-   texts and a design issue under `docs/upstream/`, the unsent launcher
-   advisory under `docs/security/`, and `docs/graft-assessment-6.0-astra.md`
+   texts and a design issue under `docs/archive/upstream/`, the unsent launcher
+   advisory under `docs/security/`, and `docs/archive/graft-assessment-6.0-astra.md`
    (about a stock 0.21.1 install). Decision D25.
 
 ## 2. How it all works
@@ -188,7 +188,7 @@ assessment asked for.
   level) is still unsettled because it needs one deep pass per level.
 - *Dead texts carry weight.* The pull-request texts, the design issue and
   the advisory describe a plan the operator closed. A session that reads
-  `docs/upstream/` cold can mis-start a pull request; `AGENTS.md` now says
+  `docs/archive/upstream/` cold can mis-start a pull request; `AGENTS.md` now says
   not to, but the texts contradict it. The advisory's bug is still in
   upstream 0.26.0 (`spawnSync('graft', ['--version'])` at line 57 of
   `src/hosts/mcp-config.ts` there), and D10 (send it) was decided on

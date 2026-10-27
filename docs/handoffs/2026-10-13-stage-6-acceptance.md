@@ -38,7 +38,7 @@ fixed on its branch or listed for the operator. Nothing pushed.
 
 - `docs/plan-file-type-indexing-2026-10-13.md` section 5, row 6 (the cases) and
   section 4 (the span and locator contract).
-- `docs/upstream/` (the six texts): where the text makes a claim, test it.
+- `docs/archive/upstream/` (the six texts): where the text makes a claim, test it.
 - `docs/handoffs/2026-10-13-stage-5-upstream-texts.md` (audit, findings 1 to 4).
 - `docs/handoffs/2026-10-13-stage-4-documents.md` (the converters' verified facts).
 - `AGENTS.md` non-negotiables 4 (exact locator) and 5 (deterministic and keyless).

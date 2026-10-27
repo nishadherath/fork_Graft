@@ -27,7 +27,7 @@ Committed on `main`, tagged `enable-improved-support-by-default`, pushed.
 - The API level (`buildGraph`, `engine.graph`) keeps `lsp` as an explicit option;
   the CLI supplies the default. Tests that call the API are unchanged.
 - The pull-request branches for upstream stay opt-in (plan decision D1); this
-  change is on `main` only (`docs/upstream/design-issue.md` operator note).
+  change is on `main` only (`docs/archive/upstream/design-issue.md` operator note).
 - No version bump: the tag names the release; `graft build --help` shows it.
 
 ## Files and links that matter

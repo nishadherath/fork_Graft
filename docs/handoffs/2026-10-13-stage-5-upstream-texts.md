@@ -11,7 +11,7 @@ from: "Opus 5.5 Stage 4 session (documents tier), 2026-10-13; taken over by Haik
 
 ## Goal
 
-Done: six texts in `docs/upstream/` (one design-issue body, five pull-request
+Done: six texts in `docs/archive/upstream/` (one design-issue body, five pull-request
 descriptions), the branch audits recorded below, committed on `main`. Nothing
 pushed; no edits to `src/` or `test/`; no branch changed.
 
@@ -31,7 +31,7 @@ pushed; no edits to `src/` or `test/`; no branch changed.
 
 ## Files that matter
 
-- `docs/upstream/design-issue.md`, `pr-crux-id-echo.md`,
+- `docs/archive/upstream/design-issue.md`, `pr-crux-id-echo.md`,
   `pr-structured-tier-core.md`, `pr-structured-tier-markup-build.md`,
   `pr-structured-edges.md`, `pr-documents-tier.md`. Each opens with an operator
   note above a rule; the note is not part of the paste text.
@@ -78,7 +78,7 @@ Audit: `git log upstream/main..<branch> --name-only` (2026-10-13). Base `fe30ead
 
 ## Work completed
 
-- Six texts in `docs/upstream/`, each with an operator note above the paste text.
+- Six texts in `docs/archive/upstream/`, each with an operator note above the paste text.
 - Audit table above; findings 1 to 4.
 - The Haiku prose check (persona section 14.1) passed on all six: no em-dashes,
   no banned words, no filler adverbs, Australian spelling. The check was a grep; the
@@ -89,7 +89,7 @@ Audit: `git log upstream/main..<branch> --name-only` (2026-10-13). Base `fe30ead
 ## Unresolved questions
 
 - **D4 (install footprint): decided, option A.** `optionalDependencies` stay (about
-  79 MB on Windows, installed by default). `docs/upstream/pr-documents-tier.md` describes
+  79 MB on Windows, installed by default). `docs/archive/upstream/pr-documents-tier.md` describes
   A and needs no change for D4. The rule 3 exception below is separate and still open.
 - **Operator.** Accept the `package.json` exception to AGENTS.md rule 3, or move it
   (finding 2).

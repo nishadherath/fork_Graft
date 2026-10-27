@@ -36,7 +36,7 @@ stage has a handoff.
 - `docs/operator-protocol.md` section 1.1 and `AGENTS.md` rule 8: the brief.
 - `docs/handoffs/2026-10-18-stage-17-merge-upstream-0.23.0.md`: next stage.
 - `docs/handoffs/2026-10-18-stage-16-upstream-texts-refresh.md`: done by the
-  subagent; its outputs are `docs/upstream/design-issue.md` and
+  subagent; its outputs are `docs/archive/upstream/design-issue.md` and
   `docs/security/2026-10-15-graft-mcp-npx-launcher-advisory.txt`.
 
 ## Verified facts (2026-10-18)

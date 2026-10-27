@@ -13,7 +13,7 @@ from: "Fable 5.1 assessment session, 2026-10-18 (docs/assessment-2026-10-18.md, 
 ## Goal
 
 Two documents the operator will post are factually current for upstream 0.25.0
-and ready to paste: `docs/upstream/design-issue.md` and
+and ready to paste: `docs/archive/upstream/design-issue.md` and
 `docs/security/2026-10-15-graft-mcp-npx-launcher-advisory.txt`. Nothing is
 posted or sent by this stage. Done means: every fact listed under "Verified
 facts" below appears correctly in the two texts, no other line of either file
@@ -38,7 +38,7 @@ files and this handoff, and the prose checks in "Exact next action" pass.
 
 ## Files and links that matter
 
-- `docs/upstream/design-issue.md`: the operator note above the rule, then the
+- `docs/archive/upstream/design-issue.md`: the operator note above the rule, then the
   issue text. The "Shape of the pull requests" paragraph names `upstream/main`
   as the base.
 - `docs/security/2026-10-15-graft-mcp-npx-launcher-advisory.txt`: the header
@@ -78,7 +78,7 @@ files and this handoff, and the prose checks in "Exact next action" pass.
 
 ## Work completed
 
-- `docs/upstream/design-issue.md`: "release 0.23.0 also ships it as `trail`"
+- `docs/archive/upstream/design-issue.md`: "release 0.23.0 also ships it as `trail`"
   now reads 0.25.0; the "Shape of the pull requests" sentence now names release
   0.25.0 twice (base and rebase target). 2 lines.
 - `docs/security/2026-10-15-graft-mcp-npx-launcher-advisory.txt`: `Versions:`
@@ -115,9 +115,9 @@ Operator: read the two texts, fill the advisory placeholders, post the issue
 Stage 21 waits for the upstream answer to the issue.
 
 Checks, run from the repository root (both must print nothing new):
-`grep -n -i -E "delve|nuanced|tapestry|robust|multifaceted|landscape|worth noting|important to note" docs/upstream/design-issue.md docs/security/2026-10-15-graft-mcp-npx-launcher-advisory.txt`
+`grep -n -i -E "delve|nuanced|tapestry|robust|multifaceted|landscape|worth noting|important to note" docs/archive/upstream/design-issue.md docs/security/2026-10-15-graft-mcp-npx-launcher-advisory.txt`
 and
-`grep -n $'—' docs/upstream/design-issue.md docs/security/2026-10-15-graft-mcp-npx-launcher-advisory.txt`
+`grep -n $'—' docs/archive/upstream/design-issue.md docs/security/2026-10-15-graft-mcp-npx-launcher-advisory.txt`
 (the em-dash hit at `advisory.txt:434` is upstream's quoted test code and stays).
 
 ## Actuals

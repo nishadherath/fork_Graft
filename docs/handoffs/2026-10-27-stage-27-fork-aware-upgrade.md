@@ -2,7 +2,7 @@
 stage: "Stage 27: fork-aware upgrade and update nudge (D24), the stats saving lost on backgrounded commands, release 0.25.0-nishadherath.3"
 model: claude-sonnet-5-5
 effort: high
-status: ready
+status: done
 created: 2026-10-27
 from: "Stage 26 session (Fable 5.1, local_4edbf0b9), roadmap item 1 of docs/assessment-2026-10-27.md"
 ---
@@ -305,4 +305,38 @@ D25 A, D26 A and D27 A as my answers and start Stage 27." Recorded: D24 A (fork 
 the advisory), D26 A (wait on 0.26.0), D27 A (quick run as inner loop only; every stage still
 ends with the full gate). D24 A is the approval for step 10's push of `main` and the tag.
 
-(The stage's commits and counts follow.)
+### Stage 27 result (Sonnet 5.5, high, 2026-10-27)
+
+Commits on `main`, pushed to `origin`: `efd0c4e` fix(upgrade) (item 1), `f5171eb` style (one em-dash),
+`ffa5aca` fix(stats) (item 2), `e25d699` chore(release) 0.25.0-nishadherath.3, `1393bba`
+fix(sync-global). Annotated tag `v0.25.0-nishadherath.3` on `e25d699` (pushed; `git ls-remote origin`
+shows the tag object `f5151a8` peeling to `e25d699`). Tarball
+`D:\Code\Claude\fork_graft_releases\nanonets-graft-0.25.0-nishadherath.3.tgz` (4,412,852 bytes;
+`tar -tzf` lists `package/dist/bin/graft.js`). `sync-global`: 33 changed, 0 stale removed, 1,597
+unchanged; the global install answers `--version` `0.25.0-nishadherath.3`; from the scratchpad
+`graft upgrade` prints the refusal and exits 1.
+
+Gate (on `e25d699`, Node 26.7.0): `npm run build && npm test` exit 1, 4,280 tests, 4,140 pass, 51 fail,
+89 skipped, 2,378 s. D13: 36 of the 51 failing names are in the baseline; 15 are not. The 15 were rerun
+together by file (146 tests, 139 pass, 6 fail): 5 of those 6 are baseline names, the sixth (the lab case,
+"is it live yet?" after a ship whose push was stopped, in `test/skills-check-readonly.test.ts`) passed
+alone twice. That file alone failed one other test on its first run (the new-session status question) and
+passed all four on the second. All are wall-clock tests on a loaded machine. Green under D13. The
+`1393bba` delta (`scripts/sync-global*.mjs`, one test) came after the gate;
+`test/sync-global-checks.test.ts` passes 4 of 4 alone.
+
+Fix shape for item 2: (i), hook side. A footer-printing graft shell command (`ask`, `grep`, `skeleton`,
+`callers`, `map`) whose response carries no footer adds one to `footersOwed` in the session file; a source
+read is scanned only while `footersOwed` is above zero, counts at most that many footers, and pays them
+down; a shell read of the output file pays them too. Chosen over (ii) because `state.ts` gives the CLI no
+session key. Residual risk: a foreground `graft ask` that printed no footer (a saving of zero) also owes
+one, so a later read of a file quoting a footer can count once.
+
+Beyond the brief (same hazard, named in the commit): `graft version`, the rename notice's upgrade line and the
+session-start trail handover line (which tells an agent that `graft upgrade` adds trail) all stop advertising
+`upgrade` on a fork; `test/upkeep-hooks.test.ts` branches on the marker for the two session-start tests that
+ran against this checkout's own package.json; and `sync-global` now copies the marker into the global
+package.json (the first sync left the global install unmarked, found by the smoke run).
+
+Next: Stage 28, Sonnet 5.5, medium, items 2 and 3 of the assessment (release script that writes the marker and
+rewrites the README section; `test:fork`; the test runner off the command-line limit).

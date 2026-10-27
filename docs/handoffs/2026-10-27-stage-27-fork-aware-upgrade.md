@@ -299,4 +299,10 @@ Scope widened on 2026-10-27 by the operator, relayed by the Stage 23 session: it
 dispatch verdict is unchanged (one piece, serial, same class and effort; the second item is
 scoped module work with a stated test).
 
-(The operator's answers to D24 to D27, then the stage's commits and counts.)
+Operator's answers, 2026-10-27, verbatim as relayed by the Stage 23 session: "Record D24 A,
+D25 A, D26 A and D27 A as my answers and start Stage 27." Recorded: D24 A (fork marker,
+`upgrade` refuses, informational nudge), D25 A (archive the closed texts, the operator sends
+the advisory), D26 A (wait on 0.26.0), D27 A (quick run as inner loop only; every stage still
+ends with the full gate). D24 A is the approval for step 10's push of `main` and the tag.
+
+(The stage's commits and counts follow.)

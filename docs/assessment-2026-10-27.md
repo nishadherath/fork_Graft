@@ -345,6 +345,7 @@ D24 Decision:      what `graft upgrade` and the update nudge do on an own build
     Blast radius:  A and B: `src/upkeep.ts`, `src/cli-meta.ts`, `src/cli.ts`,
                    one release; C: the global install and every wired repository.
     Recommended:   A.
+    Answered:      A, by the operator on 2026-10-27.
 
 D25 Decision:      the closed-plan texts and the unsent advisory
     Facts:         docs/upstream/ holds five pull-request texts and a design
@@ -364,6 +365,7 @@ D25 Decision:      the closed-plan texts and the unsent advisory
                    C leaves a cold session two documents that disagree.
     Blast radius:  docs only; the advisory's sending is outward-facing.
     Recommended:   A.
+    Answered:      A, by the operator on 2026-10-27.
 
 D26 Decision:      whether to merge upstream 0.26.0 now
     Facts:         9 commits, 109 files, 3,315 insertions; four conflicting
@@ -379,6 +381,7 @@ D26 Decision:      whether to merge upstream 0.26.0 now
                      and three gates for features the graft brand does not use.
     Blast radius:  B: src/cli.ts and the global install; A: none.
     Recommended:   A, with D18 unchanged.
+    Answered:      A, by the operator on 2026-10-27.
 
 D27 Decision:      what the fork-only quick run may stand in for
     Facts:         the fork's 34 test files run 248 tests in 143 s; the full
@@ -393,6 +396,7 @@ D27 Decision:      what the fork-only quick run may stand in for
                      cost of a rule that has to be judged. C is the state today.
     Blast radius:  A and B: scripts/ and the protocol's gate paragraph.
     Recommended:   A.
+    Answered:      A, by the operator on 2026-10-27.
 ```
 
 ## 8. Verified facts (this session, 2026-10-27)

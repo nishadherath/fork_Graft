@@ -72,7 +72,14 @@ function rewriteReadme(readme, from, to) {
  * Apply a release to the repository at `root`. Returns the commands to run next. Every check runs
  * before the first write, so a refusal leaves the tree as it was.
  */
-export function runRelease(root, version, { date = new Date().toISOString().slice(0, 10) } = {}) {
+/** Today as the calendar reads where the release is cut, not in UTC: east of Greenwich a morning
+ * release would otherwise carry yesterday's date. */
+function localDate(now = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+export function runRelease(root, version, { date = localDate() } = {}) {
   if (!VERSION.test(version)) throw new Error(`'${version}' is not a version (expected 1.2.3 or 1.2.3-suffix)`);
   const dirty = execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim();
   if (dirty) throw new Error(`the working tree has uncommitted changes; commit or stash them first:\n${dirty}`);

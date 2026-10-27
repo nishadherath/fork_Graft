@@ -4,7 +4,7 @@
  * "This build" section and keeps or writes the `fork` marker. The runs here use a scratch
  * repository, never this checkout.
  */
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -199,4 +199,18 @@ test("the report prints the commit, tag, push and pack commands, and runs none o
   assert.match(text, /npm pack --ignore-scripts --pack-destination/);
   assert.match(text, /kept_releases/);
   assert.equal(git(dir, "log", "--oneline").trim().split("\n").length, 1);
+});
+
+// Stage 32 acceptance: the heading's date is the calendar date where the release is cut.
+test("without a date the CHANGELOG heading carries the local calendar date, at both ends of the day", () => {
+  for (const instant of [new Date(2026, 9, 28, 0, 30), new Date(2026, 9, 28, 23, 30)]) {
+    const dir = scratch();
+    mock.timers.enable({ apis: ["Date"], now: instant.getTime() });
+    try {
+      runRelease(dir, NEW);
+    } finally {
+      mock.timers.reset();
+    }
+    assert.ok(read(dir, "CHANGELOG.md").includes(`## ${NEW} (2026-10-28)`), `at ${instant.toString()}`);
+  }
 });

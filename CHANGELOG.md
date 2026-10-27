@@ -42,6 +42,8 @@
   graft read; before, that read was counted as another graft read. A global option between the
   command name and the subcommand (`graft --dir <map> ask …`) now owes a footer like the bare form,
   so its saving is no longer lost when the output arrives through a file.
+- **`scripts/release.mjs` dates the CHANGELOG heading with the local calendar date.** It used the
+  UTC date, which east of Greenwich is yesterday's for a release cut in the morning.
 
 ## 0.25.0-nishadherath.4 (2026-10-27)
 

@@ -58,7 +58,8 @@ push, no release.
 - `test/ask-test-intent.test.ts` failed first on the machinery query and passes after;
   `test/ask.test.ts`, `ask-fusion`, `ask-scope-comparability` with it: 65 of 65.
   `test/retrieval-eval.test.ts` 13 of 13 (`runPlace` failed first, missing export).
-- Gate, `npm run build && npm test`, Node 26.7.0, at `ce99677`: 4,304 tests, 4,176 pass, 39 fail,
+- Gate, `npm run build && npm test`, Node 26.7.0, started 20:04:40 on `41c689d` (all of this
+  stage's code; every later commit is docs only): 4,304 tests, 4,176 pass, 39 fail,
   89 skipped, 2,078.6 s. Exit 1. By name against `docs/baselines/upstream-4e7d0f5-failures.txt`:
   33 baseline names, 6 not, in `trace-multiturn`, `trace-perf`, `skills-prompt`,
   `claude-hook-timeouts`, `claude-prompt-private`, `claude-journeys-learnings`. Each file rerun alone

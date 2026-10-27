@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.25.0-nishadherath.5 (2026-10-27)
+
 ### Added
 
 - **`scripts/retrieval-eval.mjs --root <copy>` measures a graph without running graft in this

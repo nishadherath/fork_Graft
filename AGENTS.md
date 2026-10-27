@@ -116,3 +116,11 @@ npm test                    # node --test over test/*.test.ts (about 7 minutes h
 npm run cli -- ask "<q>"    # run the CLI from source
 node scripts/sync-global.mjs   # copy the built dist into the global install (Stage 0)
 ```
+
+## Code navigation (Graft)
+
+Find and read code with Graft before Grep or Read: `graft ask "<task>" --source`
+for "where is X", `graft skeleton <file>` for a file's API, `graft callers <symbol>
+--depth all` before changing a symbol. Rebuild the index with `graft build` after
+code changes. Setup, daily use and known limits are in `GRAFT_init.md`. Never use a
+graft command as a smoke test in this checkout (protocol section 10).

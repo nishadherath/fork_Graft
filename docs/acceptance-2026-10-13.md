@@ -352,7 +352,7 @@ Standing items, unchanged by this stage: the AGENTS.md rule 3 exception for
 `package.json` and `package-lock.json` on `pr/documents-tier` (operator), and
 D4 option A (decided).
 
-## 7. Claims in `docs/upstream/` checked
+## 7. Claims in `docs/archive/upstream/` checked
 
 - Core text: keys four levels deep, 500 per file, shallowest first: held
   (case 4). Secret rule: held as worded (case 5). Lockfiles never indexed:

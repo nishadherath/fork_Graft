@@ -3,12 +3,13 @@
  * and reports hit-at-1, hit-at-3 and the file rate at 3, each with the sample size and a 95%
  * Wilson interval (Stage 22, docs/assessment-2026-10-18.md section 5 item 6).
  *
- *   node scripts/retrieval-eval.mjs [--dir <context dir>] [--label <name>] [--limit <n>]
- *                                   [--questions <path>] [--json] [--save <file.json>]
+ *   node scripts/retrieval-eval.mjs [--root <copy>] [--dir <context dir>] [--label <name>]
+ *                                   [--limit <n>] [--questions <path>] [--json] [--save <file.json>]
  *
  * `--dir` is graft's global option, so a graph built elsewhere (`graft --dir <d> build`) is
  * measured without touching the repository's own map; without it the repository's map folder
- * is used. Every query runs with `--no-refresh`, so the run measures the graph as it is. It
+ * is used. `--root` names a copy of the tree (a clone under the temp folder): `ask` runs there
+ * and the set is checked against its files, so no graft command runs in this checkout. Every query runs with `--no-refresh`, so the run measures the graph as it is. It
  * spawns `node dist/cli.js` (run `npm run build` first), never the `.cmd` shim, which Windows
  * cannot spawn without a shell. No network and no model: the deep pass's token line is read
  * from the manifest it wrote, not spent again.
@@ -17,7 +18,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { answerRank, checkQuestionSet, resolveAnswers, summarise } from "./retrieval-eval-score.mjs";
+import { answerRank, checkQuestionSet, resolveAnswers, runPlace, summarise } from "./retrieval-eval-score.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cli = join(repoRoot, "dist", "cli.js");
@@ -30,6 +31,7 @@ const json = process.argv.includes("--json");
 /** Also write the JSON report here, so one run gives both forms. */
 const saveTo = option("--save");
 const dirArg = option("--dir");
+const rootArg = option("--root");
 const limit = option("--limit", "8");
 const questionsPath = resolve(option("--questions", join(repoRoot, ".eval", "retrieval-questions.json")));
 
@@ -39,8 +41,8 @@ if (!existsSync(cli)) {
 }
 const dist = (rel) => import(pathToFileURL(join(repoRoot, "dist", rel)).href);
 const [{ mapDirFor }, { formatUsageLine }] = await Promise.all([dist("context/map-dir.js"), dist("ai/llm/metered.js")]);
-const contextDir = dirArg ? resolve(dirArg) : mapDirFor(repoRoot);
-const label = option("--label", dirArg ? contextDir : "this repository's map");
+const { root, cwd, contextDir } = runPlace({ root: rootArg, dir: dirArg && resolve(dirArg) }, repoRoot, mapDirFor);
+const label = option("--label", dirArg || rootArg ? contextDir : "this repository's map");
 
 const wiringPath = join(contextDir, ".graph", "wiring.json");
 if (!existsSync(wiringPath)) {
@@ -56,7 +58,7 @@ const recorded = JSON.parse(readFileSync(questionsPath, "utf8")).questions;
 // symbol does not turn a hit into a miss. A moved answer is reported beside the recorded span;
 // a symbol the graph lacks is a fault in the set, and the set must still match the source.
 const { questions, moved: answersMoved, missing: answerProblems } = resolveAnswers(recorded, graph);
-const setProblems = checkQuestionSet(questions, repoRoot);
+const setProblems = checkQuestionSet(questions, root);
 
 const summaryStates = {};
 for (const n of graph.nodes) if (n.summary_state) summaryStates[n.summary_state] = (summaryStates[n.summary_state] ?? 0) + 1;
@@ -69,7 +71,7 @@ const facts = {
 
 const results = questions.map((q) => {
   const args = [cli, ...(dirArg ? ["--dir", contextDir] : []), "ask", q.question, "--json", "--no-refresh", "-n", limit];
-  const run = spawnSync(process.execPath, args, { cwd: repoRoot, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const run = spawnSync(process.execPath, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   if (run.status !== 0) {
     console.error(`ask failed for ${q.id} (exit ${run.status}):\n${run.stderr}`);
     process.exit(1);

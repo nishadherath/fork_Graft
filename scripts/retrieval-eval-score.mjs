@@ -8,13 +8,28 @@
  * file rate only. Ranks are 1-based positions in the result list.
  */
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 /** Normal quantile for a two-sided 95% interval. */
 const Z_95 = 1.96;
 
 /** The cut-offs the report states: hit-at-1 and hit-at-3. */
 export const CUTOFFS = [1, 3];
+
+/**
+ * Where a run happens. `root` (`--root`) is a copy of the tree, such as a clone under the temp
+ * folder: `ask` runs inside it and the question set is checked against its files, so no graft
+ * command runs in this checkout (operator protocol, section 10). `dir` (`--dir`) names the graph
+ * folder; without it the root's own map folder (`mapDirFor`) is used. Neither keeps the old
+ * behaviour: this repository and its map.
+ */
+export function runPlace({ root, dir }, repoRoot, mapDirFor) {
+  if (root !== undefined && !isAbsolute(root)) {
+    throw new Error(`--root ${root} is not absolute: pass the full path of the copy, e.g. %TEMP%\\copy`);
+  }
+  const base = root ?? repoRoot;
+  return { root: base, cwd: base, contextDir: dir ?? mapDirFor(base) };
+}
 
 /** `file:Lx-Ly` (a symbol or section) or a comma-joined file list (a concept). */
 export function parsePointer(pointer) {

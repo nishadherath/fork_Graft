@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+
+- **`scripts/retrieval-eval.mjs --root <copy>` measures a graph without running graft in this
+  checkout.** `ask` runs inside the copy (a clone under the temp folder) and the question set is
+  checked against the copy's files; `--dir` still names the graph folder when it is elsewhere.
+  Without `--root` the run is as before.
+
 ## 0.25.0-nishadherath.4 (2026-10-27)
 
 ### Added

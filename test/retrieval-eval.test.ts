@@ -16,6 +16,7 @@ import {
   checkQuestionSet,
   parsePointer,
   resolveAnswers,
+  runPlace,
   summarise,
   wilson,
 } from "../scripts/retrieval-eval-score.mjs";
@@ -110,6 +111,22 @@ test("checkQuestionSet names a span that no longer starts at its definition", ()
     "moved: duplicate id",
     "moved: src/nope.ts#x: no file src/nope.ts",
   ]);
+});
+
+test("runPlace runs ask in the --root copy, never in this checkout, when one is given", () => {
+  const mapDir = (root: string) => join(root, "map");
+  const copy = join(tmpdir(), "copy");
+  // --root alone: the copy's own map, ask run inside the copy, the set checked against the copy
+  assert.deepEqual(runPlace({ root: copy }, repoRoot, mapDir), { root: copy, cwd: copy, contextDir: join(copy, "map") });
+  // --dir names the graph; --root still decides where ask runs and what the set is checked against
+  assert.deepEqual(runPlace({ root: copy, dir: join(tmpdir(), "g") }, repoRoot, mapDir), {
+    root: copy,
+    cwd: copy,
+    contextDir: join(tmpdir(), "g"),
+  });
+  // neither: this repository and its map, as before
+  assert.deepEqual(runPlace({}, repoRoot, mapDir), { root: repoRoot, cwd: repoRoot, contextDir: join(repoRoot, "map") });
+  assert.throws(() => runPlace({ root: "relative/copy" }, repoRoot, mapDir), /--root .*relative\/copy.* absolute/);
 });
 
 /** The graph of just the files the answers name, copied to a scratch folder: a symbol's span

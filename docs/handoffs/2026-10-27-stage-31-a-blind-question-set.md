@@ -2,7 +2,7 @@
 stage: "Stage 31a: a blind retrieval question set (subagent of Stage 31)"
 model: claude-sonnet-5-5
 effort: medium
-status: ready
+status: done (validation `[] [] 20`; 18 tool calls, 101,665 subagent tokens, 5 min 20 s; committed as `.eval/retrieval-questions-blind.json` in 36a78e3)
 created: 2026-10-27
 from: "Stage 31 session (claude-opus-5-5, high), roadmap item 6 of docs/assessment-2026-10-27.md"
 ---

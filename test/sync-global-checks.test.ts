@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkGlobalInstall } from "../scripts/sync-global-checks.mjs";
+import { checkGlobalInstall, globalShimDir } from "../scripts/sync-global-checks.mjs";
 
 const forkRoot = join(tmpdir(), "fork-graft-under-test");
 const forkPkg = {
@@ -68,6 +68,67 @@ test("a complete global install reports no missing converter and the Kotlin bina
   assert.equal(report.kotlinPresent, true);
   assert.ok(!report.lines.some((line) => line.includes("missing")));
   assert.ok(report.lines.some((line) => line.includes("tree-sitter-kotlin binary present")));
+});
+
+// --- the trail command (Stage 33, D28 A) ---
+
+const forkWithTrail = { ...forkPkg, bin: { graft: "dist/bin/graft.js", trail: "dist/bin/trail.js" } };
+
+/** A temporary npm prefix; `shims` are the file names npm would have linked into its shim folder. */
+function fakePrefix(platform: "win32" | "linux", shims: string[]): { prefix: string; shimDir: string } {
+  const prefix = mkdtempSync(join(tmpdir(), "sync-global-prefix-"));
+  const shimDir = globalShimDir(prefix, platform);
+  mkdirSync(shimDir, { recursive: true });
+  for (const name of shims) writeFileSync(join(shimDir, name), "");
+  return { prefix, shimDir };
+}
+
+test("the shim folder is the prefix on Windows and prefix/bin elsewhere", () => {
+  assert.equal(globalShimDir("C:\\nvm4w\\nodejs", "win32"), "C:\\nvm4w\\nodejs");
+  assert.equal(globalShimDir("/usr/local", "linux"), join("/usr/local", "bin"));
+});
+
+test("a missing trail shim is reported with the tarball reinstall, and the checks still only report", () => {
+  const target = fakeInstall(["fflate", "pdfjs-dist"], true);
+  const { shimDir } = fakePrefix("win32", ["graft", "graft.cmd", "graft.ps1"]);
+  const report = checkGlobalInstall({ target, forkRoot, forkPkg: forkWithTrail, shimDir, platform: "win32" });
+
+  assert.equal(report.trailPresent, false);
+  assert.ok(report.lines.some((line) => line.includes("no trail command") && line.includes(shimDir)));
+  const install = report.lines.filter((line) => line.trimStart().startsWith("install:"));
+  assert.equal(install.length, 1, "one reinstall line");
+  assert.ok(install[0]?.includes("npm pack --ignore-scripts") && install[0].includes("npm install -g"));
+  assert.ok(install[0]?.includes("nanonets-graft-0.25.0-nishadherath.tgz"));
+  assert.deepEqual(report.missing, [], "a missing shim is not a missing converter");
+});
+
+test("a trail shim in place is reported present, with no reinstall line", () => {
+  const target = fakeInstall(["fflate", "pdfjs-dist"], true);
+  const win = fakePrefix("win32", ["graft.cmd", "trail", "trail.cmd", "trail.ps1"]);
+  const winReport = checkGlobalInstall({ target, forkRoot, forkPkg: forkWithTrail, shimDir: win.shimDir, platform: "win32" });
+  assert.equal(winReport.trailPresent, true);
+  assert.ok(winReport.lines.some((line) => line.includes("trail command present")));
+  assert.ok(!winReport.lines.some((line) => line.trimStart().startsWith("install:")));
+
+  const posix = fakePrefix("linux", ["graft", "trail"]);
+  assert.equal(checkGlobalInstall({ target, forkRoot, forkPkg: forkWithTrail, shimDir: posix.shimDir, platform: "linux" }).trailPresent, true);
+});
+
+test("on Windows a bare trail file without trail.cmd is not a working shim", () => {
+  const target = fakeInstall(["fflate", "pdfjs-dist"], true);
+  const { shimDir } = fakePrefix("win32", ["trail"]);
+  assert.equal(checkGlobalInstall({ target, forkRoot, forkPkg: forkWithTrail, shimDir, platform: "win32" }).trailPresent, false);
+});
+
+test("no shim folder, or a package that declares no trail bin, skips the trail check", () => {
+  const target = fakeInstall(["fflate", "pdfjs-dist"], true);
+  const unasked = checkGlobalInstall({ target, forkRoot, forkPkg: forkWithTrail });
+  assert.equal(unasked.trailPresent, null);
+  assert.ok(!unasked.lines.some((line) => line.includes("trail command")));
+  const { shimDir } = fakePrefix("win32", []);
+  const undeclared = checkGlobalInstall({ target, forkRoot, forkPkg: { ...forkPkg, bin: { graft: "dist/bin/graft.js" } }, shimDir, platform: "win32" });
+  assert.equal(undeclared.trailPresent, null);
+  assert.ok(!undeclared.lines.some((line) => line.includes("trail command")));
 });
 
 // --- the fork marker reaches the global install (Stage 27) ---

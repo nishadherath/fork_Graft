@@ -11,6 +11,21 @@
 - **A blind retrieval question set: `.eval/retrieval-questions-blind.json`.** Twenty questions
   written by an agent that read only the source in a clone with the earlier set, its results,
   the handoffs and the assessments removed, and never ran `ask`. Pass it with `--questions`.
+- **The package installs a `trail` command beside `graft`.** `package.json` `bin` now lists
+  `trail` (`dist/bin/trail.js`) as well as `graft`; one package, one `node_modules`, two commands
+  that load the same `dist/cli.js` and differ only in the brand they set (`TRAIL_INVOKED_AS`).
+  `graft` is unchanged, byte for byte. `trail` has trail's command layout (`check` is the learnings
+  check, `build --check` the freshness check, `status` replaces `stats`) and writes the trail wiring
+  in a repository it initialises. With `trail` on PATH a graft-wired repository moves to trail's
+  layout at its next session start, as upstream's code has always done; `GRAFT_NO_TRAIL_SWITCH=1`
+  keeps a machine on the graft layout. The fork's `upgrade` still refuses under both names. Tests:
+  `test/package-bin.test.ts`, `test/cli-status-trail.test.ts` (the twin of the `status` test for
+  `graft`) and a `TRAIL_INVOKED_AS=trail` case for the `upgrade` refusal.
+- **`scripts/sync-global.mjs` reports a missing `trail` command.** A sync copies `dist/` and cannot
+  create the shims npm links at install, so after the copy it checks the global shim folder
+  (`npm prefix -g`; `trail.cmd` on Windows, `trail` elsewhere) and, when the command is missing,
+  prints the tarball reinstall command already used for missing converters. It never fails the sync.
+  Tested against a temporary prefix.
 
 ### Fixed
 

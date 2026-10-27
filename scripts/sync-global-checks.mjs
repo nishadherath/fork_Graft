@@ -28,11 +28,30 @@ export function reinstallCommand(forkRoot, forkPkg) {
 }
 
 /**
- * Report the global install at `target`: each optional converter from `forkPkg` that has no
- * package folder there, and whether `tree-sitter-kotlin` has a compiled `.node` binary.
- * Returns the lines to print, the missing converter names and the Kotlin result.
+ * The folder npm links a global package's commands into: the prefix itself on Windows, `bin`
+ * under it elsewhere.
  */
-export function checkGlobalInstall({ target, forkRoot, forkPkg }) {
+export function globalShimDir(prefix, platform = process.platform) {
+  return platform === "win32" ? prefix : join(prefix, "bin");
+}
+
+/**
+ * Whether `shimDir` holds a working `trail` command. Windows runs `trail.cmd` (the extensionless
+ * file is for Git Bash and does not work from cmd.exe); elsewhere the command is the link itself.
+ */
+function trailShimPresent(shimDir, platform) {
+  return existsSync(join(shimDir, platform === "win32" ? "trail.cmd" : "trail"));
+}
+
+/**
+ * Report the global install at `target`: each optional converter from `forkPkg` that has no
+ * package folder there, whether `tree-sitter-kotlin` has a compiled `.node` binary, and, when
+ * `shimDir` is given and the fork's package declares a `trail` bin, whether npm has linked that
+ * command. A sync copies `dist/` and cannot create shims, so a missing one is fixed by the
+ * tarball reinstall. Returns the lines to print, the missing converter names, the Kotlin result
+ * and the trail result (`null` when it was not checked).
+ */
+export function checkGlobalInstall({ target, forkRoot, forkPkg, shimDir, platform = process.platform }) {
   const lines = [];
   const missing = [];
   const converters = Object.entries(forkPkg.optionalDependencies ?? {});
@@ -57,7 +76,18 @@ export function checkGlobalInstall({ target, forkRoot, forkPkg }) {
     lines.push(`  step: ${KOTLIN_STEP}`);
   }
 
-  return { lines, missing, kotlinPresent };
+  let trailPresent = null;
+  if (shimDir && forkPkg.bin?.trail) {
+    trailPresent = trailShimPresent(shimDir, platform);
+    if (trailPresent) {
+      lines.push(`sync-global: trail command present in ${shimDir}`);
+    } else {
+      lines.push(`sync-global: no trail command in ${shimDir}; npm links it when the fork's tarball is installed`);
+      lines.push(`  install: ${install}`);
+    }
+  }
+
+  return { lines, missing, kotlinPresent, trailPresent };
 }
 
 /**

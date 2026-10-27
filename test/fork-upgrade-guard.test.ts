@@ -154,6 +154,40 @@ test("graft version on a fork reports upstream's release without telling anyone 
 
 // --- the refusal ---
 
+/** `node dist/cli.js upgrade` with the stub npm first on PATH; `brandEnv` is the `TRAIL_INVOKED_AS` the bin entry would set. */
+function runBuiltUpgrade(label: string, brandEnv: Record<string, string>): { said: string; status: number | null; npmCalled: boolean; marker: string } {
+  const marker = (JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { fork?: { install?: string } }).fork;
+  assert.ok(marker?.install, "package.json carries the marker this run reads");
+  const root = scratch(label);
+  try {
+    const home = join(root, "home");
+    const cwd = join(root, "work");
+    mkdirSync(home, { recursive: true });
+    mkdirSync(cwd, { recursive: true });
+    const { bin, log } = stubNpm(root);
+    const res = spawnSync(process.execPath, [builtCli, "upgrade"], {
+      cwd,
+      encoding: "utf8",
+      timeout: 120_000,
+      env: {
+        PATH: bin,
+        HOME: home,
+        USERPROFILE: home,
+        SystemRoot: process.env.SystemRoot,
+        TEMP: process.env.TEMP,
+        TMP: process.env.TMP,
+        DO_NOT_TRACK: "1",
+        GRAFT_NO_REFRESH: "1",
+        GRAFT_NO_TRAIL_SWITCH: "1",
+        ...brandEnv,
+      },
+    });
+    return { said: `${res.stdout}${res.stderr}`, status: res.status, npmCalled: existsSync(log), marker: marker.install };
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 test("(c) runUpgrade on a fork refuses before it spawns anything, and the report names the install route", async () => {
   const { runUpgrade, formatUpgradeReport } = await import("../src/cli-meta.js");
   const root = scratch("refuse");
@@ -178,38 +212,26 @@ test("(c) runUpgrade on a fork refuses before it spawns anything, and the report
 });
 
 test("(d) node dist/cli.js upgrade exits non-zero with the refusal and never reaches npm", { skip: existsSync(builtCli) ? false : "dist/cli.js is not built (run npm run build)" }, () => {
-  const marker = (JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")) as { fork?: { install?: string } }).fork;
-  assert.ok(marker?.install, "package.json carries the marker this run reads");
-  const root = scratch("cli");
-  try {
-    const home = join(root, "home");
-    const cwd = join(root, "work");
-    mkdirSync(home, { recursive: true });
-    mkdirSync(cwd, { recursive: true });
-    const { bin, log } = stubNpm(root);
-    const res = spawnSync(process.execPath, [builtCli, "upgrade"], {
-      cwd,
-      encoding: "utf8",
-      timeout: 120_000,
-      env: {
-        PATH: bin,
-        HOME: home,
-        USERPROFILE: home,
-        SystemRoot: process.env.SystemRoot,
-        TEMP: process.env.TEMP,
-        TMP: process.env.TMP,
-        DO_NOT_TRACK: "1",
-        GRAFT_NO_REFRESH: "1",
-        GRAFT_NO_TRAIL_SWITCH: "1",
-      },
-    });
-    const said = `${res.stdout}${res.stderr}`;
-    assert.notEqual(res.status, 0, `exit status\n${said}`);
-    assert.ok(said.includes(marker.install), `prints the install route\n${said}`);
-    assert.match(said, /fork/i);
-    assert.equal(existsSync(log), false, "the stub npm was not called");
-    assert.doesNotMatch(said, /trail init|installed too/);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  const run = runBuiltUpgrade("cli", {});
+  assert.notEqual(run.status, 0, `exit status
+${run.said}`);
+  assert.ok(run.said.includes(run.marker), `prints the install route
+${run.said}`);
+  assert.match(run.said, /fork/i);
+  assert.match(run.said, /graft upgrade is off on this build/);
+  assert.equal(run.npmCalled, false, "the stub npm was not called");
+  assert.doesNotMatch(run.said, /trail init|installed too/);
+});
+
+test("(d, trail) the same refusal under TRAIL_INVOKED_AS=trail, spelled trail, and trail upgrade never reaches npm", { skip: existsSync(builtCli) ? false : "dist/cli.js is not built (run npm run build)" }, () => {
+  const run = runBuiltUpgrade("cli-trail", { TRAIL_INVOKED_AS: "trail" });
+  assert.notEqual(run.status, 0, `exit status
+${run.said}`);
+  assert.ok(run.said.includes(run.marker), `prints the install route
+${run.said}`);
+  assert.match(run.said, /fork/i);
+  assert.match(run.said, /trail upgrade is off on this build/);
+  assert.doesNotMatch(run.said, /graft upgrade/);
+  assert.equal(run.npmCalled, false, "the stub npm was not called");
+  assert.doesNotMatch(run.said, /trail init|installed too/);
 });

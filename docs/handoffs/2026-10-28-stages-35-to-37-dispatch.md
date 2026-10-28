@@ -47,7 +47,7 @@ This handoff and the decision record below. No source change.
 
 ## Unresolved questions
 
-- The nine other repositories are not listed in the documents I read. The operator names them.
+- The other repositories: found on disk by the coordinator on 2026-10-28, listed in the last section. Twelve, not nine.
 - Who ran `trail init` here, and did it back up `settings.json`? Stage 35 asks the operator.
 
 ## Exact next action
@@ -119,3 +119,51 @@ read, not measured, estimated 30k tokens) and 150,007 after this file was writte
 about 6,000 of them written output. Not timed; estimated 20 minutes. Over the 8,000-token and 10-minute caps,
 so the decision took the verdict its guardrails already gave, not the default. Priced at $2.50 input and $10.00
 output per million: about $0.09 measured, about $0.17 with the unmeasured reads.
+
+## Session dispatch decision (coordinator, 2026-10-28)
+
+Decided by claude-fable-5-1, the coordinator session, at the operator's `/session-dispatch continue with the
+rest of the work`. Table `2026-10-18` (10 days). Question: does the coordinator continue for Stages 36 and 37 or
+hand off? The stages' classes, efforts and costs stand as recorded above.
+
+| Input | Value | Source |
+|---|---|---|
+| W, K | 1,000,000; 970,000 | measured (usage tool) |
+| C0 | 161,219 | measured |
+| Compacted already | yes, once (2026-10-27) | transcript |
+| B | 86,103 | measured: 161,219 less 75,116 Messages |
+| T, F, O | 20, 3,000, 1,500 | dispatch, verify and relay two stages; skill defaults |
+| R | 35,000 | estimate: AGENTS.md, protocol, this and the Stage 35 handoff, roadmap section 5 |
+| H | 3,000 | default, plus the repository list |
+| Design-heavy | no | coordination only |
+| Outward-facing | push of `main`, on the operator's word only | |
+
+```
+C_end = 161,219 + 60,000 = 221,219; crosses: no
+cost_continue = 20*191,219*0.25 + 60,000*12.5 + 30,000*50 (per million) = 0.956 + 0.750 + 1.500 = $3.21
+cost_fresh    = 3,000*50 + 121,103*12.5 + 20*151,103*0.25 + 60,000*12.5 + 30,000*50
+              = 0.150 + 1.514 + 0.756 + 0.750 + 1.500 = $4.67
+```
+
+Draft verdict: continue, by cost, margin $1.46 (45 percent of the smaller). Guardrails: 1 pass (T 20); 2 not
+design-heavy, so the past compaction does not force fresh; 3 the push stays with the operator; 4 and 5 as above;
+6 Stage 37 runs as Fable xhigh in a fresh session the operator opens, since a session cannot start one above its
+own effort; 8 no class change here.
+
+Adversarial pass. Opposite: a fresh coordinator carries no stale pre-compaction summary and reads the Stage 35
+handoff whole. Inputs: C0 measured; T doubled to 40 gives continue $6.73 against fresh $8.08, 20 percent, holds;
+F doubled gives $4.71 against $6.17, holds; R at 60,000 widens the fresh side. No input flips the verdict.
+
+The other repositories, found by `find` for `wiring-stamp.json` under `D:\Code` (2026-10-28), each a clean git
+tree unless marked. Claude host, graft hooks and MCP: `D:\Code\Claude\BOOK-The.Connected.Body`,
+`D:\Code\Claude\Fixer`, `D:\Code\Claude\Malkovich`, `D:\Code\Claude\SocialBee` (dirty, 9 lines),
+`D:\Code\Claude\Tsunami`, `D:\Code\GLM\BeWhole`, `D:\Code\Kimi\Capsule`, `D:\Code\OpenAI\Tensegrity` (hosts
+agents, antigravity, claude, gemini, hermes). Hosts agents, antigravity and hermes only: `D:\Code\GLM\Digi-J`,
+`D:\Code\GLM\TealElephant_TalkToJae` (stamp already `0.25.0-nishadherath.5`), `D:\Code\GLM\bewhole-accept`
+(dirty, 1 line), `D:\Code\OpenAI\BOOKS-Dx`. Stale helper files with no stamp, for the operator by hand:
+`D:\Code\Claude\SunoDJ` (statusline only), `D:\Code\GitHub.AI.Extend\Graft`.
+
+Cost of deciding: context 161,219 at the start and 179,134 after the record, 17,915 tokens measured; about
+2,500 of them output (estimate, characters over 4). Wall clock about 15 minutes, including the disk search for
+the repositories. Over the 8,000-token and 10-minute caps; the default is continue, which the arithmetic also
+gave. Priced at $12.50 cache-write input and $50.00 output per million (table 2026-10-18): about $0.32.

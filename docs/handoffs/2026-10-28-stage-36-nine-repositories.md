@@ -64,8 +64,6 @@ Learning files written by `trail init` (D32: listed, not staged): 1 in BOOK, 1 i
 BeWhole, all named `.trail/learnings/2026-10-28-*.md`. Each is a Claude memory note with its title in the
 frontmatter; the operator reads the titles in `git status` and the files before committing.
 
-Codex notice (Tensegrity, Digi-J, TealElephant, BOOKS-Dx): trail says Codex runs its hooks only after trust.
-
 ## Unresolved questions
 
 - Operator, D32: keep or drop each learnings file above before committing. Recommended: keep, since they

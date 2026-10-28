@@ -27,9 +27,8 @@ repository and drops the switch last.
 
 ## Files and links that matter
 
-- `docs/handoffs/2026-10-28-stage-35-trail-init.md`: the layout, verified in Stage 35.
-- `docs/handoffs/2026-10-28-stages-35-to-37-dispatch.md`: the repository list (last section).
-- `docs/assessment-2026-10-27-trail-parity.md` section 5 row 36 and section 4 (D29 B).
+- `docs/handoffs/2026-10-28-stage-35-trail-init.md` (layout), `...-stages-35-to-37-dispatch.md` (repository list),
+  `docs/assessment-2026-10-27-trail-parity.md` section 5 row 36.
 
 ## Verified facts
 
@@ -44,7 +43,7 @@ repository and drops the switch last.
 
 ## Work completed
 
-Trail init run in ten repositories (table below). Nothing committed, nothing pushed, nothing staged.
+Trail init run in ten repositories. Nothing committed there, nothing pushed, nothing staged.
 
 | Repository | Hosts (stamp) | Result in `git status` | Code map line | Learnings added |
 |---|---|---|---|---|
@@ -59,8 +58,7 @@ Trail init run in ten repositories (table below). Nothing committed, nothing pus
 | `D:\Code\GLM\TealElephant_TalkToJae` | agents, antigravity, hermes | as Digi-J | behind, refreshed on next query | 0 |
 | `D:\Code\OpenAI\BOOKS-Dx` | agents, antigravity, hermes | as Digi-J | behind, refreshed on next query | 0 |
 
-Skipped (dirty at dispatch, still dirty, untouched): `D:\Code\Claude\SocialBee`, `D:\Code\GLM\bewhole-accept`.
-Not touched, by instruction: `D:\Code\Claude\SunoDJ`, `D:\Code\GitHub.AI.Extend\Graft`, `fork_graft`.
+Skipped (dirty, untouched): `SocialBee`, `GLM\bewhole-accept`. Not touched: `SunoDJ`, `GitHub.AI.Extend\Graft`, `fork_graft`.
 
 Learning files written by `trail init` (D32: listed, not staged): 1 in BOOK, 1 in Fixer, 2 in Malkovich, 5 in
 BeWhole, all named `.trail/learnings/2026-10-28-*.md`. Each is a Claude memory note with its title in the
@@ -79,8 +77,8 @@ Codex notice (Tensegrity, Digi-J, TealElephant, BOOKS-Dx): trail says Codex runs
   read "behind the code, refreshed on the next query", not "built" as the brief asked. Trail says it refreshes on
   the next query, and this stage did not run `trail build`. Recommended: one `trail status` in each from a temp
   folder before committing, and accept "behind" only if it then reads "in sync".
-- Operator: `~/.claude/skills/graft/SKILL.md` and the other user-level graft wiring. Still open from Stage 35.
-- Operator, by hand: `D:\Code\Claude\SunoDJ` and `D:\Code\GitHub.AI.Extend\Graft` (stale helper files, no stamp).
+- Operator: user-level graft wiring (`~/.claude/skills/graft/SKILL.md`, from Stage 35), and `SunoDJ` and
+  `GitHub.AI.Extend\Graft` by hand (stale helper files, no stamp).
 
 ## Exact next action
 

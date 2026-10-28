@@ -10,7 +10,7 @@ This repository is the operator's fork of `@nanonets/graft` (see `AGENTS.md`). I
 
 | Part | Where | Purpose |
 |---|---|---|
-| Graft CLI | Global npm install, built from this fork (`C:\nvm4w\nodejs\node_modules\@nanonets\graft`). `graft --version` reports `0.25.0-nishadherath.2` | Runs every `graft` command |
+| Graft CLI | Global npm install, built from this fork (`C:\nvm4w\nodejs\node_modules\@nanonets\graft`). `trail --version` reports `0.25.0-nishadherath.2` | Runs every `trail` command. `graft` is the same program under its other name |
 | Index | `.trail/cache/` (git-ignored by `.trail/.gitignore`, rebuilt locally). The wiring graph is `.trail/cache/.graph/wiring.json` | The map Graft answers from. 1,020 files, 9,841 nodes and 31,071 edges as built on 2026-10-27 |
 | Deep layer | `.trail/cache/` manifest (`manifest.json`) and per-node summaries, last built 2026-10-27 with `graft build --deep`, model `openai:deepseek-flash` (`GRAFT_PROVIDER`, `GRAFT_MODEL`, `GRAFT_BASE_URL` in `.env`) | Concept summaries and per-symbol crux from a language model. Optional. Costs API tokens to refresh. Section 4 has the last run's counts |
 | Project instructions | `AGENTS.md`, section "Code navigation (Graft)" | Tells every agent when to ask Graft first |
@@ -30,16 +30,16 @@ Run these from the repository root, one command at a time.
 1. Confirm the CLI is installed:
 
    ```bash
-   graft --version
+   trail --version
    ```
 
-   If the command is missing, install Graft as described in `docs/operator-protocol.md` section 10, then run the check again. This repository was verified with `0.25.0-nishadherath.2`.
+   If the command is missing, install Graft as described in `docs/operator-protocol.md` section 10 (the 0.25.0-nishadherath.5 tarball installs `trail` and `graft` together), then run the check again. This repository was verified with `0.25.0-nishadherath.2`.
 
 2. Install dependencies, then build the index:
 
    ```bash
    npm ci --ignore-scripts
-   graft build
+   trail build
    ```
 
    `npm ci` needs `--ignore-scripts` on this machine; section 10 of the protocol explains the Kotlin grammar copy. The build reads every indexed file and takes several minutes. It needs no API key. Leave out `--deep`: the deep build calls a language model, and it needs `GRAFT_API_KEY` from `.env`.
@@ -56,29 +56,31 @@ Run these from the repository root, one command at a time.
 
 Use the first command that answers the question. Do not use Grep or Read first for code questions.
 
+`trail` and `graft` run the same program. Under the trail name two commands change: `graft check` is `trail build --check`, and `graft stats` is `trail status`. Every table and example below uses the trail name.
+
 | Need | Command | Notes |
 |---|---|---|
-| Where is this code, and how does it work? | `graft ask "<task>" --source` | Returns ranked hits with `file:line` and the code. Output can be long; narrow the question if it is |
-| Every occurrence of a literal | `graft grep "<literal>"` | Groups hits by enclosing symbol. Use it when you need all of them |
-| A file's API without reading the file | `graft skeleton <file>` | Every signature with its line span. Cheapest way to see a file |
-| Who calls a function, or what it calls | `graft callers <symbol>` | Add `--direction out` for callees and `--depth all` for the full connected set |
-| Is the index current? | `graft check` | See section 4 for the current verdict and why it is not `OK` |
-| Refresh the index | `graft build` | Run after code changes. Does not refresh the deep layer |
-| How much has Graft saved? | `graft stats` | Shows reads, source reads and tokens saved for the current session |
+| Where is this code, and how does it work? | `trail ask "<task>" --source` | Returns ranked hits with `file:line` and the code. Output can be long; narrow the question if it is |
+| Every occurrence of a literal | `trail grep "<literal>"` | Groups hits by enclosing symbol. Use it when you need all of them |
+| A file's API without reading the file | `trail skeleton <file>` | Every signature with its line span. Cheapest way to see a file |
+| Who calls a function, or what it calls | `trail callers <symbol>` | Add `--direction out` for callees and `--depth all` for the full connected set |
+| Is the index current? | `trail build --check` | Renamed from `graft check`. See section 4 for the current verdict and why it is not `OK` |
+| Refresh the index | `trail build` | Run after code changes. Does not refresh the deep layer |
+| How much has Graft saved? | `trail status` | Renamed from `graft stats`. Shows reads, source reads and tokens saved for the current session |
 
-Before changing a symbol, run `graft callers <symbol> --depth all` and edit every connected file it lists. Editing only the file that defines a symbol is the usual way to miss a caller.
+Before changing a symbol, run `trail callers <symbol> --depth all` and edit every connected file it lists. Editing only the file that defines a symbol is the usual way to miss a caller.
 
-Do not run a graft command as a smoke test in this checkout. This checkout has committed Graft shims, and a version mismatch makes Graft rewrite the agent files and `.claude/settings.json` (`docs/operator-protocol.md` section 10). The commands in this section and `graft build` are safe: a build on 2026-10-27 left `.claude/` byte-identical.
+Do not run a graft or trail command as a smoke test in this checkout. This checkout has committed Graft shims, and a version mismatch makes Graft rewrite the agent files and `.claude/settings.json` (`docs/operator-protocol.md` section 10). The commands in this section are safe under the graft name: a `graft build` on 2026-10-27 left `.claude/` byte-identical. The trail spelling has not been measured that way, so back up `.claude/settings.json` (it is git-ignored) before the first `trail` command in this checkout.
 
 ## 4. Verify the setup
 
 Run these in order. Each has a pass condition.
 
-1. `graft check` reports `graft check: OK`. **Met on 2026-10-27** after `graft build --deep`. Before that run it reported `STALE` for 14 changed files and 22 files not in the deep layer.
-2. `graft skeleton src/graph/check.ts` lists the functions in that file with their line spans. **Met.**
-3. `graft callers checkGraph` shows `callSingleTool` in `src/mcp/tools.ts` and `federateCheck` in `src/graph/workspace.ts` as callers. **Met.**
-4. `graft ask "where is the graph staleness check computed" --source` ranks `formatGraphCheckReport` in `src/graph/check.ts` first. **Met.**
-5. `graft stats` reports graft reads above zero after any of the commands above in the same session. **Met** (four reads in the verifying session).
+1. `trail build --check` reports `trail build --check: OK`. (Under the graft name the same report read `graft check: OK`; `src/cli.ts` line 601 and `src/brand.ts` line 64 pick the spelling.) **Met on 2026-10-27**, when it was run as `graft check` after `graft build --deep`. Before that run it reported `STALE` for 14 changed files and 22 files not in the deep layer.
+2. `trail skeleton src/graph/check.ts` lists the functions in that file with their line spans. **Met** (under the graft name).
+3. `trail callers checkGraph` shows `callSingleTool` in `src/mcp/tools.ts` and `federateCheck` in `src/graph/workspace.ts` as callers. **Met** (under the graft name).
+4. `trail ask "where is the graph staleness check computed" --source` ranks `formatGraphCheckReport` in `src/graph/check.ts` first. **Met** (under the graft name).
+5. `trail status` reports graft reads above zero after any of the commands above in the same session. **Met** (four reads in the verifying session).
 
 On 2026-10-27, `graft build` parsed all 1,020 files (a second run with `--no-reuse` gave the same counts). The `.claude/` folder was unchanged after each build.
 
@@ -91,14 +93,14 @@ The operator approved `graft build --deep` on 2026-10-27. Result:
 - **Verdict.** `graft check: OK`. The wiring graph is in sync with the code.
 - **Wiring.** `.claude/` was unchanged after the run.
 
-To refresh the deep layer again after code changes, run `graft build --deep`. It costs model tokens every time, so run it when you need the concept summaries or before a gate that calls `graft check`.
+To refresh the deep layer again after code changes, run `trail build --deep`. It costs model tokens every time, so run it when you need the concept summaries or before a gate that calls `trail build --check`.
 
 ## 5. Known limits
 
-- **Two layers.** `graft build` refreshes the wiring graph (nodes, edges, cards) without a model. The deep layer (concept summaries, the `manifest.json` that `graft check` reads) only refreshes with `--deep`. A clean `graft build` therefore does not turn `graft check` green.
+- **Two layers.** `trail build` refreshes the wiring graph (nodes, edges, cards) without a model. The deep layer (concept summaries, the `manifest.json` that `trail build --check` reads) only refreshes with `--deep`. A clean `trail build` therefore does not turn `trail build --check` green.
 - **Index scope.** Graft indexes Markdown in `docs/` and the repository root as well as code. A query can return prose from an assessment or a handoff. For prose, Read and Grep are still the right tools.
-- **Output size.** `graft ask --source` and `graft grep` can return several thousand tokens. Narrow the query when you know the file, and use `graft skeleton` in place of Read.
-- **Post-edit rebuild.** The `post-edit` hook delegates to the installed Graft package. Whether it rebuilds the index after each edit has not been verified. Assume it does not, and run `graft build` yourself after code changes.
+- **Output size.** `trail ask --source` and `trail grep` can return several thousand tokens. Narrow the query when you know the file, and use `trail skeleton` in place of Read.
+- **Post-edit rebuild.** The `post-edit` hook delegates to the installed Graft package. Whether it rebuilds the index after each edit has not been verified. Assume it does not, and run `trail build` yourself after code changes.
 - **Pipe warning.** Do not pipe Graft output through `head` or `tail`. Graft's token-saving line is at the top of its output, and clipping it hides the savings figure. Write long output to a file and read that instead.
 - **Agent coverage.** Only the main agent and `AGENTS.md` carry the Graft instruction. Subagents that read code need it in their own prompts.
 
@@ -106,12 +108,12 @@ To refresh the deep layer again after code changes, run `graft build --deep`. It
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `graft: command not found` | CLI not on the PATH | Reinstall Graft globally from this fork, then open a new terminal |
-| `graft check` reports `NO GRAPH` | No index yet | `graft build` from the repository root |
-| `graft check` reports `STALE` with changed files | Code changed since the last build, or the deep layer is behind | `graft build` for the wiring graph, then `graft build --deep` if the deep layer is behind. Section 4 has the last run |
-| `graft ask` returns nothing useful | Index missing or built from another checkout | `graft build` from the repository root |
+| `trail: command not found` | CLI not on the PATH | Reinstall Graft globally from this fork, then open a new terminal |
+| `trail build --check` reports `NO GRAPH` | No index yet | `trail build` from the repository root |
+| `trail build --check` reports `STALE` with changed files | Code changed since the last build, or the deep layer is behind | `trail build` for the wiring graph, then `trail build --deep` if the deep layer is behind. Section 4 has the last run |
+| `trail ask` returns nothing useful | Index missing or built from another checkout | `trail build` from the repository root |
 | Hooks do nothing | Graft package not found by `graft-hooks.cjs` | The helper looks for `@trailhq/trail-code`, `@nanonets/graft` or `@trailhq/trail`. Check that one is installed globally |
-| `graft stats` shows zero graft reads | No Graft commands were run in the session | Expected. Run a command from section 3 |
+| `trail status` shows zero graft reads | No Graft commands were run in the session | Expected. Run a command from section 3 |
 | `.claude/` changed after a graft command | A version mismatch rewrote the wiring | Restore from git or a backup. The ignored `.claude/settings.json` has no git copy, so back it up before any risky run |
 
 ## 7. Changes made when this file was copied in

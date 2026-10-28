@@ -499,8 +499,25 @@ them in detached processes.
 ### Under the trail brand
 
 `trail` runs the same program with a different command layout (`src/cli.ts`
-line 106, lines 2417 to 2455). The fork's global install has no `trail` command,
-so these facts come from the source only.
+line 106, lines 2417 to 2455). Until the 0.25.0-nishadherath.5 tarball (Stage 33) was installed, the
+fork's global install had no `trail` command, so these facts came from the
+source only. The table below gives each graft spelling and its trail spelling.
+
+| graft spelling | trail spelling | Note |
+|---|---|---|
+| `graft ask`, `grep`, `skeleton`, `callers`, `map`, `blast` | `trail ask`, `grep`, `skeleton`, `callers`, `map`, `blast` | Same. Only the output prefix changes, `[graft]` to `[trail]` |
+| `graft build` | `trail build` | Same. `--deep`, `--no-structured`, `--no-documents` and `--no-lsp` work under both |
+| `graft check` | `trail build --check` | Renamed. The freshness check moves; `trail check` is the team check of the branch's diff |
+| `graft stats` | `trail status` | Renamed. Shows the session's graft-versus-source mix and tokens saved |
+| `graft status` (fork) | `trail status` | Same table; both read the brand for their hints |
+| `graft version` | `trail --version` | `trail version` runs, unlisted |
+| `graft upgrade` | `trail upgrade` | The fork refuses on both and names the install route |
+| `graft init` | `trail init` | Different layout (section 2.4 of the trail-parity assessment) |
+| `graft mcp`, `graft viz` | `trail mcp`, `trail viz` | Hidden under both; `mcp` advertises `trail_*` tools under trail |
+| `graft note` | `trail note` | Saves to `.trail/learnings/` when the repository keeps notes |
+| `graft skills …` | `trail skills …` | Same |
+
+The full comparison is `docs/assessment-2026-10-27-trail-parity.md` section 2.
 
 - `trail check` is the team check (`teamCheckCommand`, line 2241). It compares the
   branch diff with the learnings. The freshness check is `trail build --check`.

@@ -262,10 +262,12 @@ about the operator's machine and this repository, not preferences.
   and fewer edges (measured 2026-10-21: a method reported as a function,
   1 edge instead of 4), and the build prints one line naming the fix. The
   copy is still worth making for full fidelity.
-- **Never run a graft command in a wired checkout as a smoke test.** Any
-  command, `graft mcp` included, compares the repository's wiring stamp
-  with the running version and rewrites the agent files on a mismatch.
-  This checkout has committed graft shims, so a bare `graft mcp` here
+- **Never run a graft or trail command in a wired checkout as a smoke test.** Any
+  command, `graft mcp` and `trail mcp` included, compares the repository's wiring
+  stamp with the running version and rewrites the agent files on a mismatch.
+  `trail` is the same program under its other name, so the Stage 33 install gives
+  it the same blast radius: a trail command rewrites wiring exactly as a graft one
+  does. This checkout has committed graft shims, so a bare `graft mcp` here
   rewrote them and `.claude/settings.json` (2026-10-21). Smoke-test in a
   temporary folder.
 - **A source build carries no telemetry key.** `dist/telemetry/key.js` is

@@ -119,8 +119,10 @@ node scripts/sync-global.mjs   # copy the built dist into the global install (St
 
 ## Code navigation (Graft)
 
-Find and read code with Graft before Grep or Read: `graft ask "<task>" --source`
-for "where is X", `graft skeleton <file>` for a file's API, `graft callers <symbol>
---depth all` before changing a symbol. Rebuild the index with `graft build` after
-code changes. Setup, daily use and known limits are in `GRAFT_init.md`. Never use a
-graft command as a smoke test in this checkout (protocol section 10).
+Find and read code with Graft before Grep or Read: `trail ask "<task>" --source`
+for "where is X", `trail skeleton <file>` for a file's API, `trail callers <symbol>
+--depth all` before changing a symbol. Rebuild the index with `trail build` after
+code changes. `trail` and `graft` are the same program; under the trail name,
+`trail build --check` replaces `graft check` and `trail status` replaces `graft stats`.
+Setup, daily use and known limits are in `GRAFT_init.md`. Never run a graft or trail
+command as a smoke test in this checkout (protocol section 10).

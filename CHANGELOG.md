@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Fixed
+
+- **An init for one repository no longer removes machine-wide wiring.** `trail init <repo> --agents
+  <hosts without claude>` converged the repository by retracting every host not selected, and that
+  sweep included the user-level files: the Claude hooks in `~/.claude/settings.json`, the helper shim
+  and the trail skill, which every other repository on the machine depends on (found on 2026-10-28,
+  when an init for two other hosts left every session with the SessionStart hook only). The init-time
+  retract is now repository-only; `uninstall` still removes the machine-wide files. Test:
+  `test/init-keeps-global-wiring.test.ts`.
+
 ## 0.25.0-nishadherath.5 (2026-10-27)
 
 ### Added

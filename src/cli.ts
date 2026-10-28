@@ -2049,8 +2049,12 @@ function wireTarget(
     // `reconcileWiring` then keeps them *up to date*, which is worse than stale.
     // Retract every host NOT being written now; `exclude` spares the ones about to
     // be rewritten, and the graph cache is kept (init is one step from using it).
+    // The sweep is repository-only (`global: false`): machine-wide files under `~/.claude`,
+    // `~/.codex` and the Antigravity skill folder serve every repository on the machine, so
+    // an init for one repository that omits a host must not strip them. `uninstall` is the
+    // explicit way to remove them.
     const retracted = wiring.changed(
-      wiring.runRetract(repo, { home, apply: true, global: opts.global, cache: false, exclude: ids }),
+      wiring.runRetract(repo, { home, apply: true, global: false, cache: false, exclude: ids }),
     ).filter((r) => r.action !== "skipped-unparseable");
     for (const r of retracted) say(`- removed ${r.path} (${r.what}): agent not selected`);
     report.retracted = [...new Set(retracted.map((r) => r.hostId))];

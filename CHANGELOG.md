@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.25.0-nishadherath.6 (2026-10-28)
+
 ### Fixed
 
 - **An init for one repository no longer removes machine-wide wiring.** `trail init <repo> --agents

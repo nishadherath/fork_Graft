@@ -499,7 +499,7 @@ them in detached processes.
 ### Under the trail brand
 
 `trail` runs the same program with a different command layout (`src/cli.ts`
-line 106, lines 2417 to 2455). Until the 0.25.0-nishadherath.5 tarball (Stage 33) was installed, the
+line 113, lines 2417 to 2455). Until the 0.25.0-nishadherath.5 tarball (Stage 33) was installed, the
 fork's global install had no `trail` command, so these facts came from the
 source only. The table below gives each graft spelling and its trail spelling.
 
@@ -519,7 +519,7 @@ source only. The table below gives each graft spelling and its trail spelling.
 
 The full comparison is `docs/assessment-2026-10-27-trail-parity.md` section 2.
 
-- `trail check` is the team check (`teamCheckCommand`, line 2241). It compares the
+- `trail check` is the team check (`teamCheckCommand`, line 2483). It compares the
   branch diff with the learnings. The freshness check is `trail build --check`.
 - `trail status` (line 2361) replaces `stats` and shows the map, the learnings and
   the tokens saved. `stats`, `viz`, `mcp` and `version` are hidden.

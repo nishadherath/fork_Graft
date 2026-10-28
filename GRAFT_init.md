@@ -10,7 +10,7 @@ This repository is the operator's fork of `@nanonets/graft` (see `AGENTS.md`). I
 
 | Part | Where | Purpose |
 |---|---|---|
-| Graft CLI | Global npm install, built from this fork (`C:\nvm4w\nodejs\node_modules\@nanonets\graft`). `trail --version` reports `0.25.0-nishadherath.2` | Runs every `trail` command. `graft` is the same program under its other name |
+| Graft CLI | Global npm install, built from this fork (`C:\nvm4w\nodejs\node_modules\@nanonets\graft`). `trail --version` reports `0.25.0-nishadherath.5` | Runs every `trail` command. `graft` is the same program under its other name |
 | Index | `.trail/cache/` (git-ignored by `.trail/.gitignore`, rebuilt locally). The wiring graph is `.trail/cache/.graph/wiring.json` | The map Graft answers from. 1,020 files, 9,841 nodes and 31,071 edges as built on 2026-10-27 |
 | Deep layer | `.trail/cache/` manifest (`manifest.json`) and per-node summaries, last built 2026-10-27 with `graft build --deep`, model `openai:deepseek-flash` (`GRAFT_PROVIDER`, `GRAFT_MODEL`, `GRAFT_BASE_URL` in `.env`) | Concept summaries and per-symbol crux from a language model. Optional. Costs API tokens to refresh. Section 4 has the last run's counts |
 | Project instructions | `AGENTS.md`, section "Code navigation (Graft)" | Tells every agent when to ask Graft first |
@@ -33,7 +33,7 @@ Run these from the repository root, one command at a time.
    trail --version
    ```
 
-   If the command is missing, install Graft as described in `docs/operator-protocol.md` section 10 (the 0.25.0-nishadherath.5 tarball installs `trail` and `graft` together), then run the check again. This repository was verified with `0.25.0-nishadherath.2`.
+   If the command is missing, install Graft as described in `docs/operator-protocol.md` section 10 (the 0.25.0-nishadherath.5 tarball installs `trail` and `graft` together), then run the check again. This repository was verified with `0.25.0-nishadherath.5`.
 
 2. Install dependencies, then build the index:
 
@@ -70,7 +70,7 @@ Use the first command that answers the question. Do not use Grep or Read first f
 
 Before changing a symbol, run `trail callers <symbol> --depth all` and edit every connected file it lists. Editing only the file that defines a symbol is the usual way to miss a caller.
 
-Do not run a graft or trail command as a smoke test in this checkout. This checkout has committed Graft shims, and a version mismatch makes Graft rewrite the agent files and `.claude/settings.json` (`docs/operator-protocol.md` section 10). The commands in this section are safe under the graft name: a `graft build` on 2026-10-27 left `.claude/` byte-identical. The trail spelling has not been measured that way, so back up `.claude/settings.json` (it is git-ignored) before the first `trail` command in this checkout.
+Do not run a graft or trail command as a smoke test in this checkout. This checkout has had no committed Graft shims since `e52531f`, but a version mismatch still makes Graft or trail rewrite the agent files and `.claude/settings.json` (`docs/operator-protocol.md` section 10). The commands in this section are safe under the graft name: a `graft build` on 2026-10-27 left `.claude/` byte-identical. The trail spelling has not been measured that way, so back up `.claude/settings.json` (it is git-ignored) before the first `trail` command in this checkout.
 
 ## 4. Verify the setup
 

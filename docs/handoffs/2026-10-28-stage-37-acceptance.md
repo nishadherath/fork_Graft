@@ -54,8 +54,7 @@ command inside a wired checkout (`trail status <repo>` ran from `%TEMP%`).
   home with the global `trail`: a claude init writes the seven hook events and the skill; a following `--agents agents
   antigravity hermes` init prints `removed claude (agent not selected)` and deletes them. Cause: `src/cli.ts:2052-2053`
   passes `global: opts.global` (default on) and `exclude: ids` to `runRetract`, and `src/hosts/retract.ts:479-487` strips the
-  global settings, shim and trail skill for every host not selected. Effect now: each Claude Code session on this machine
-  gets only the repository SessionStart hook (no prompt, tool-savings, pre-bash, post-edit, stop or session-end hook).
+  global settings, shim and trail skill for every host not selected; until the restore (next action, step 1), every session had the SessionStart hook only.
 - Finding 2 (medium). `GRAFT_NO_TRAIL_SWITCH` is set neither at user level (`HKCU\Environment`) nor in this process;
   Stage 36 read `1` at 16:01. The switch went before the commits, the reverse of Stage 36's order. `SocialBee` (graft stamp
   `0.25.0-nishadherath.4`, host claude, nine dirty lines) moves to trail unasked at its next session start, as this checkout
@@ -88,15 +87,16 @@ This handoff. No source change, no commit outside this repository, no push.
 - D34, finding 2. A: commit or stash SocialBee's nine lines, then from `%TEMP%` run `trail init D:\Code\Claude\SocialBee
   --agents claude --yes` before any session opens there, and the same for bewhole-accept with its three hosts once its
   untracked file is dealt with. B: re-set `GRAFT_NO_TRAIL_SWITCH=1` until then. Recommended A.
-- D35, the baseline. A: refresh `docs/baselines` at the next merge stage (its plain-upstream run is needed anyway) and until
-  then name the two move tests as machine-environment failures in every gate judgement. B: refresh now (27 minutes).
-  Recommended A. D32 and the host files: as the Stage 36 handoff lists them.
+- D35, the baseline. A: refresh `docs/baselines` at the next merge stage (its plain-upstream run is needed anyway), naming the
+  two move tests as environment failures until then. B: refresh now (27 minutes). Recommended A. D32: as Stage 36 lists it.
 
 ## Exact next action
 
-Operator, in order: (1) from `%TEMP%`, `trail init D:\Code\Claude\Fixer --agents claude --yes`, which restores the user-level
-hooks and the trail skill (repeat after any hosts-only init until D33 lands), then confirm `~\.claude\settings.json` lists
-seven hook events; (2) decide D33 to D35; (3) commit the ten repositories with the Stage 36 commands; (4) open Stage 38.
+(1) Done after this handoff was first committed: the user-level wiring was restored by `trail init D:\Code\OpenAI\Tensegrity
+--agents agents antigravity claude gemini hermes --yes` from `%TEMP%`, an init selecting every host; a claude-only init would
+retract the Codex hooks and the Antigravity skill, the mirror of finding 1. Three files changed, Tensegrity's tree did not.
+Repeat it after any hosts-only init until D33 lands. Operator: (2) decide D33 to D35; (3) commit the ten repositories with
+the Stage 36 commands; (4) open Stage 38 (the sidebar card).
 
 ## Cost projection
 

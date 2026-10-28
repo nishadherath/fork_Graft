@@ -267,9 +267,11 @@ about the operator's machine and this repository, not preferences.
   stamp with the running version and rewrites the agent files on a mismatch.
   `trail` is the same program under its other name, so the Stage 33 install gives
   it the same blast radius: a trail command rewrites wiring exactly as a graft one
-  does. This checkout has committed graft shims, so a bare `graft mcp` here
-  rewrote them and `.claude/settings.json` (2026-10-21). Smoke-test in a
-  temporary folder.
+  does. A bare `graft mcp` here rewrote this checkout's committed graft shims and
+  `.claude/settings.json` (2026-10-21), and the upkeep in a process
+  without `GRAFT_NO_TRAIL_SWITCH` (set at user level, but missing from a desktop
+  app started earlier) moved it to trail's layout unasked (2026-10-28, committed
+  by Stage 35). Smoke-test in a temporary folder.
 - **A source build carries no telemetry key.** `dist/telemetry/key.js` is
   stamped only by `scripts/stamp-telemetry-key.mjs` (run by `prepare` and
   `prepublishOnly`), and only when `GRAFT_POSTHOG_KEY` is set; after a sync

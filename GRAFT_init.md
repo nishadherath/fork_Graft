@@ -14,9 +14,9 @@ This repository is the operator's fork of `@nanonets/graft` (see `AGENTS.md`). I
 | Index | `.trail/cache/` (git-ignored by `.trail/.gitignore`, rebuilt locally). The wiring graph is `.trail/cache/.graph/wiring.json` | The map Graft answers from. 1,020 files, 9,841 nodes and 31,071 edges as built on 2026-10-27 |
 | Deep layer | `.trail/cache/` manifest (`manifest.json`) and per-node summaries, last built 2026-10-27 with `graft build --deep`, model `openai:deepseek-flash` (`GRAFT_PROVIDER`, `GRAFT_MODEL`, `GRAFT_BASE_URL` in `.env`) | Concept summaries and per-symbol crux from a language model. Optional. Costs API tokens to refresh. Section 4 has the last run's counts |
 | Project instructions | `AGENTS.md`, section "Code navigation (Graft)" | Tells every agent when to ask Graft first |
-| Hooks | `.claude/settings.json` (`hooks`) and `.claude/helpers/graft-hooks.cjs` | Session-start, prompt, tool-savings, pre-bash, post-edit, stop and session-end hooks. Each calls the installed Graft package and fails open (`|| exit 0`) so a missing Graft never blocks a tool call |
-| Status line | `.claude/settings.json` (`statusLine` and `subagentStatusLine`) and `.claude/helpers/graft-statusline.cjs` | Shows Graft status in the Claude Code status line |
-| Permissions | `.claude/settings.json` (`permissions.allow`) | `Bash(graft:*)` and `Bash(npx graft:*)` run without a prompt |
+| Hooks | `.claude/settings.json` (one `SessionStart` entry) and the committed `.trail/hook.cjs`; the prompt, tool-savings, pre-bash, post-edit, stop and session-end hooks are in the user's `~/.claude/settings.json` on `~/.claude/helpers/graft-hooks.cjs`, written per machine by `trail init` | Each calls the installed package and fails open (`|| exit 0`) so a missing Graft never blocks a tool call. Trail's layout since Stage 35 (2026-10-28): no MCP server, no repository skill |
+| Status line | `.claude/settings.local.json` (`statusLine` and `subagentStatusLine`) and `.trail/statusline.cjs`, both kept on the machine | Shows trail status in the Claude Code status line |
+| Permissions | `.claude/settings.local.json` (`permissions.allow`) | `Bash(trail:*)`, `Bash(graft:*)` and `Bash(npx graft:*)` run without a prompt |
 | Ignore rules | `.trail/.gitignore` (`cache/`) and `.gitignore` (`/.graft/`) | The index is not committed, so every clone builds its own |
 
 Subagents do not get the `AGENTS.md` instruction automatically. Give any new agent that reads code and has Bash in its tools the same instruction in its own prompt.
@@ -112,7 +112,7 @@ To refresh the deep layer again after code changes, run `trail build --deep`. It
 | `trail build --check` reports `NO GRAPH` | No index yet | `trail build` from the repository root |
 | `trail build --check` reports `STALE` with changed files | Code changed since the last build, or the deep layer is behind | `trail build` for the wiring graph, then `trail build --deep` if the deep layer is behind. Section 4 has the last run |
 | `trail ask` returns nothing useful | Index missing or built from another checkout | `trail build` from the repository root |
-| Hooks do nothing | Graft package not found by `graft-hooks.cjs` | The helper looks for `@trailhq/trail-code`, `@nanonets/graft` or `@trailhq/trail`. Check that one is installed globally |
+| Hooks do nothing | Graft package not found by `.trail/hook.cjs` | The helper looks for `@trailhq/trail-code`, `@nanonets/graft` or `@trailhq/trail`. Check that one is installed globally |
 | `trail status` shows zero graft reads | No Graft commands were run in the session | Expected. Run a command from section 3 |
 | `.claude/` changed after a graft command | A version mismatch rewrote the wiring | Restore from git or a backup. The ignored `.claude/settings.json` has no git copy, so back it up before any risky run |
 

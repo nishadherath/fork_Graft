@@ -2,131 +2,102 @@
 stage: "Stage 39: merge upstream 0.28.0 (19865ff) into main, gate under D13, no push"
 model: claude-opus-5-5
 effort: xhigh
-status: ready
+status: done
 created: 2026-10-29
 from: "Stage 39 dispatch, docs/handoffs/2026-10-29-stage-39-dispatch.md (claude-fable-5-1, xhigh, local_802088bb), on the operator's request of 2026-10-29"
 ---
 
 # Stage 39: merge upstream 0.28.0 into main
 
-First action: read your own configuration with the session tool (`self`). If the model is not
-`claude-opus-5-5` or the effort is not `xhigh`, stop and name the value to pick in the model menu.
+Done: merge `3337689`, baseline `afa99d2`. Fork gate 4,452 tests, 4,313 pass, 37 fail, 102 skipped,
+0 cancelled, 1,345.6 s; plain upstream 4,135 tests, 3,991 pass, 42 fail, 102 skipped, 1,272.7 s.
+Green under D13. Nothing pushed or tagged; version `0.25.0-nishadherath.6`; global install untouched.
 
 ## Goal
 
-`main` carries one merge commit of `upstream/main` at `19865ff` (upstream release 0.28.0 plus one
-commit) on top of `1e85917`, conflicts resolved in favour of the fork's own files, the lockfile
-regenerated, `npm run build` exit 0, and `npm test` judged green under D13 against a fresh baseline
-of plain upstream `19865ff` committed as `docs/baselines/upstream-19865ff-failures.txt`. Nothing is
-pushed, no tag is made, the version string stays `0.25.0-nishadherath.6`, the global install is not
-touched. The stage ends with this file set to `done` (counts quoted), the Stage 40 brief written and
-its chip created.
+`main` carries one merge commit of `upstream/main` at `19865ff` (upstream release 0.28.0 plus #707),
+conflicts resolved in favour of the fork's own files, the lockfile regenerated, `npm run build`
+exit 0, and `npm test` judged green under D13 against a fresh baseline of plain upstream `19865ff`
+committed as `docs/baselines/upstream-19865ff-failures.txt`. Ends with the Stage 40 brief (D36 A).
 
 ## Decisions already made
 
-- Model and effort: Opus 5.5, xhigh (dispatch record, step 3.1 raise for a merge). Merge, never
-  rebase (D8, D17); on `main` directly, as Stage 20 did; the push belongs to Stage 41.
-- Conflicts go the fork's way: keep every fork addition, take upstream's change where the fork did
-  not touch the lines, leave fork-only files alone. The fork's touched set is
-  `git diff --stat 4e7d0f5 main`; check each conflicting file against it before editing.
-- `package.json`: upstream's dependency blocks (the native `tree-sitter-*` grammars are now
-  `optionalDependencies`; `web-tree-sitter-depth` is new) plus the fork's own additions from
-  `git diff 4e7d0f5 main -- package.json`; the fork's `name`, `version`, `bin`, `scripts` stay.
-  Then `npm install --package-lock-only --ignore-scripts` regenerates `package-lock.json`; never
-  hand-merge the lock. Then `npm ci --ignore-scripts`.
-- `CHANGELOG.md`: keep every entry from both sides, newest first, the fork's `Unreleased` at the top
-  with one new line: merged upstream 0.28.0 (`19865ff`), naming what it brings in a sentence.
-- D13 (option A, 2026-10-25): the merge passes when it fails no test that plain upstream `19865ff`
-  does not fail in a full run on this machine. Compare by test name; rerun a one-sided failure alone
-  before calling it a fault; the fork neither fixes nor skips upstream's machine-speed tests.
-- The baseline runs in a detached worktree at `D:\Code\Claude\ub` (a longer path hits
-  `ENAMETOOLONG` in `scripts/run-tests.mjs`). Its dependencies differ from `main`'s, so it gets its
-  own `npm ci --ignore-scripts`, no junction. Start its gate in the background first, resolve
-  conflicts while it runs; the lock of D21 serialises the fork's gate behind it on its own.
-- Gate environment, as the .6 release: Git Bash, Node 26.7.0, `HOME` and `USERPROFILE` at a scratch
-  folder holding a copy of `.gitconfig`, `DO_NOT_TRACK=1`, `GRAFT_NO_TRAIL_SWITCH=1`, one gate at a
-  time, every gate in the background (27 minutes each). The two known PATH strays
-  (`test/graft-to-trail.test.ts`, `test/hosts-trail.test.ts`) rerun with every PATH entry containing
-  `nvm` or `nodejs` removed, a copy of `node.exe` in a scratch folder first on PATH,
-  `--test-concurrency=1`.
-- Kotlin: copy `node_modules/tree-sitter-kotlin/build/Release` from the global install only if the
-  merged tree still loads the native grammar; 0.28.0 says installing compiles nothing (#707). Record
-  which it was as one bullet in protocol section 10.
-- Never run the `graft` or `trail` CLI in this checkout or in `D:\Code\Claude\ub`; a mismatch with
-  the wiring stamp rewrites agent files. The graft MCP tools and Grep are fine for navigation.
-- Prose: Australian English, no em-dashes, none of persona section 14.1's banned words, in every file
-  touched. Upstream's own prose stays as it is unless the merge touches the line.
-- Blocked: write the five lines of persona section 3.4 (Task, Tried, Evidence, Hypothesis, Decision)
-  into this file and stop. Two failed hypotheses on one failure count as blocked.
+- Opus 5.5, xhigh; merge, never rebase (D8, D17), on `main`; the push belongs to Stage 41.
+- Conflicts the fork's way; fixes the merge needed go in the merge commit, as at `e3ff66e` (0.25.0).
+- D13 (option A, 2026-10-25): pass when no test fails that plain upstream `19865ff` does not fail;
+  compare by name; rerun a one-sided failure alone before calling it a fault.
+- D36 (operator, 2026-10-29 13:10): option A, Fable acceptance (Stage 40) before Stage 41 pushes.
+- The fork keeps always writing the installed MCP launcher, never npx (`c4d4120`, option C), so
+  upstream's #709 npx case is held to that rule in `test/hosts-trail.test.ts`.
+- Kotlin: no binary copy. #707 parses every depth grammar on WASM; both gates ran without it.
 
 ## Files and links that matter
 
-- Conflicts from `git merge-tree --write-tree --name-only main upstream/main` (8): `CHANGELOG.md`,
-  `package-lock.json`, `package.json`, `scripts/vendor-grammars.mjs`, `src/cli.ts`,
-  `src/graph/build.ts`, `src/graph/container.ts`, `src/graph/extract.ts`.
-- Auto-merged files that carry fork patches, to re-read after the merge: `src/upkeep-run.ts`
-  (`shouldMoveToTrail`, D33), `src/hosts/mcp-config.ts`, `src/claude/hooks.ts`, `src/util/state.ts`,
-  `src/graph/generic.ts` (SCSS from `tree-sitter-wasm-v1`), `src/brand.ts`, `test/hosts-trail.test.ts`,
-  `test/trail-connect-cli.test.ts`. The fork's PATH probe stats where upstream spawns; keep the stat.
-- `docs/baselines/upstream-4e7d0f5-failures.txt`: the format to copy for the new baseline.
-- `docs/handoffs/2026-10-25-stage-20-merge-upstream-0.25.0.md`: the precedent (same shape, 0.25.0).
-- `docs/handoffs/2026-10-28-release-0.25.0-nishadherath.6.md`: gate environment and stray rerun.
-- `docs/operator-protocol.md` section 10; `scripts/run-tests.mjs`; `scripts/gate-lock.mjs`.
-- Upstream's own account: `git log --stat 4e7d0f5..19865ff` (16 commits, 197 files).
+- `git show 3337689` (message lists each of the eight resolutions and the fixes).
+- Fix for #707's async depth grammars: `src/graph/build.ts` `warmGrammarsFor`,
+  `src/graph/structured/index.ts` (`embeddedDepthLanguages`, `warmStructuredGrammars`),
+  `src/graph/structured/markdown.ts` (`fenceLanguagesOf`, `fenceTag`), `structured/html.ts`
+  (`PAGE_SCRIPT_LANGUAGE`); tests at the end of `test/structured-fences.test.ts`.
+- `src/graph/code-refs.ts` (now on depth-parser's `SyntaxNode`), `scripts/vendor-grammars.mjs`
+  (SCSS copy inside the main guard, still `dist/vendor/wasm/`), `src/cli.ts` (lazy `wiring` kept).
+- `docs/operator-protocol.md` section 10, new Kotlin bullet.
+- Stage 40 brief: `docs/handoffs/2026-10-29-stage-40-acceptance.md`.
 
-## Verified facts (2026-10-29, local_802088bb)
+## Verified facts (2026-10-29, local_80852083)
 
-- `git fetch upstream --tags`: `upstream/main` is `19865ff` "Parse the depth tier on WASM, so
-  installing compiles nothing (#707)", one past `25ea4c7` "Release 0.28.0"; `package.json` there
-  reads `0.28.0`. Upstream has tagged nothing since `v0.21.1`.
-- `git merge-base main upstream/main` is `4e7d0f5`; 16 upstream commits, 197 files, +8,300/-1,682;
-  the fork is 200 commits ahead, 264 files, +30,995/-892.
-- `package.json` 4e7d0f5 to 19865ff: `tree-sitter`, `-go`, `-java`, `-kotlin`, `-php`, `-python`,
-  `-r`, `-typescript` moved from `dependencies` to `optionalDependencies`; `web-tree-sitter-depth`
-  (`npm:web-tree-sitter@0.22.2`) added to `dependencies`.
-- `git status` clean at `1e85917`; `git fetch origin` brought nothing; `git worktree list` shows this
-  checkout only; `git branch` shows `main` only. There is no `D:\Code\Claude\ub`.
-- Global install is `0.25.0-nishadherath.6` (session-start hook); `D:\Code\Claude\fork_graft_releases`
-  exists and holds the `.6` tarball.
-- Last full gate on this tree (the .6 release, Git Bash): 4,327 tests, 4,206 pass, 32 fail,
-  89 skipped, 722 s, exit 1; 30 of the 32 in the baseline, 2 PATH strays green alone.
-- No graft or trail CLI command was run in this checkout by the dispatch session.
+- Session tool `self`: model `claude-opus-5-5`, effort `xhigh`.
+- `upstream/main` moved the native `tree-sitter-*` grammars to `devDependencies` (not
+  `optionalDependencies`, as the dispatch read it) and added `web-tree-sitter-depth`.
+- `package-lock.json` after `npm install --package-lock-only --ignore-scripts` differs from
+  upstream's only by the fork's version, `trail` bin, `tree-sitter-wasm-v1`, `fflate`, `pdfjs-dist`
+  and their dependencies. `npm ci --ignore-scripts` exit 0; `tsc --noEmit` exit 0; build exit 0
+  (9 depth grammars in `dist/vendor/grammars/`, SCSS in `dist/vendor/wasm/`).
+- Warming all nine depth grammars costs 107 to 255 ms in a cold process (three runs, CPU loaded by
+  the baseline gate), so fences warm only the languages a file names.
+- The new build test fails without the `warmGrammarsFor` change (`actual: undefined, expected:
+  'L4-L5'`) and passes with it; `structured-fences` 11 of 11. Merge-exposed files (container,
+  depth-grammars, native-fallback, startup-imports, structured edges and HTML, generic): 87 of 87.
+- Baseline gate, `D:\Code\Claude\ub` at `19865ff`, own `npm ci --ignore-scripts`, Git Bash, Node
+  26.7.0, scratch `HOME` and `USERPROFILE` with `.gitconfig`, `DO_NOT_TRACK=1`,
+  `GRAFT_NO_TRAIL_SWITCH=1`: counts above; 42 distinct names, 33 also in the 4e7d0f5 baseline.
+- Fork gate, same environment: counts above; 37 distinct names, 34 in the new baseline. One-sided:
+  `test/skills-anchors-wide-journeys.test.ts` alone 6 of 6, `test/trace-guard-fast.test.ts` alone
+  8 of 8 (machine speed); the #709 npx case in `test/hosts-trail.test.ts`, adapted (decision above).
+  `hosts-trail` and `graft-to-trail` rerun with nvm and nodejs off PATH, `node.exe` copy first,
+  `--test-concurrency=1`: 14 tests, 13 pass, 0 fail, 1 skipped. The full gate ran before that
+  test edit; the rerun covers it.
+- `d27fb4e` (D36's answer, docs only) landed before the merge began; the merge's parents are
+  `d27fb4e` and `19865ff`. No graft or trail CLI command ran in this checkout or in `ub`.
 
 ## Work completed
 
-- None yet. The dispatch record and this brief are the commit before this one.
+- `3337689` Merge upstream 0.28.0 (trailhq/Trail-Code 19865ff) into main.
+- `afa99d2` docs: keep plain upstream 19865ff's 42 failing test names for D13 comparisons.
+- This file closed and the Stage 40 brief written, in the commit after `afa99d2`.
 
 ## Unresolved questions
 
-- D36 (operator): acceptance before the push, option A, or push on the gate, option B. Under A, end
-  by writing `docs/handoffs/2026-10-29-stage-40-acceptance.md` (claude-fable-5-1, xhigh, fresh
-  session: adversarial acceptance of this merge, its own gate, verdict in writing) and its chip.
-  Under B, write the Stage 41 release brief instead (claude-sonnet-5-5, high: `release.mjs
-  0.28.0-nishadherath`, gate, commit, annotated tag, push main and tag, `npm pack --ignore-scripts
-  --pack-destination D:\Code\Claude\fork_graft_releases`, CHANGELOG copy beside it, global reinstall
-  by the section 10 recipe since the base release changed, `sync-global`, `trail --version` from an
-  unwired folder, remove `D:\Code\Claude\ub`, `git worktree prune`, `git remote prune origin upstream`).
+- `scripts/sync-global-checks.mjs` (lines 13 to 14, 70 to 76) still reports a missing Kotlin
+  binary with a copy step; a 0.28 global install has no `tree-sitter-kotlin`. Stage 40 decides.
+- `AGENTS.md` non-negotiable 1 and the older protocol bullet still say to copy the Kotlin binary;
+  only the new section 10 bullet supersedes them. Operator or a documentation stage.
+- `src/notes/edit-overlap.ts` `symbolsIn` warms through `warmGrammarsFor([rel])`, which now reads a
+  Markdown file for fence grammars it never uses; only when a teammate's branch changes that file.
 - Protocol section 10 says merge stages run at `high`; the dispatch chose `xhigh`. Operator.
+- `D:\Code\Claude\ub` stays for Stage 40 to reuse; Stage 41 removes it.
 
 ## Exact next action
 
-```
-git -C D:\Code\Claude\fork_graft worktree add --detach D:\Code\Claude\ub 19865ff
-```
-
-Then in `D:\Code\Claude\ub`: `npm ci --ignore-scripts`, `npm run build`, `npm test` in the background
-with the gate environment above; while it runs, `git merge upstream/main` on `main` and resolve the
-eight files.
+Stage 40, in a fresh session on Fable 5.1 at xhigh: read
+`docs/handoffs/2026-10-29-stage-40-acceptance.md` and do its first action.
 
 ## Cost projection
 
-Opus 5.5, xhigh, list prices (cache read 0.20, cache write 5.00, output 20.00 per million): about
-100 turns, average context 266k, fresh 3k, output 1.5k. First read 116k x 5.00 = $0.58; cache reads
-100 x 266k = 26.6M x 0.20 = $5.33; fresh 300k x 5.00 = $1.50; output 150k x 20 = $3.00. About
-$10.40; $8 to $14 across 80 to 140 turns; add $3 if xhigh doubles the output. Gates cost no tokens.
+Projected $8 to $14 (Opus 5.5, xhigh). Measured: context 338k at the end (session usage tool),
+about 100 turns, average context about 220k. Cache reads 100 x 220k = 22M x 0.20 = $4.40; fresh
+300k x 5.00 = $1.50; output 200k x 20 = $4.00. About $9.90.
 
 ## Time projection
 
-150 to 200 minutes wall clock: baseline install and build 10, baseline gate 27 (overlapping 30 to
-45 of conflict work), fork install and build 10, fork gate 27, strays 5, comparison 5, handoff and
-commit 15, the rest slack. Operator review 30 minutes, plus one click for the next stage's chip.
+Projected 150 to 200 minutes; took about 70 (13:06 to 14:15): baseline gate 22 minutes and fork gate
+23 minutes, both in the background, conflict work overlapping the first. Operator review 30 minutes.

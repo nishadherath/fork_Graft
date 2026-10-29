@@ -114,7 +114,7 @@ Step B: piece 1, the stage, class sonnet, `claude-sonnet-5-5`, high, oracle: the
 after, `npm run build && npm test` judged under D13, commit present; serial; $2.61 as a subagent (protocol section 5)
 with this file as the brief. Piece 2, acceptance here, `claude-fable-5-1`, 4 turns at F 5,000: 4 x 265,000 x 0.25/M
 + 4 x 5,000 x 12.5/M + 4 x 1,500 x 50/M = $0.82. Effort raised from medium to high: the change touches credentials.
-Serial chain: brief 10 min (this turn), author 60 to 90 min including one 27-minute gate, acceptance 10 min.
+Serial chain: brief 4 min (this turn), author 60 to 90 min including one 27-minute gate, acceptance 10 min.
 
 Guardrails: (1) T 45; (2) not design-heavy, crosses false; (3) the only irreversible step is a local commit, and the
 brief forbids a push; (4) model from the table; (5) table 11 days, no null used; (6) author Sonnet, acceptance Fable;
@@ -136,7 +136,7 @@ Final verdict: fresh at Sonnet, run as a subagent of this session; acceptance he
 | Context at start / end | 235,841 / about 252,000 | usage tool; the end figure estimated from this file and the reads |
 | Input tokens read | about 4,500 | price table, template, usage, four greps; estimate |
 | Output tokens | about 6,500 with reasoning | this file and the record; characters / 4 |
-| Wall clock | about 13 minutes | 19:36 to the commit of this file |
+| Wall clock | 4 minutes | 19:36 to 19:40, the commit of this file |
 | Priced | 4,500 x 12.5/M + 6,500 x 50/M = $0.38 | table `pricing/2026-10-18.json` |
 
 ## Cost projection

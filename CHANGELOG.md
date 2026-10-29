@@ -10,6 +10,9 @@
   `trail check` before a commit, and a depth tier that parses on WASM so installing
   compiles nothing (the native grammars are dev dependencies now). The version stays
   `0.25.0-nishadherath.6` until the release; every fork feature is kept.
+- **The MCP launcher stays the installed one.** Upstream's 0.28.0 note that agents "now
+  start Trail through npx" (#709) does not apply to this fork: it keeps writing the
+  launcher that runs the installed `graft` or `trail`, so wiring never fetches a package.
 
 ### Fixed
 

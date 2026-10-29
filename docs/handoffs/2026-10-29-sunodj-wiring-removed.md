@@ -18,7 +18,7 @@ the chore ran on a Haiku subagent inside this session.
 ## Decisions already made
 
 - The operator chose removal, not re-wiring (the Stage 36 action "by hand"); no graft or trail command in SunoDJ, no push.
-- `GRAFT_init.md` and `GRAFT_BUG_REPORT.md` in SunoDJ stay: whether to keep them is the operator's, not part of the chore.
+- `GRAFT_init.md` and `GRAFT_BUG_REPORT.md` stayed out of the chore; the operator then chose removal (`4333a5d`, below).
 
 ## Files that matter
 
@@ -40,11 +40,11 @@ the chore ran on a Haiku subagent inside this session.
 
 ## Work completed
 
-- SunoDJ commit `8af8f68` by the subagent, accepted here one class above; this handoff with the dispatch record below.
+- SunoDJ `8af8f68` by the subagent, accepted here; then `4333a5d` removing the two GRAFT documents (operator's choice, 3 tool calls, dispatch not run).
 
 ## Unresolved questions
 
-- Operator: keep or remove SunoDJ's `GRAFT_init.md` and `GRAFT_BUG_REPORT.md` (tracked, now describing wiring that is gone).
+- SunoDJ `CLAUDE.md:100,110` still name `GRAFT_init.md` (removed in `4333a5d`); rewording that graft section is the operator's.
 
 ## Exact next action
 

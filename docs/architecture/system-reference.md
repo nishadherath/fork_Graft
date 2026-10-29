@@ -498,8 +498,10 @@ them in detached processes.
 
 ### Under the trail brand
 
-`trail` runs the same program with a different command layout (`src/cli.ts`
-line 113, lines 2417 to 2455). Until the 0.25.0-nishadherath.5 tarball (Stage 33) was installed, the
+`trail` runs the same program with a different command layout (`src/cli.ts`:
+the `TRAIL` constant at line 113, the help groups at lines 125 to 126, and the
+`hidden: TRAIL` or `hidden: !TRAIL` flags at lines 459, 1018, 1036, 1097 and
+1266). Until the 0.25.0-nishadherath.5 tarball (Stage 33) was installed, the
 fork's global install had no `trail` command, so these facts came from the
 source only. The table below gives each graft spelling and its trail spelling.
 

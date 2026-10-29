@@ -103,18 +103,18 @@ function tomlHeader(name: Brand): string {
  * is exactly the shape {@link upsertCodexToml} appends. Exported so the writer and
  * `retract.ts` can never disagree about what "graft's section" means.
  */
-export function stripTomlSection(text: string, name: Brand = 'graft'): { rest: string; found: boolean } {
+export function stripTomlSection(text: string, name: Brand = 'graft'): { rest: string; found: boolean; section: string[] } {
   const lines = text.split('\n');
   const header = tomlHeader(name);
   const start = lines.findIndex((l) => l.trim() === header);
-  if (start === -1) return { rest: text, found: false };
+  if (start === -1) return { rest: text, found: false, section: [] };
   let end = start + 1;
   while (end < lines.length && !lines[end].trimStart().startsWith('[')) end++;
   const rest = [...lines.slice(0, start), ...lines.slice(end)]
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/^\n+/, '');
-  return { rest, found: true };
+  return { rest, found: true, section: lines.slice(start, end) };
 }
 
 /**
@@ -146,15 +146,49 @@ export function upsertCodexToml(id: string, path: string, name: Brand = 'graft')
 }
 
 /**
+ * Fork: the comment line the sign-in puts right after the header of the Codex table it writes.
+ * `trail logout` removes a table that holds it and keeps one that does not; `trail init` rewrites
+ * the table without it, so init takes the table over. Codex has one `trail` table, and `trail init`
+ * owns it.
+ */
+export const CODEX_SIGN_IN_MARK = '# written by trail login; trail logout removes this table, trail init takes it over';
+
+/**
+ * Fork: the Codex table the sign-in writes. Only where Codex has no `trail` and no `graft` table
+ * (the one `trail init` or an earlier graft wrote already serves the same server, so the file is
+ * left byte for byte); otherwise the table is appended with {@link CODEX_SIGN_IN_MARK} after its
+ * header, which is what lets `trail logout` tell it from init's. `upsertCodexToml`, which init
+ * calls, never writes the mark.
+ */
+export function upsertCodexSignInToml(id: string, path: string): McpWrite {
+  const existed = existsSync(path);
+  const text = existed ? readFileSync(path, 'utf8') : '';
+  if (stripTomlSection(text, 'trail').found || stripTomlSection(text, 'graft').found) return { id, path, action: 'unchanged' };
+  const { command, args } = serverEntry({ brand: 'trail' });
+  const argList = args.map((a) => JSON.stringify(a)).join(', ');
+  const section = `${tomlHeader('trail')}\n${CODEX_SIGN_IN_MARK}\ncommand = ${JSON.stringify(command)}\nargs = [${argList}]\n`;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, appendSection(text, section));
+  return { id, path, action: existed ? 'updated' : 'created' };
+}
+
+/**
  * Take `name`'s table (default `trail`) out of a Codex TOML config and leave everything else as it
  * was. Fork: what `trail logout` calls, beside the writer that put the table there. A missing file
  * or table is `absent`; a file left with nothing else in it is `deleted`, as `trail uninstall` does.
- * Codex's hooks live in other files and are not read here.
+ * With `markedOnly`, a table without {@link CODEX_SIGN_IN_MARK} between its header and the next
+ * header is `kept` and the file is not touched: it is `trail init`'s. Codex's hooks live in other
+ * files and are not read here.
  */
-export function removeCodexToml(path: string, name: Brand = 'trail'): 'absent' | 'removed' | 'deleted' {
+export function removeCodexToml(
+  path: string,
+  name: Brand = 'trail',
+  options: { markedOnly?: boolean } = {},
+): 'absent' | 'kept' | 'removed' | 'deleted' {
   if (!existsSync(path)) return 'absent';
-  const { rest, found } = stripTomlSection(readFileSync(path, 'utf8'), name);
+  const { rest, found, section } = stripTomlSection(readFileSync(path, 'utf8'), name);
   if (!found) return 'absent';
+  if (options.markedOnly && !section.some((l) => l.trim() === CODEX_SIGN_IN_MARK)) return 'kept';
   if (rest.trim() === '') {
     unlinkSync(path);
     return 'deleted';

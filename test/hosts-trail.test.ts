@@ -22,7 +22,7 @@ import { HOSTS, hostRelPath, hostWiringName } from '../src/hosts/registry.js';
 import { instructionBody, cursorRule } from '../src/hosts/instructions.js';
 import { trailSpelling } from '../src/claude/skill-template.js';
 import { GRAFT_MARKERS, TRAIL_MARKERS, fencedBlock, upsertSection } from '../src/hosts/sections.js';
-import { registerMcpConfigs, removeCodexToml, serverEntry, upsertCodexToml } from '../src/hosts/mcp-config.js';
+import { CODEX_SIGN_IN_MARK, registerMcpConfigs, removeCodexToml, serverEntry, upsertCodexSignInToml, upsertCodexToml } from '../src/hosts/mcp-config.js';
 import { changed, runRetract } from '../src/hosts/retract.js';
 import { runInit } from '../src/claude/init.js';
 import { runUpkeep } from '../src/upkeep-run.js';
@@ -297,17 +297,28 @@ test("trail run through npx isn't installed: npx's own bin folder doesn't count,
 });
 
 test("the Codex trail table the sign-in writes is the one logout removes: a round trip leaves the user's own tables", () => {
-  // fork: `trail logout` calls removeCodexToml on what `upsertCodexToml` wrote.
+  // fork: `trail logout` calls removeCodexToml (markedOnly) on what `upsertCodexSignInToml` wrote.
   const dir = mkdtempSync(join(tmpdir(), 'trail-codex-roundtrip-'));
   const path = join(dir, 'config.toml');
   const own = 'model = "x"\n\n[mcp_servers.other]\ncommand = "other"\n';
   writeFileSync(path, own);
-  assert.equal(upsertCodexToml('codex', path, 'trail').action, 'updated');
-  assert.match(readFileSync(path, 'utf8'), /\[mcp_servers\.trail\]\ncommand = "trail"/);
-  assert.equal(removeCodexToml(path), 'removed');
+  assert.equal(upsertCodexSignInToml('codex', path).action, 'updated');
+  assert.ok(readFileSync(path, 'utf8').includes(`[mcp_servers.trail]\n${CODEX_SIGN_IN_MARK}\ncommand = "trail"`));
+  assert.equal(removeCodexToml(path, 'trail', { markedOnly: true }), 'removed');
   assert.equal(readFileSync(path, 'utf8'), own);
   const alone = join(dir, 'alone.toml');
-  upsertCodexToml('codex', alone, 'trail');
-  assert.equal(removeCodexToml(alone), 'deleted');
+  upsertCodexSignInToml('codex', alone);
+  assert.equal(removeCodexToml(alone, 'trail', { markedOnly: true }), 'deleted');
   assert.equal(existsSync(alone), false);
+});
+
+test("the table trail init writes is not the sign-in's: a markedOnly removal keeps it", () => {
+  // fork: init owns Codex's table; `upsertCodexToml` never writes the mark.
+  const dir = mkdtempSync(join(tmpdir(), 'trail-codex-owner-'));
+  const path = join(dir, 'config.toml');
+  upsertCodexToml('codex', path, 'trail');
+  const written = readFileSync(path, 'utf8');
+  assert.ok(!written.includes(CODEX_SIGN_IN_MARK));
+  assert.equal(removeCodexToml(path, 'trail', { markedOnly: true }), 'kept');
+  assert.equal(readFileSync(path, 'utf8'), written);
 });

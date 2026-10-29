@@ -168,9 +168,10 @@ export function startMcpServer(root: string, dirOverride?: string, version = '0'
             instructions: [...local, ...remote].filter(Boolean).join('\n\n'),
           });
         if (!paired) {
-          // Fork: a sign-in that this build refuses is not offered.
-          const team = brainsOnly || !signInEnabled() ? null : teamWorkspace(root);
-          answer([brainsOnly ? NOT_CONNECTED_LINE : team ? teamLine(team.name, team.workspace) : '']);
+          // Fork: a sign-in that this build refuses is not offered, by either server.
+          const offered = signInEnabled();
+          const team = brainsOnly || !offered ? null : teamWorkspace(root);
+          answer([brainsOnly ? (offered ? NOT_CONNECTED_LINE : '') : team ? teamLine(team.name, team.workspace) : '']);
           return;
         }
         within(workspace.instructions(), deadline - Date.now(), '').then(({ value }) =>

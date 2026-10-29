@@ -2,10 +2,12 @@
  * The fork's three changes to the Trail sign-in, end to end through the CLI:
  *
  * 1. `trail logout` (and `logout --workspace` of the last workspace) also removes the user-level
- *    Codex `[mcp_servers.trail]` table that the sign-in wrote, and nothing else of Codex's.
+ *    Codex `[mcp_servers.trail]` table that the sign-in wrote, and nothing else of Codex's. The
+ *    sign-in marks the table it writes and writes none where Codex already has a `trail` or `graft`
+ *    one; logout removes a marked table only, so the table `trail init` owns is never removed.
  * 2. `trail login --code` warns after a sign-in when no `trail` command is on PATH.
  * 3. Every sign-in path refuses unless TRAIL_CLOUD=1, before any network call or file write, and
- *    the offer to sign in is silent while it is off.
+ *    the offer to sign in is silent while it is off, the workspace-only MCP server's included.
  *
  * Every child runs under a scratch HOME, so nothing here can touch the real agent configuration.
  */
@@ -257,32 +259,35 @@ test("a trail only in npx's or a project's node_modules/.bin does not count as i
 
 // --- 1. logout removes the Codex table ---
 
-const CODEX_TOML = `model = "some-model"
+const MARK = "# written by trail login; trail logout removes this table, trail init takes it over";
+const TABLE = `[mcp_servers.trail]\ncommand = "trail"\nargs = ["mcp"]\n`;
+const MARKED_TABLE = `[mcp_servers.trail]\n${MARK}\ncommand = "trail"\nargs = ["mcp"]\n`;
+/** Codex's config around a trail table: the table is init's (unmarked) or the sign-in's (marked). */
+const codexToml = (table: string): string => `model = "some-model"
 
 [mcp_servers.other]
 command = "other"
 args = ["serve"]
 
-[mcp_servers.trail]
-command = "trail"
-args = ["mcp"]
-
+${table}
 [features]
 codex_hooks = true
 `;
+const CODEX_TOML = codexToml(MARKED_TABLE);
+const CODEX_TOML_INIT = codexToml(TABLE);
 const CODEX_HOOKS = `{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"trail hook session-start"}]}]}}\n`;
 
-function codexHome(): { home: string; config: string; hooks: string } {
+function codexHome(toml = CODEX_TOML): { home: string; config: string; hooks: string } {
   const home = scratch("home");
   mkdirSync(join(home, ".codex"), { recursive: true });
   const config = join(home, ".codex", "config.toml");
   const hooks = join(home, ".codex", "hooks.json");
-  writeFileSync(config, CODEX_TOML);
+  writeFileSync(config, toml);
   writeFileSync(hooks, CODEX_HOOKS);
   return { home, config, hooks };
 }
 
-test("trail logout removes the Codex trail table and keeps the rest of Codex's files", async () => {
+test("trail logout removes the marked Codex trail table and keeps the rest of Codex's files", async () => {
   const { home, config, hooks } = codexHome();
   const env = envFor(home);
   writeCloud(cloud("acme", 1000), env);
@@ -310,7 +315,7 @@ test("logout --workspace removes the Codex table only with the last workspace", 
   assert.match(readFileSync(config, "utf8"), /\[mcp_servers\.other\]/);
 });
 
-test("logout makes no Codex file where Codex has none, and a config with only our table goes", async () => {
+test("logout makes no Codex file where Codex has none, and a config with only the marked table goes", async () => {
   const bare = scratch("home");
   const env = envFor(bare);
   writeCloud(cloud("acme", 1000), env);
@@ -320,7 +325,7 @@ test("logout makes no Codex file where Codex has none, and a config with only ou
   const empty = scratch("home");
   mkdirSync(join(empty, ".codex"), { recursive: true });
   const alone = join(empty, ".codex", "config.toml");
-  writeFileSync(alone, '[mcp_servers.trail]\ncommand = "trail"\nargs = ["mcp"]\n');
+  writeFileSync(alone, MARKED_TABLE);
   const env2 = envFor(empty);
   writeCloud(cloud("acme", 1000), env2);
   assert.equal((await run(["logout"], env2)).status, 0);
@@ -335,8 +340,155 @@ test("removeCodexToml drops the trail table alone and says whether it found one"
   writeFileSync(path, '[mcp_servers.graft]\ncommand = "graft"\n\n[mcp_servers.other]\ncommand = "other"\n');
   assert.equal(removeCodexToml(path), "absent", "graft's table is not the trail table");
   assert.match(readFileSync(path, "utf8"), /mcp_servers\.graft/);
-  writeFileSync(path, CODEX_TOML);
+  writeFileSync(path, CODEX_TOML_INIT);
   assert.equal(removeCodexToml(path), "removed");
   assert.doesNotMatch(readFileSync(path, "utf8"), /mcp_servers\.trail/);
   assert.match(readFileSync(path, "utf8"), /mcp_servers\.other/);
+});
+
+test("removeCodexToml with markedOnly: absent, kept, removed or deleted", async () => {
+  const { removeCodexToml, CODEX_SIGN_IN_MARK } = await import("../src/hosts/mcp-config.js");
+  assert.equal(CODEX_SIGN_IN_MARK, MARK, "the exact comment line");
+  const path = join(scratch("home"), "config.toml");
+  assert.equal(removeCodexToml(path, "trail", { markedOnly: true }), "absent", "no file");
+  writeFileSync(path, '[mcp_servers.other]\ncommand = "other"\n');
+  assert.equal(removeCodexToml(path, "trail", { markedOnly: true }), "absent", "no trail table");
+
+  writeFileSync(path, CODEX_TOML_INIT);
+  assert.equal(removeCodexToml(path, "trail", { markedOnly: true }), "kept", "init's table has no mark");
+  assert.equal(readFileSync(path, "utf8"), CODEX_TOML_INIT, "kept means byte for byte");
+
+  // A mark in some other table does not make the trail table marked.
+  const elsewhere = CODEX_TOML_INIT.replace('command = "other"', `${MARK}\ncommand = "other"`);
+  writeFileSync(path, elsewhere);
+  assert.equal(removeCodexToml(path, "trail", { markedOnly: true }), "kept");
+  assert.equal(readFileSync(path, "utf8"), elsewhere);
+
+  writeFileSync(path, CODEX_TOML);
+  assert.equal(removeCodexToml(path, "trail", { markedOnly: true }), "removed");
+  const left = readFileSync(path, "utf8");
+  assert.doesNotMatch(left, /mcp_servers\.trail|written by trail login/);
+  assert.match(left, /\[mcp_servers\.other\]\ncommand = "other"\nargs = \["serve"\]\n\n\[features\]\ncodex_hooks = true\n$/);
+
+  writeFileSync(path, MARKED_TABLE);
+  assert.equal(removeCodexToml(path, "trail", { markedOnly: true }), "deleted");
+  assert.equal(existsSync(path), false);
+});
+
+test("a marked table is found with CRLF line endings too", async () => {
+  const { removeCodexToml } = await import("../src/hosts/mcp-config.js");
+  const path = join(scratch("home"), "config.toml");
+  writeFileSync(path, CODEX_TOML.replace(/\n/g, "\r\n"));
+  assert.equal(removeCodexToml(path, "trail", { markedOnly: true }), "removed");
+  assert.doesNotMatch(readFileSync(path, "utf8"), /mcp_servers\.trail/);
+});
+
+test("the sign-in's Codex write: a marked table where Codex has no trail or graft one, and nothing otherwise", async () => {
+  const { upsertCodexSignInToml } = await import("../src/hosts/mcp-config.js");
+  const dir = scratch("home");
+
+  const fresh = join(dir, "fresh.toml");
+  assert.equal(upsertCodexSignInToml("codex", fresh).action, "created");
+  assert.ok(readFileSync(fresh, "utf8").startsWith(`[mcp_servers.trail]\n${MARK}\ncommand = `), readFileSync(fresh, "utf8"));
+
+  const beside = join(dir, "beside.toml");
+  const own = 'model = "x"\n\n[mcp_servers.other]\ncommand = "other"\n';
+  writeFileSync(beside, own);
+  assert.equal(upsertCodexSignInToml("codex", beside).action, "updated");
+  assert.ok(readFileSync(beside, "utf8").startsWith(own), "the user's tables come first, unchanged");
+  assert.ok(readFileSync(beside, "utf8").includes(`[mcp_servers.trail]\n${MARK}\ncommand = `));
+
+  const cases: Array<[string, string]> = [
+    ["init-trail-table", CODEX_TOML_INIT],
+    ["marked-trail-table", CODEX_TOML],
+    ["graft-table", 'model = "x"\n\n[mcp_servers.graft]\ncommand = "graft"\nargs = ["mcp"]\n'],
+    ["graft-table-crlf", '[mcp_servers.graft]\r\ncommand = "graft"\r\n'],
+  ];
+  for (const [name, text] of cases) {
+    const path = join(dir, `${name}.toml`);
+    writeFileSync(path, text);
+    assert.equal(upsertCodexSignInToml("codex", path).action, "unchanged", name);
+    assert.equal(readFileSync(path, "utf8"), text, `${name}: byte for byte`);
+  }
+});
+
+test("trail init's write over a marked table drops the mark: init takes the table over", async () => {
+  const { upsertCodexToml, removeCodexToml } = await import("../src/hosts/mcp-config.js");
+  const path = join(scratch("home"), "config.toml");
+  writeFileSync(path, CODEX_TOML);
+  assert.equal(upsertCodexToml("codex", path, "trail").action, "updated");
+  const text = readFileSync(path, "utf8");
+  assert.doesNotMatch(text, /written by trail login/);
+  assert.match(text, /\[mcp_servers\.trail\]\ncommand = /);
+  assert.equal(removeCodexToml(path, "trail", { markedOnly: true }), "kept", "a logout now leaves it");
+  assert.equal(readFileSync(path, "utf8"), text);
+});
+
+test("trail logout leaves the Codex table that init wrote", async () => {
+  const { home, config, hooks } = codexHome(CODEX_TOML_INIT);
+  const env = envFor(home);
+  writeCloud(cloud("acme", 1000), env);
+  const r = await run(["logout"], env);
+  assert.equal(r.status, 0, r.err);
+  assert.equal(readFileSync(config, "utf8"), CODEX_TOML_INIT, "byte for byte");
+  assert.equal(readFileSync(hooks, "utf8"), CODEX_HOOKS);
+  assert.deepEqual(readClouds(env), []);
+});
+
+test("logout --workspace of the last workspace leaves init's Codex table too", async () => {
+  const { home, config } = codexHome(CODEX_TOML_INIT);
+  const env = envFor(home);
+  writeCloud(cloud("acme", 1000), env);
+  const r = await run(["logout", "--workspace", "acme"], env);
+  assert.equal(r.status, 0, r.err);
+  assert.equal(readFileSync(config, "utf8"), CODEX_TOML_INIT);
+});
+
+test("login --code writes a marked Codex table where Codex has none, and logout removes exactly it", async () => {
+  const trail = await standIn();
+  const home = scratch("home");
+  mkdirSync(join(home, ".codex"), { recursive: true });
+  const config = join(home, ".codex", "config.toml");
+  const own = 'model = "some-model"\n\n[mcp_servers.other]\ncommand = "other"\n';
+  writeFileSync(config, own);
+  const r = await run(["login", scratch("repo"), "--code", CODE, "--server", trail.url], envFor(home, { TRAIL_CLOUD: "1" }));
+  assert.equal(r.status, 0, r.err);
+  assert.ok(readFileSync(config, "utf8").includes(`[mcp_servers.trail]\n${MARK}\ncommand = `), readFileSync(config, "utf8"));
+  assert.ok(readFileSync(config, "utf8").startsWith(own), "the user's tables are untouched");
+
+  const out = await run(["logout"], envFor(home));
+  assert.equal(out.status, 0, out.err);
+  assert.equal(readFileSync(config, "utf8"), own, "back to what Codex had");
+});
+
+test("login --code leaves a Codex trail or graft table byte for byte, and logout then keeps it", async () => {
+  const trail = await standIn();
+  const graftToml = 'model = "some-model"\n\n[mcp_servers.graft]\ncommand = "graft"\nargs = ["mcp"]\n';
+  const cases: Array<[string, string]> = [
+    ["init's trail table", CODEX_TOML_INIT],
+    ["a graft table", graftToml],
+  ];
+  for (const [name, text] of cases) {
+    const home = scratch("home");
+    mkdirSync(join(home, ".codex"), { recursive: true });
+    const config = join(home, ".codex", "config.toml");
+    writeFileSync(config, text);
+    const r = await run(["login", scratch("repo"), "--code", CODE, "--server", trail.url], envFor(home, { TRAIL_CLOUD: "1" }));
+    assert.equal(r.status, 0, `${name}: ${r.err}`);
+    assert.ok(existsSync(cloudJson(home)), `${name}: signed in`);
+    assert.equal(readFileSync(config, "utf8"), text, `${name}: the sign-in left it`);
+    const out = await run(["logout"], envFor(home));
+    assert.equal(out.status, 0, out.err);
+    assert.equal(readFileSync(config, "utf8"), text, `${name}: logout kept it`);
+  }
+});
+
+// --- 3b. the workspace-only server does not ask for a sign-in while it is off ---
+
+test("trail mcp --brains: no sign-in line while sign-in is off, the line with TRAIL_CLOUD=1", async () => {
+  const dir = await builtRepo();
+  const off = await rpc([INIT, INITIALIZED, LIST], dir, envWith(null, { TRAIL_CLOUD: undefined }), 2, ["--brains"]);
+  assert.equal(byId(off.rs, 1).result.instructions, "");
+  const on = await rpc([INIT, INITIALIZED, LIST], dir, envWith(null, { TRAIL_CLOUD: "1" }), 2, ["--brains"]);
+  assert.match(byId(on.rs, 1).result.instructions, /isn't signed in to Trail.*Run `trail login`/);
 });

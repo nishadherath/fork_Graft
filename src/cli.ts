@@ -37,7 +37,7 @@ import { formatInitEpilogue } from "./cli-epilogue.js";
 import type { Retraction } from "./hosts/retract.js";
 import { compactWrites, formatNonInteractiveHelp, formatPlan, runPicker } from "./cli-picker.js";
 import { installBrainsServer, installCursorBrainsServer, removeBrainsServer, removeCursorBrainsServer } from "./hosts/claude-global.js";
-import { removeCodexToml, upsertCodexToml } from "./hosts/mcp-config.js";
+import { removeCodexToml, upsertCodexSignInToml } from "./hosts/mcp-config.js";
 import { homedir } from "node:os";
 import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, readForkMarker, readPackageName, runUpgrade } from "./cli-meta.js";
 import { nativeFallbackNotice } from "./graph/native.js";
@@ -2462,24 +2462,26 @@ async function loginWithCode(repo: string, code: string, base: string): Promise<
  * workspace's tools in every project, with nothing more to run: Claude Code
  * and Cursor through a user-level workspace-only `trail` server, Codex
  * through its user-level `trail` server (the one `trail init` writes, which
- * passes the workspace through once signed in). Only for agents installed
- * here. Best effort.
+ * passes the workspace through once signed in). Codex's table is init's: it
+ * is written here only where Codex has no `trail` or `graft` table, and then
+ * marked, so that `trail logout` removes this one and no other. Only for
+ * agents installed here. Best effort.
  */
 function addAgentEntries(): void {
   const home = homedir();
   try {
     if (existsSync(join(home, ".claude.json")) || existsSync(join(home, ".claude"))) installBrainsServer(home);
     if (existsSync(join(home, ".cursor"))) installCursorBrainsServer(home);
-    if (existsSync(join(home, ".codex"))) upsertCodexToml("codex", join(home, ".codex", "config.toml"), "trail");
+    if (existsSync(join(home, ".codex"))) upsertCodexSignInToml("codex", join(home, ".codex", "config.toml"));
   } catch {
     // a config that can't be written leaves that agent as it was
   }
 }
 
-/** Take the user-level Codex `trail` table out again (`trail logout`); the rest of Codex's config stays. Best effort. */
+/** Take the Codex `trail` table the sign-in marked out again (`trail logout`); init's table and the rest of Codex's config stay. Best effort. */
 function removeCodexEntry(): void {
   try {
-    removeCodexToml(join(homedir(), ".codex", "config.toml"));
+    removeCodexToml(join(homedir(), ".codex", "config.toml"), "trail", { markedOnly: true });
   } catch {
     // a config that can't be written is left as it was
   }

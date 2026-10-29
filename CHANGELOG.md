@@ -10,15 +10,20 @@
   write nothing; the `init` ones add that plain `trail init` sets the repo up without a workspace.
   A piped run also prints one line for the agent to pass on. A laptop that is already connected
   keeps working, and `logout`, `workspace` and the uploads are as before. While it is off, the
-  hook and the MCP server no longer tell an agent to run a sign-in that would refuse.
+  hook and the MCP server no longer tell an agent to run a sign-in that would refuse, the
+  workspace-only server (`trail mcp --brains`) included.
 
 ### Fixed
 
-- **`trail logout` removes the Codex entry the sign-in wrote.** It took out the Claude Code and
-  Cursor workspace servers but left `[mcp_servers.trail]` in `~/.codex/config.toml`, so Codex kept
-  starting `trail mcp` in every folder. `trail logout`, and `trail logout --workspace` for the last
-  workspace, now remove that table and nothing else in the file (Codex's hook entries are not
-  touched); a config left empty is deleted, and none is made where Codex has none.
+- **`trail logout` removes the Codex entry the sign-in wrote, and only that one.** It took out the
+  Claude Code and Cursor workspace servers but left `[mcp_servers.trail]` in
+  `~/.codex/config.toml`, so Codex kept starting `trail mcp` in every folder. The sign-in now
+  writes that table only where Codex has no `trail` and no `graft` table, and marks it with a
+  comment line. `trail logout`, and `trail logout --workspace` for the last workspace, remove a
+  marked table and nothing else in the file (Codex's hook entries are not touched); a config left
+  empty is deleted, and none is made where Codex has none. The table `trail init` wrote stays, so a
+  logout does not unwire Codex from trail; `trail init` over a marked table drops the mark and takes
+  it over.
 - **`trail login --code` warns when no `trail` command is on PATH.** This fork writes the
   installed launcher into the agent entries, so with only `graft` installed Claude Code, Codex and
   Cursor find nothing to start. The sign-in still succeeds; the warning names the install command.

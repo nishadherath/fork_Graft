@@ -171,7 +171,8 @@ test("trail mcp --brains, Claude Code's user-level entry: the workspace's tools,
   assert.match(repoTool.content[0].text, /workspace's tools only/);
   assert.equal(byId(rs, 5).result.prompts.length, 1);
 
-  const off = await rpc([INIT, INITIALIZED, LIST], dir, envWith(null), 2, ["--brains"]);
+  // fork: a sign-in needs TRAIL_CLOUD=1, so the workspace-only server asks for one only then
+  const off = await rpc([INIT, INITIALIZED, LIST], dir, envWith(null, { TRAIL_CLOUD: "1" }), 2, ["--brains"]);
   assert.deepEqual(byId(off.rs, 2).result.tools, []);
   assert.match(byId(off.rs, 1).result.instructions, /isn't signed in to Trail.*Run `trail login`/);
 });
@@ -198,7 +199,8 @@ test("a workspace that keeps sessions: the id goes back on every request, and a 
 });
 
 test("the connector never throws, paired or not", async () => {
-  const off = new WorkspaceConnector({ env: envWith(null) });
+  // fork: a sign-in needs TRAIL_CLOUD=1
+  const off = new WorkspaceConnector({ env: envWith(null, { TRAIL_CLOUD: "1" }) });
   assert.equal(off.connected(), false);
   assert.equal(await off.listTools(), null);
   assert.equal(await off.instructions(), "");

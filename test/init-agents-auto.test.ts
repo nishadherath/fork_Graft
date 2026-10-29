@@ -28,6 +28,8 @@ function env(home: string, extra: Record<string, string> = {}): NodeJS.ProcessEn
     GRAFT_MCP_NPX: "1",
     TRAIL_NO_LOOK_BACK: "1",
     TRAIL_NO_FETCH: "1",
+    // fork: a sign-in needs TRAIL_CLOUD=1
+    TRAIL_CLOUD: "1",
     ...extra,
   };
 }

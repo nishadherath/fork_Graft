@@ -165,6 +165,16 @@ export function cloudEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.TRAIL_CLOUD === "1" || readCloud(env) !== null;
 }
 
+/**
+ * Whether this build lets a laptop sign in to a Trail workspace: only with TRAIL_CLOUD=1, whatever
+ * the value is otherwise (unset, empty, 0). Fork rule: unlike {@link cloudEnabled}, a connection
+ * already on the machine does not turn it on. It decides who may start a new sign-in, nothing about
+ * a connection that exists.
+ */
+export function signInEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.TRAIL_CLOUD === "1";
+}
+
 /** Owner-only: the file holds the workspace token. */
 export const SECRET_FILE_MODE = PRIVATE_FILE_MODE;
 

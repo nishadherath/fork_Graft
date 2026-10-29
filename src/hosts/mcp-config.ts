@@ -7,7 +7,7 @@
  * init --dry-run` and the picker can report paths without writing;
  * `registerMcpConfigs()` walks that same list to do the writing.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import type { PlannedWrite } from './plan.js';
@@ -143,6 +143,24 @@ export function upsertCodexToml(id: string, path: string, name: Brand = 'graft')
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, appendSection(rest, section));
   return { id, path, action: existed ? 'updated' : 'created' };
+}
+
+/**
+ * Take `name`'s table (default `trail`) out of a Codex TOML config and leave everything else as it
+ * was. Fork: what `trail logout` calls, beside the writer that put the table there. A missing file
+ * or table is `absent`; a file left with nothing else in it is `deleted`, as `trail uninstall` does.
+ * Codex's hooks live in other files and are not read here.
+ */
+export function removeCodexToml(path: string, name: Brand = 'trail'): 'absent' | 'removed' | 'deleted' {
+  if (!existsSync(path)) return 'absent';
+  const { rest, found } = stripTomlSection(readFileSync(path, 'utf8'), name);
+  if (!found) return 'absent';
+  if (rest.trim() === '') {
+    unlinkSync(path);
+    return 'deleted';
+  }
+  writeFileSync(path, rest.endsWith('\n') ? rest : `${rest}\n`);
+  return 'removed';
 }
 
 /** Append a section after exactly one blank line, or at the top of an empty file. */

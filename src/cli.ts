@@ -37,7 +37,7 @@ import { formatInitEpilogue } from "./cli-epilogue.js";
 import type { Retraction } from "./hosts/retract.js";
 import { compactWrites, formatNonInteractiveHelp, formatPlan, runPicker } from "./cli-picker.js";
 import { installBrainsServer, installCursorBrainsServer, removeBrainsServer, removeCursorBrainsServer } from "./hosts/claude-global.js";
-import { upsertCodexToml } from "./hosts/mcp-config.js";
+import { removeCodexToml, upsertCodexToml } from "./hosts/mcp-config.js";
 import { homedir } from "node:os";
 import { formatUpgradeReport, formatVersionReport, getNpmViewVersion, readCurrentVersion, readForkMarker, readPackageName, runUpgrade } from "./cli-meta.js";
 import { nativeFallbackNotice } from "./graph/native.js";
@@ -59,7 +59,7 @@ import { gateNote, namesRepoSymbol, symbolCandidates, trackedFiles } from "./not
 import { recordLookup } from "./cloud/lookup-activity.js";
 import { clearPending, cloudLines, loginLines, loginLink, sessionKey, startWaiting, WAIT_MS, waitForConnect } from "./cloud/nudge.js";
 import { teamWorkspace } from "./cloud/team-file.js";
-import { addRepo, claimLoginCode, clearCloud, cloudEnabled, cloudForRepo, cloudIn, failPair, fetchMe, fetchTeam, isError, readCloud, readClouds, sameWorkspace, serverUrl, trailUrl, useServer, writeCloud, type Cloud, type Me, type SetupFailure } from "./cloud/workspace.js";
+import { addRepo, claimLoginCode, clearCloud, cloudEnabled, cloudForRepo, cloudIn, failPair, fetchMe, fetchTeam, isError, readCloud, readClouds, sameWorkspace, serverUrl, signInEnabled, trailUrl, useServer, writeCloud, type Cloud, type Me, type SetupFailure } from "./cloud/workspace.js";
 import {
   claimConnectCode,
   connectAgain,
@@ -1330,6 +1330,8 @@ grouped(program.command("init"), GROUP.setup)
       process.exitCode = 1;
       return;
     }
+    // Fork: --pair signs in too (--connect says so in runConnectInit, past its dry run).
+    if (opts.pair !== undefined && !opts.listAgents && refuseSignIn(true)) return;
     if (opts.connect !== undefined) await runConnectInit(dir, opts);
     else await runInitCommand(dir, opts);
   });
@@ -2051,6 +2053,7 @@ async function runConnectInit(dir: string, opts: InitOptions): Promise<void> {
     await runInitCommand(dir, opts);
     return;
   }
+  if (refuseSignIn(true)) return;
   const repo = resolve(dir);
   if (!useServerOption(opts.server)) return;
   const base = trailUrl();
@@ -2352,6 +2355,8 @@ function loginCommand(name = "login"): Command {
     .option("--workspace <slug>", "the workspace to sign in to, as its page names it (default: this repo's, if it has one)")
     .option("--server <url>", "a self-hosted Trail, e.g. https://trail.acme.internal (default: Trail cloud, https://team.trailhq.com)")
     .action(async (dir: string, opts: { server?: string; workspace?: string; code?: string }) => {
+      // Fork: first, before the link, the code, the token or the "already signed in" answer.
+      if (refuseSignIn()) return;
       const repo = resolve(dir);
       // Saved on the link, so its sign-in and every upload after go there; nothing in the environment.
       const server = opts.server === undefined ? undefined : serverUrl(opts.server);
@@ -2399,6 +2404,23 @@ function loginCommand(name = "login"): Command {
     });
 }
 
+/**
+ * Fork rule: signing in to a Trail workspace is off unless TRAIL_CLOUD=1 (`signInEnabled`). Said
+ * first by every path that would send a code or a link state to Trail or write a token, so nothing
+ * has gone out and nothing is written. `plainInit` adds that `init` without the code still works.
+ * An agent reading a pipe gets the one line to pass on. True when it refused.
+ */
+function refuseSignIn(plainInit = false): boolean {
+  if (signInEnabled()) return false;
+  const plain = plainInit ? ` · plain ${cmd("graft init")} sets the repo up without a workspace` : "";
+  console.error(`✗ sign-in to a Trail workspace is off in this build · set TRAIL_CLOUD=1 in your environment to turn it on, then run the command again${plain}`);
+  if (!process.stdout.isTTY) {
+    console.log(`[${brand()}] Tell the user that Trail sign-in is off here and that TRAIL_CLOUD=1 turns it on. Don't run ${cmd("graft login")} again.`);
+  }
+  process.exitCode = 1;
+  return true;
+}
+
 /** `trail login --code`: trade the web app's one-time code for this laptop's token, then set up its agents. */
 async function loginWithCode(repo: string, code: string, base: string): Promise<void> {
   const before = readCloud();
@@ -2422,6 +2444,12 @@ async function loginWithCode(repo: string, code: string, base: string): Promise<
   const sent = await syncWorkspaceRepos(cloud).catch(() => ({ repos: 0, learnings: 0 }));
   console.log(`✓ this laptop is signed in to Trail workspace ${cloud.workspace.name} · ${cloud.workspace.url}`);
   if (sent.repos) console.log(`✓ shared ${sent.learnings} learning${sent.learnings === 1 ? "" : "s"} from ${sent.repos} repo${sent.repos === 1 ? "" : "s"}`);
+  // Fork: the agent entries start the installed launcher, never npx, so with no trail on PATH they find nothing to start.
+  if (!trailOnPath()) {
+    console.error(
+      `· no trail command is on PATH: this build's agent entries start trail itself, so Claude Code, Codex and Cursor get no workspace tools until it is installed · npm install -g ${readPackageName(import.meta.url)}`,
+    );
+  }
   if (!process.stdout.isTTY) {
     console.log(
       `[${brand()}] Tell the user, in one line, that this laptop is signed in to their Trail workspace ${cloud.workspace.name}: Claude Code, Codex and Cursor here have its brand, skills and learnings from their next session. Don't repeat the code.`,
@@ -2448,6 +2476,15 @@ function addAgentEntries(): void {
   }
 }
 
+/** Take the user-level Codex `trail` table out again (`trail logout`); the rest of Codex's config stays. Best effort. */
+function removeCodexEntry(): void {
+  try {
+    removeCodexToml(join(homedir(), ".codex", "config.toml"));
+  } catch {
+    // a config that can't be written is left as it was
+  }
+}
+
 function logoutCommand(name = "logout"): Command {
   return new Command(name)
     .description("Disconnect this machine from its Trail workspaces (learnings stay in your repos)")
@@ -2465,6 +2502,7 @@ function logoutCommand(name = "logout"): Command {
           clearPending();
           removeBrainsServer(homedir());
           removeCursorBrainsServer(homedir());
+          removeCodexEntry();
         }
         console.error(`✓ disconnected from workspace ${gone.workspace.name} · learnings stay in your repos' .trail/`);
         return;
@@ -2472,6 +2510,7 @@ function logoutCommand(name = "logout"): Command {
       clearPending();
       removeBrainsServer(homedir());
       removeCursorBrainsServer(homedir());
+      removeCodexEntry();
       if (!clearCloud()) {
         console.error("· not connected to a workspace");
         return;

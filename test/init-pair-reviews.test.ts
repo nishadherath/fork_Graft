@@ -124,7 +124,8 @@ async function agentInit(repo: string, home: string, bin: string, args: string[]
   const env: NodeJS.ProcessEnv = {};
   for (const [k, v] of Object.entries(process.env)) if (!AGENT_VARS.test(k)) env[k] = v;
   const child = spawn(process.execPath, ["--import", "tsx", "src/cli.ts", "init", repo, "--no-build", "--agents", "auto", ...args], {
-    env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), TRAIL_INVOKED_AS: "trail", DO_NOT_TRACK: "1", GRAFT_MCP_NPX: "1", GIT_TERMINAL_PROMPT: "0", CLAUDECODE: "1", PATH: `${bin}${delimiter}${process.env.PATH}` },
+    // fork: a sign-in needs TRAIL_CLOUD=1
+    env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), TRAIL_INVOKED_AS: "trail", DO_NOT_TRACK: "1", GRAFT_MCP_NPX: "1", GIT_TERMINAL_PROMPT: "0", CLAUDECODE: "1", TRAIL_CLOUD: "1", PATH: `${bin}${delimiter}${process.env.PATH}` },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let err = "";
@@ -234,7 +235,8 @@ for (const [how, entry] of [["graft", join("src", "bin", "graft.ts")], ["no name
       const env: NodeJS.ProcessEnv = {};
       for (const [k, v] of Object.entries(process.env)) if (!AGENT_VARS.test(k) && k !== "TRAIL_INVOKED_AS") env[k] = v;
       const child = spawn(process.execPath, ["--import", "tsx", entry, "init", repo, "--no-build", "--agents", "claude", "--pair", "X4GM5OQU4NIA65ZR", "--server", trail.url], {
-        env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), DO_NOT_TRACK: "1", GRAFT_MCP_NPX: "1", GIT_TERMINAL_PROMPT: "0", CLAUDECODE: "1", PATH: `${bin}${delimiter}${gitOnly()}` },
+        // fork: a sign-in needs TRAIL_CLOUD=1
+        env: { ...env, HOME: home, USERPROFILE: home, TRAIL_HOME: join(home, ".trail"), DO_NOT_TRACK: "1", GRAFT_MCP_NPX: "1", GIT_TERMINAL_PROMPT: "0", CLAUDECODE: "1", TRAIL_CLOUD: "1", PATH: `${bin}${delimiter}${gitOnly()}` },
         stdio: ["ignore", "pipe", "pipe"],
       });
       let err = "";

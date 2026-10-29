@@ -150,11 +150,12 @@ test("not signed in, in a repo whose team uses Trail: one line offers the sign-i
   const dir = await builtRepo();
   mkdirSync(join(dir, ".trail"), { recursive: true });
   writeFileSync(join(dir, ".trail", "workspace.json"), JSON.stringify({ trail: "https://team.trailhq.com", workspace: "acme", name: "Acme" }));
-  const { rs } = await rpc([INIT, INITIALIZED, LIST], dir, envWith(null), 2);
+  // fork: a sign-in needs TRAIL_CLOUD=1
+  const { rs } = await rpc([INIT, INITIALIZED, LIST], dir, envWith(null, { TRAIL_CLOUD: "1" }), 2);
   assert.match(byId(rs, 1).result.instructions, /workspace Acme .* run `(trail|npx -y @trailhq\/trail-code@latest) login --workspace acme`/);
   // Another Trail named in the repo is never where a laptop is sent to sign in.
   writeFileSync(join(dir, ".trail", "workspace.json"), JSON.stringify({ trail: "https://trail.evil.example", workspace: "acme", name: "Acme" }));
-  const other = await rpc([INIT, INITIALIZED, LIST], dir, envWith(null), 2);
+  const other = await rpc([INIT, INITIALIZED, LIST], dir, envWith(null, { TRAIL_CLOUD: "1" }), 2);
   assert.doesNotMatch(byId(other.rs, 1).result.instructions, /login --workspace/);
 });
 

@@ -95,6 +95,8 @@ function envFor(url: string): NodeJS.ProcessEnv {
     TRAIL_NO_FETCH: "1",
     DO_NOT_TRACK: "1",
     TRAIL_INVOKED_AS: "trail",
+    // fork: a sign-in needs TRAIL_CLOUD=1
+    TRAIL_CLOUD: "1",
   };
 }
 

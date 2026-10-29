@@ -22,7 +22,7 @@ import { HOSTS, hostRelPath, hostWiringName } from '../src/hosts/registry.js';
 import { instructionBody, cursorRule } from '../src/hosts/instructions.js';
 import { trailSpelling } from '../src/claude/skill-template.js';
 import { GRAFT_MARKERS, TRAIL_MARKERS, fencedBlock, upsertSection } from '../src/hosts/sections.js';
-import { registerMcpConfigs, serverEntry } from '../src/hosts/mcp-config.js';
+import { registerMcpConfigs, removeCodexToml, serverEntry, upsertCodexToml } from '../src/hosts/mcp-config.js';
 import { changed, runRetract } from '../src/hosts/retract.js';
 import { runInit } from '../src/claude/init.js';
 import { runUpkeep } from '../src/upkeep-run.js';
@@ -294,4 +294,20 @@ test("trail run through npx isn't installed: npx's own bin folder doesn't count,
   } finally {
     process.env.PATH = before;
   }
+});
+
+test("the Codex trail table the sign-in writes is the one logout removes: a round trip leaves the user's own tables", () => {
+  // fork: `trail logout` calls removeCodexToml on what `upsertCodexToml` wrote.
+  const dir = mkdtempSync(join(tmpdir(), 'trail-codex-roundtrip-'));
+  const path = join(dir, 'config.toml');
+  const own = 'model = "x"\n\n[mcp_servers.other]\ncommand = "other"\n';
+  writeFileSync(path, own);
+  assert.equal(upsertCodexToml('codex', path, 'trail').action, 'updated');
+  assert.match(readFileSync(path, 'utf8'), /\[mcp_servers\.trail\]\ncommand = "trail"/);
+  assert.equal(removeCodexToml(path), 'removed');
+  assert.equal(readFileSync(path, 'utf8'), own);
+  const alone = join(dir, 'alone.toml');
+  upsertCodexToml('codex', alone, 'trail');
+  assert.equal(removeCodexToml(alone), 'deleted');
+  assert.equal(existsSync(alone), false);
 });

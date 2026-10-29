@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Changed
+
+- **Signing in to a Trail workspace is off unless `TRAIL_CLOUD=1`.** `trail login` in every form
+  (the browser link, `--code`, and the "already signed in" answer), `trail init --connect` and
+  `trail init --pair` now stop first with one line that names the variable, exit 1, and send and
+  write nothing; the `init` ones add that plain `trail init` sets the repo up without a workspace.
+  A piped run also prints one line for the agent to pass on. A laptop that is already connected
+  keeps working, and `logout`, `workspace` and the uploads are as before. While it is off, the
+  hook and the MCP server no longer tell an agent to run a sign-in that would refuse.
+
+### Fixed
+
+- **`trail logout` removes the Codex entry the sign-in wrote.** It took out the Claude Code and
+  Cursor workspace servers but left `[mcp_servers.trail]` in `~/.codex/config.toml`, so Codex kept
+  starting `trail mcp` in every folder. `trail logout`, and `trail logout --workspace` for the last
+  workspace, now remove that table and nothing else in the file (Codex's hook entries are not
+  touched); a config left empty is deleted, and none is made where Codex has none.
+- **`trail login --code` warns when no `trail` command is on PATH.** This fork writes the
+  installed launcher into the agent entries, so with only `graft` installed Claude Code, Codex and
+  Cursor find nothing to start. The sign-in still succeeds; the warning names the install command.
+
 ## 0.28.0-nishadherath (2026-10-29)
 
 ### Changed

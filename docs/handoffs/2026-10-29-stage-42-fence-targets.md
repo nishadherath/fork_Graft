@@ -26,7 +26,8 @@ A symbol hosted by a structured-tier document (a Markdown fence symbol, a page s
 - Session configuration read with `self` on 2026-10-29: `claude-sonnet-5-5`, `medium`. Matches.
 
 ## Work completed
-- None yet.
+- Fix, two tests and CHANGELOG bullet committed as d2b51e8; `test/structured-fences.test.ts` passes 13/13 alone.
+- Gate: run once by Stage 41 on the release tree (counts and D13 judgement to be added after its report).
 
 ## Unresolved questions
 - None.

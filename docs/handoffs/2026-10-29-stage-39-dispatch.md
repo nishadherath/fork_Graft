@@ -182,6 +182,9 @@ Recommended:   A, because Stage 20 (the last base-release merge) was followed by
 Stage 39 does not depend on this decision and starts now. Stage 40's brief is written by Stage 39
 under option A; under option B the operator tells Stage 39 to write the Stage 41 brief instead.
 
+Answered 2026-10-29, 13:10 local: option A. Stage 40 (Fable 5.1, xhigh, fresh session) accepts the
+merge before Stage 41 pushes; Stage 39 writes its brief. The running Stage 39 session was told.
+
 ## Work completed
 
 - This record and the Stage 39 brief, committed together; the Stage 39 session started from this

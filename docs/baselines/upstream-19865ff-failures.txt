@@ -1,0 +1,42 @@
+D111 wired: 'it didn't push the tag' with no leading no starts the lesson watch in the prompt hook; a quoted one doesn't
+D117 (4): with the index warm, a wall hit reads 1,000 every-repo learnings in under 30 ms of CPU
+D137: past the 2-hour wait the same ask starts a new run, and the re-armed block carries no hand-off into it
+J14c through the hooks: Colima stopped and gh missing before a skill run, the failed probes come first in the block, and two failed runs charge nothing
+a file init never wrote blocks, in Trail's own folders too: a new learning, a file next to the shim
+a graft repo moves to trail once the trail command is installed, and only once
+a path that was already dirty before init stays the person's, even after init wrote over it
+a real trail init: its files read clean until the person edits one
+a recorded path turned into a link blocks, whatever it points at
+a repo graft set up, on a machine without trail, hands the agent the trail line once a week
+a repo moving from graft: init's deletion of the old graft skill (its whole folder) and shims is recorded, so it reads clean while they stay gone (fix-lab5)
+a repo trail set up before 0.23 moves to the shared hook (#619), and what init cleared away reads clean while it stays gone
+a repo with no .claude/ before trail init: the untracked folder holding only Trail's files reads clean
+a second init over its own uncommitted files keeps them recorded
+a session start that moves a graft repo to trail moves the other agents too
+a slow workspace holds the tool list up for 4 s at most
+a tracked file init deleted reads clean while it stays gone; brought back different, it blocks
+a version the later turn names wins; a new run starts from its own ask
+after a ship whose push went through in this session, the status question hears that its check passed
+any later edit to a recorded path makes it block again; putting init's bytes back reads clean
+any other dirty file still blocks: a source file, a staged one, another change to settings.json
+auto --pair tells Trail the agent running init and the agents set up on this laptop
+batches synthesize in parallel and the graph is byte-identical to a serial run
+cached 10 minutes by checkout and probe, in state/probes.json (0600), no path in the clear
+compact: the cut block's failed ready probes are said and ride on the new injection; a block too long is the pointer
+credit in the prompt hook (D57): a passed check settles the use on the next prompt, failed probes as forms; then one correction
+git probes: clean tree, the on-branch probe, a ref that exists or not
+graft's shims replaced by Trail's (deleted and untracked) read clean too
+init --connect claims the code, sends the stages in order around init, and a summary with no code in it
+long commands: ignoredFailure stays linear on 2 MB (capped child process)
+no record, or a record for another checkout, ignores nothing
+probes the file asks for that are off the allowlist never run, even with a skill edited by hand
+ready probes: passed ones in one line, a failed one said first and kept on the injection
+recordUse: two uses in a row failing at the same step mark it needs-fix, with why and what it was
+right after init, the paths it recorded read clean: a first init's untracked folders and a changed tracked file
+session start: 5 skills against a 15 MB packed-refs stay inside the hook's budget (too big to read: not sure); a 2 MB one is read
+subcommand: the deadline judges nothing and caches nothing; the scan has its own 150 ms deadline
+the deadline: slow probes are left out, the block still comes inside 400 ms
+the gate's deny where the session can't ask says the same: not again this turn, even after a yes in chat
+the lab case: right after trail init, with nothing of the person's dirty, the tree reads clean
+the prompt hook's 400 ms: a job cue's block gives the subcommand scan only what the hook's deadline leaves
+the readers stay fast and never throw on long or deeply nested commands

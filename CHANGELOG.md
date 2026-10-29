@@ -11,6 +11,13 @@
   compiles nothing (the native grammars are dev dependencies now). The version stays
   `0.25.0-nishadherath.6` until the release; every fork feature is kept.
 
+### Fixed
+
+- **`sync-global` no longer asks for a Kotlin binary.** Its report said the global install's
+  `tree-sitter-kotlin` binary was missing and told the operator to copy one from an earlier
+  install. Since 0.28.0 the depth tier parses on WASM and a global install has no
+  `tree-sitter-kotlin` at all, so the line and its step are gone.
+
 ## 0.28.0
 
 ### Added

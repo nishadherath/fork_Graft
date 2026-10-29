@@ -238,8 +238,9 @@ about the operator's machine and this repository, not preferences.
   is retired because its fix is in `src/ai/crux.ts` with a test.
   After the copy, the sync reports the install (2026-10-26): each optional converter
   missing from the global `node_modules`, with the reinstall command the next bullet
-  describes, and whether `tree-sitter-kotlin/build/Release` holds a `.node` binary, with
-  the copy step below if not. These lines never fail the sync; `--dry-run` prints them too.
+  describes, and whether npm linked the `trail` command (2026-10-27). These lines never
+  fail the sync; `--dry-run` prints them too. The Kotlin binary line was dropped on
+  2026-10-29: a 0.28.0 install has no `tree-sitter-kotlin` (the 0.28.0 bullet below).
 - **A merge that changes the base release needs a reinstall first.**
   `sync-global` refuses when the base releases differ, because the global
   `node_modules` would not match the new code (0.21.1 to 0.23.0 moved

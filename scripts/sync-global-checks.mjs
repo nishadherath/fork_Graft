@@ -1,18 +1,16 @@
 /**
  * Read-only checks on the global @nanonets/graft install, run by `sync-global` after it has
- * copied `dist/`. They report and never fail: a missing converter or Kotlin grammar is for the
- * operator to act on (docs/operator-protocol.md section 10).
+ * copied `dist/`. They report and never fail: a missing converter or `trail` command is for
+ * the operator to act on (docs/operator-protocol.md section 10).
  *
  * Only `package.json` `optionalDependencies` count as converters; the global root is the one
- * `sync-global` finds with `npm root -g`, passed in as `target`.
+ * `sync-global` finds with `npm root -g`, passed in as `target`. Nothing here looks for a
+ * native grammar binary: since 0.28.0 the depth tier parses on WASM shipped in `dist/`, and a
+ * global install has no `tree-sitter-kotlin` at all.
  */
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-const KOTLIN_STEP =
-  "copy node_modules/tree-sitter-kotlin/build/Release from a previous global install " +
-  "(docs/operator-protocol.md section 10)";
 
 /**
  * The command that puts this fork's converters back into the global install: the fork is packed
@@ -45,11 +43,10 @@ function trailShimPresent(shimDir, platform) {
 
 /**
  * Report the global install at `target`: each optional converter from `forkPkg` that has no
- * package folder there, whether `tree-sitter-kotlin` has a compiled `.node` binary, and, when
- * `shimDir` is given and the fork's package declares a `trail` bin, whether npm has linked that
- * command. A sync copies `dist/` and cannot create shims, so a missing one is fixed by the
- * tarball reinstall. Returns the lines to print, the missing converter names, the Kotlin result
- * and the trail result (`null` when it was not checked).
+ * package folder there, and, when `shimDir` is given and the fork's package declares a `trail`
+ * bin, whether npm has linked that command. A sync copies `dist/` and cannot create shims, so a
+ * missing one is fixed by the tarball reinstall. Returns the lines to print, the missing
+ * converter names and the trail result (`null` when it was not checked).
  */
 export function checkGlobalInstall({ target, forkRoot, forkPkg, shimDir, platform = process.platform }) {
   const lines = [];
@@ -67,15 +64,6 @@ export function checkGlobalInstall({ target, forkRoot, forkPkg, shimDir, platfor
     lines.push(`sync-global: all ${converters.length} optional converters present`);
   }
 
-  const kotlinDir = join(target, "node_modules", "tree-sitter-kotlin", "build", "Release");
-  const kotlinPresent = existsSync(kotlinDir) && readdirSync(kotlinDir).some((file) => file.endsWith(".node"));
-  if (kotlinPresent) {
-    lines.push("sync-global: tree-sitter-kotlin binary present");
-  } else {
-    lines.push(`sync-global: tree-sitter-kotlin binary missing in ${kotlinDir}`);
-    lines.push(`  step: ${KOTLIN_STEP}`);
-  }
-
   let trailPresent = null;
   if (shimDir && forkPkg.bin?.trail) {
     trailPresent = trailShimPresent(shimDir, platform);
@@ -87,7 +75,7 @@ export function checkGlobalInstall({ target, forkRoot, forkPkg, shimDir, platfor
     }
   }
 
-  return { lines, missing, kotlinPresent, trailPresent };
+  return { lines, missing, trailPresent };
 }
 
 /**

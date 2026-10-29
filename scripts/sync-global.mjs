@@ -3,10 +3,11 @@
  * Copy this fork's built `dist/` into the global @nanonets/graft install, so the
  * `graft` every other repository runs is exactly what this tree builds.
  *
- * Why a copy and not `npm i -g .`: a global install from the fork re-runs the
- * native grammar builds, and `tree-sitter-kotlin` does not compile under this
- * machine's Visual Studio (docs/operator-protocol.md section 10). The global
- * install already holds working binaries, so only `dist/` needs to move.
+ * Why a copy and not `npm i -g .`: a global install from the fork runs `prepare` (a full
+ * build) and reinstalls every dependency, when all that changed is `dist/`. Before 0.28.0
+ * it also recompiled the native grammars, which `tree-sitter-kotlin` could not do under this
+ * machine's Visual Studio (docs/operator-protocol.md section 10); since 0.28.0 the depth
+ * tier parses on WASM and the native grammars are dev dependencies.
  *
  * Guards: the two package versions must agree up to a fork suffix (a sync across
  * 0.x.y releases would pair new JS with old dependencies; "0.21.1-name" and
@@ -17,10 +18,9 @@
  * global `dist/` that the fork no longer builds are removed, so a renamed
  * module cannot leave a stale twin behind. `--dry-run` reports without writing.
  *
- * After the copy, `sync-global-checks.mjs` reports missing optional converters, the
- * Kotlin grammar binary and the `trail` command (the fork's second `bin` entry, which npm
- * links only at install, so a sync cannot create it), with the step that fixes each. Those
- * lines never fail the sync.
+ * After the copy, `sync-global-checks.mjs` reports missing optional converters and the
+ * `trail` command (the fork's second `bin` entry, which npm links only at install, so a sync
+ * cannot create it), with the step that fixes each. Those lines never fail the sync.
  *
  *   node scripts/sync-global.mjs [--dry-run]
  */

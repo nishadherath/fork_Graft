@@ -40,11 +40,11 @@ the chore ran on a Haiku subagent inside this session.
 
 ## Work completed
 
-- SunoDJ `8af8f68` by the subagent, accepted here; then `4333a5d` removing the two GRAFT documents (operator's choice, 3 tool calls, dispatch not run).
+- SunoDJ `8af8f68` by the subagent, accepted here; then `4333a5d` (the two GRAFT documents) and `ea1a379` (the graft section of `CLAUDE.md`), operator's choices, dispatch not run.
 
 ## Unresolved questions
 
-- SunoDJ `CLAUDE.md:100,110` still name `GRAFT_init.md` (removed in `4333a5d`); rewording that graft section is the operator's.
+- None for SunoDJ. Graft mentions left there are ignore rules (`.gitignore:18-19`, `.ignore:1-5`) and history (`docs/HANDOFF.md:26`).
 
 ## Exact next action
 

@@ -77,7 +77,7 @@ npm install -g @trailhq/trail-code && trail init
 ## Contents
 
 - [How it works](#how-it-works)
-- [This build: 0.28.0-nishadherath](#this-build-0280-nishadherath)
+- [This build: 0.28.0-nishadherath.1](#this-build-0280-nishadherath1)
 - [Quick start](#quick-start)
 - [Part 1: The graft map](#part-1-the-graft-map), your code
 - [Part 2: Learnings](#part-2-learnings), what you, your agents and your team know
@@ -101,7 +101,7 @@ The graft map tells your agent *where* things are. Learnings tell it *why* they 
 
 ---
 
-## This build: 0.28.0-nishadherath
+## This build: 0.28.0-nishadherath.1
 
 This is a fork of upstream Trail-code 0.25.0 (`@nanonets/graft`, MIT), built from the fork's `main`. It carries every upstream 0.25.0 feature and adds the following. It keeps the `graft` command, the `@nanonets/graft` package and the `graft/` folder, and the same package installs a second command, `trail`, with trail's command layout; with that command on PATH a graft-wired repository moves to trail's layout at its next session start, unless `GRAFT_NO_TRAIL_SWITCH=1` is set. The structured and documents tiers and LSP edges are on by default, each with a `--no-` switch to turn it off; the reasoning setting is opt-in; the token line shows on `--deep` and the fixes apply to every build.
 
@@ -118,9 +118,9 @@ This is a fork of upstream Trail-code 0.25.0 (`@nanonets/graft`, MIT), built fro
 Install this build from a tarball packed in a checkout of the fork, not from npm:
 
 ```bash
-npm pack                                           # writes nanonets-graft-0.28.0-nishadherath.tgz
-npm install -g ./nanonets-graft-0.28.0-nishadherath.tgz
-graft --version                                    # 0.28.0-nishadherath
+npm pack                                           # writes nanonets-graft-0.28.0-nishadherath.1.tgz
+npm install -g ./nanonets-graft-0.28.0-nishadherath.1.tgz
+graft --version                                    # 0.28.0-nishadherath.1
 ```
 
 This build carries a `fork` marker in its `package.json`. `graft upgrade` refuses and names the install route (`node scripts/sync-global.mjs` from the fork), because npm's latest is upstream's release and would replace this build with it and install upstream's `trail` command (`@trailhq/trail-code`). The update line and `graft version` report upstream's newer release and say the merge is the operator's decision, with no command to run. Details of each change are in [CHANGELOG.md](CHANGELOG.md).

@@ -10,7 +10,7 @@ This repository is the operator's fork of `@nanonets/graft` (see `AGENTS.md`). I
 
 | Part | Where | Purpose |
 |---|---|---|
-| Graft CLI | Global npm install, built from this fork (`C:\nvm4w\nodejs\node_modules\@nanonets\graft`). `trail --version` reports `0.28.0-nishadherath` | Runs every `trail` command. `graft` is the same program under its other name |
+| Graft CLI | Global npm install, built from this fork (`C:\nvm4w\nodejs\node_modules\@nanonets\graft`). `trail --version` reports `0.28.0-nishadherath.1` | Runs every `trail` command. `graft` is the same program under its other name |
 | Index | `.trail/cache/` (git-ignored by `.trail/.gitignore`, rebuilt locally). The wiring graph is `.trail/cache/.graph/wiring.json` | The map Graft answers from. 1,020 files, 9,841 nodes and 31,071 edges as built on 2026-10-27 |
 | Deep layer | `.trail/cache/` manifest (`manifest.json`) and per-node summaries, last built 2026-10-27 with `graft build --deep`, model `openai:deepseek-flash` (`GRAFT_PROVIDER`, `GRAFT_MODEL`, `GRAFT_BASE_URL` in `.env`) | Concept summaries and per-symbol crux from a language model. Optional. Costs API tokens to refresh. Section 4 has the last run's counts |
 | Project instructions | `AGENTS.md`, section "Code navigation (Graft)" | Tells every agent when to ask Graft first |
@@ -33,7 +33,7 @@ Run these from the repository root, one command at a time.
    trail --version
    ```
 
-   If the command is missing, install Graft as described in `docs/operator-protocol.md` section 10 (the 0.28.0-nishadherath tarball installs `trail` and `graft` together), then run the check again. This repository was verified with `0.28.0-nishadherath`.
+   If the command is missing, install Graft as described in `docs/operator-protocol.md` section 10 (the 0.28.0-nishadherath.1 tarball installs `trail` and `graft` together), then run the check again. This repository was verified with `0.28.0-nishadherath.1`.
 
 2. Install dependencies, then build the index:
 

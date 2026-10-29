@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.28.0-nishadherath.1 (2026-10-29)
+
 ### Changed
 
 - **Signing in to a Trail workspace is off unless `TRAIL_CLOUD=1`.** `trail login` in every form

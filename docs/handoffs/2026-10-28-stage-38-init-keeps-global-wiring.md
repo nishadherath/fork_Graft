@@ -55,7 +55,8 @@ from: "Stage 38 (claude-sonnet-5-5, high, side session); brief: docs/handoffs/20
 
 ## Unresolved questions
 
-- The global install still has the bug until a sync: `node scripts/sync-global.mjs` after the release (operator's call).
+- The global install had the bug until a sync: `node scripts/sync-global.mjs` after the release. Done: the operator
+  synced release `0.25.0-nishadherath.6` on 2026-10-29 (its handoff, Exact next action).
   Until then repeat the all-hosts init after any hosts-only init (Stage 37 recipe).
 - Line 2483 differs from the kickoff's 2479 because the new comment adds four lines above `teamCheckCommand`. Recheck the
   two cited lines whenever `src/cli.ts` moves. `system-reference.md:502` still says "lines 2417 to 2455" for the trail command

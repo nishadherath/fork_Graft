@@ -75,8 +75,8 @@ frontmatter; the operator reads the titles in `git status` and the files before 
   read "behind the code, refreshed on the next query", not "built" as the brief asked. Trail says it refreshes on
   the next query, and this stage did not run `trail build`. Recommended: one `trail status` in each from a temp
   folder before committing, and accept "behind" only if it then reads "in sync".
-- Operator: user-level graft wiring (`~/.claude/skills/graft/SKILL.md`, from Stage 35), and `SunoDJ` and
-  `GitHub.AI.Extend\Graft` by hand (stale helper files, no stamp).
+- Operator: user-level graft wiring (`~/.claude/skills/graft/SKILL.md`, from Stage 35; removed by hand 2026-10-29), and
+  `SunoDJ` and `GitHub.AI.Extend\Graft` by hand (stale helper files, no stamp).
 
 ## Exact next action
 

@@ -95,8 +95,8 @@ This handoff. No source change, no commit outside this repository, no push.
 (1) Done after this handoff was first committed: the user-level wiring was restored by `trail init D:\Code\OpenAI\Tensegrity
 --agents agents antigravity claude gemini hermes --yes` from `%TEMP%`, an init selecting every host; a claude-only init would
 retract the Codex hooks and the Antigravity skill, the mirror of finding 1. Three files changed, Tensegrity's tree did not.
-Repeat it after any hosts-only init until D33 lands. Operator: (2) decide D33 to D35; (3) commit the ten repositories with
-the Stage 36 commands; (4) open Stage 38 (the sidebar card).
+Repeat it after any hosts-only init until D33 lands (it did: `0.25.0-nishadherath.6`, synced 2026-10-29). Operator: (2)
+decide D33 to D35; (3) commit the ten repositories with the Stage 36 commands; (4) open Stage 38 (the sidebar card).
 
 ## Cost projection
 

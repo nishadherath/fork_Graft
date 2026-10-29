@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.28.0-nishadherath (2026-10-29)
+
 ### Changed
 
 - **Merged upstream Trail-code 0.28.0** (`trailhq/Trail-Code` `19865ff`, 0.28.0 plus

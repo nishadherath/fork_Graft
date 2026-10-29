@@ -2,7 +2,7 @@
 stage: "Stage 44: the sign-in marks the Codex table it writes, logout removes only a marked one, and the workspace-only server is quiet while sign-in is off"
 model: claude-sonnet-5-5
 effort: high
-status: ready
+status: done
 created: 2026-10-29
 from: "the sign-in analysis session (Claude Fable 5.1), on the operator's answer D38 A of 2026-10-29 20:43; the question is in docs/handoffs/2026-10-29-stage-43-sign-in-fork-fixes.md"
 ---
@@ -62,12 +62,37 @@ gate green under D13, committed. Nothing pushed.
 
 ## Work completed
 
-- None yet.
+Claude Sonnet 5.5 at high, as a subagent of the accepting session, 2026-10-29. Commit `7afdc64` (nothing pushed).
+
+- `src/hosts/mcp-config.ts`: exported `CODEX_SIGN_IN_MARK` (text as in the brief); new `upsertCodexSignInToml(id, path)`
+  writes the marked table, and returns `'unchanged'` with the file untouched when `stripTomlSection` finds a `trail` or a
+  `graft` table; `removeCodexToml(path, name, { markedOnly })` returns `'absent' | 'kept' | 'removed' | 'deleted'`, and
+  `'kept'` leaves the file byte for byte; `stripTomlSection` also returns the table's lines as `section`. `upsertCodexToml`
+  is unchanged, so init's write over a marked table drops the mark.
+- `src/cli.ts`: `addAgentEntries` calls `upsertCodexSignInToml`; `removeCodexEntry` passes `{ markedOnly: true }`.
+- `src/mcp/server.ts:173`: the brains-only server answers `NOT_CONNECTED_LINE` only when `signInEnabled()`, else `''`.
+- Tests, all failing first (8 of 23 in `cloud-login-fork`, and `hosts-trail` at the import): `test/cloud-login-fork.test.ts`
+  (existing logout cases now use a marked table; new: markedOnly return values, CRLF, the sign-in write and its four
+  no-write cases, init taking over a marked table, logout keeping init's table in both forms, `login --code` then `logout`
+  through the CLI for a marked write and for an init or graft table, the brains-only server off and on);
+  `test/hosts-trail.test.ts` (round trip through the marked write; new case that init's table is kept);
+  `test/mcp-connector.test.ts` (`TRAIL_CLOUD: "1"` on the two cases, with the fork comment; the second case is the
+  connector's own message and does not depend on the server line).
+- CHANGELOG: the two Unreleased entries edited as the brief says; no new entry.
+- Gate on `7afdc64`'s tree, Git Bash, fresh scratch `HOME`/`USERPROFILE`, `DO_NOT_TRACK=1`, `TRAIL_CLOUD` unset:
+  `npm run build && npm test` gave 4479 tests, 4339 pass, 38 fail, 102 skipped (Stage 43: 4470, 4329, 39, 102).
+- D13: 34 of the 38 failing names are in `docs/baselines/upstream-19865ff-failures.txt`. The other four, rerun alone under
+  fresh scratch homes: `ignored-code` 2 of 2 pass; `trace-perf` 1 pass, 1 skipped; `skills-prompt` "the check line
+  carries the values of the block it checks" passes (the file's two failures are baseline lines); `trace-guard-fast`
+  "a guard call takes under 2 ms" fails alone (the timing test Stage 43 named). No failure in a file this stage touched
+  beyond `hosts-trail` "a session start that moves a graft repo to trail moves the other agents too" (baseline). D13 held.
 
 ## Unresolved questions
 
 - None known. A sign-in on a Codex wired for `graft` leaves Codex on `graft mcp`; whether that server passes the
   workspace through is upstream's question, not this stage's.
+- `trace-guard-fast` "a guard call takes under 2 ms" is a timing test that fails here without this stage's help (also in
+  Stage 43's gate); it is not in the baseline file.
 
 ## Exact next action
 

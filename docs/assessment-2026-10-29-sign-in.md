@@ -184,7 +184,12 @@ Recommended:   B until the operator plans a sign-in, then A. The feature is dorm
                   here, and the merge stage already judged the gate under D13.
 ```
 
-If A is chosen: Sonnet 5.5, effort high. Kickoff prompt:
+Answered 2026-10-29 19:36 (operator): A, plus a third change: every sign-in refuses unless `TRAIL_CLOUD=1`, with a
+message that names the variable. Done as Stage 43, commit `88d59b3`, accepted the same evening; the handoff
+`docs/handoffs/2026-10-29-stage-43-sign-in-fork-fixes.md` holds the dispatch record, the acceptance and the open
+decision D38 (what `trail logout` does to a Codex table that `trail init` also writes).
+
+The kickoff prompt as it was given, for the record (Sonnet 5.5, effort high):
 
 ```
 Read docs/operator-protocol.md and AGENTS.md. Stage 43: two fork changes to the Trail sign-in, test first. (1) `trail logout` and `trail logout --workspace` of the last workspace also remove the user-level Codex `[mcp_servers.trail]` entry that `addAgentEntries` wrote (src/cli.ts). (2) `trail login --code` warns, after the sign-in, when `commandOnPath("trail")` is false, because this fork writes the installed launcher and the agents will find no `trail` command; name the install command in the warning. Tests in test/hosts-trail.test.ts and a new test/cloud-login-fork.test.ts. CHANGELOG entry under Unreleased. Gate: npm run build && npm test, judged under D13. Commit, then write docs/handoffs/2026-10-29-stage-43-sign-in-fork-fixes.md.

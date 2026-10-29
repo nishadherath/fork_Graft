@@ -92,22 +92,56 @@ that names the variable. Tests first, CHANGELOG under Unreleased, gate green und
   without `ls` on PATH, a test-side `spawnSync("ls")`; `trace-guard-fast`, `init-keep`, `claude-hook-timeouts` are
   timing). No regression from this change.
 
+## Acceptance (Claude Fable 5.1, 2026-10-29 evening)
+
+- The source diff of `88d59b3` read in full against the brief: the refusal runs before any network call or write in
+  `login`, `runConnectInit` and the `init --pair` path; `removeCodexToml` reuses `stripTomlSection`; the hook and MCP
+  offers go quiet while sign-in is off; the warning of (2) follows a successful sign-in. No em-dash, banned word or
+  US spelling in either commit. CHANGELOG: one Changed, two Fixed, in the fork's style.
+- Reruns alone from Git Bash, each under a fresh scratch `HOME`: `cloud-login-fork` 14 of 14 pass; `init-pair-stops`
+  5 pass, 1 skipped (the author's `ls` explanation holds: `test/init-pair-stops.test.ts:81`); `hosts-trail` 10 pass,
+  1 fail, "a session start that moves a graft repo to trail moves the other agents too", which is line 15 of the D13
+  baseline, so plain upstream fails it here too. D13 verdict accepted: no regression from Stage 43.
+- Found during acceptance: the operator's `~/.codex/config.toml` already holds `[mcp_servers.trail]` with
+  `command = "trail"`, `args = ["mcp"]`, written by `trail init` (Stages 35 to 38), not by a sign-in. With `88d59b3`
+  a `trail logout` on this machine removes it, connected or not. The analysis of 2026-10-29 listed "logout leaves the
+  Codex entry" as a con without noting that init writes the same table; that is why D38 exists.
+
 ## Unresolved questions
 
-- `NOT_CONNECTED_LINE` in `src/mcp/server.ts` (the workspace-only server, unpaired) still tells an agent to run
-  `trail login` while sign-in is off. The brief named only `teamLine`; left as is (a refusal with the agent line
-  follows). Silencing it needs `TRAIL_CLOUD=1` in `mcp-connector` lines 175 and 206.
-- `logout` removes the Codex `trail` table whoever wrote it: a plain `trail init` writes the same table, so a logout
-  also unwires Codex from init. As the brief decided; the remedy is `trail init` again.
-- `trail status` "sign-in off" row: not added (more than one line).
+```
+Decision:      D38. What `trail logout` does to the Codex `[mcp_servers.trail]` table that `trail init` also writes.
+Options:       A. The sign-in's write marks its table (a comment line inside it); logout removes a marked table only;
+                  `trail init`'s upsert rewrites the table without the mark and so takes it over. Same stage also
+                  silences `NOT_CONNECTED_LINE` while sign-in is off (`src/mcp/server.ts`, two env lines in
+                  `test/mcp-connector.test.ts`). One Sonnet stage.
+               B. Revert change (1): logout leaves the Codex table, as upstream does.
+               C. Ship as merged: logout removes the table whoever wrote it; `trail init` writes it again.
+Pros and cons: A: the right owner wins; about $2 to $3 and one 27-minute gate; the mark is a comment in a file the
+                  user may edit. B: no code; (1) is undone, so a laptop that signed in without ever running init keeps
+                  Codex on `trail mcp` after logout (upstream's state). C: no code; a logout here unwires Codex from
+                  trail until `trail init` runs, and does so even when nothing was connected.
+Blast radius:  A: `src/cli.ts` (`addAgentEntries`, logout), `src/hosts/mcp-config.ts` (upsert, remove), their tests;
+                  nothing outside the fork. B: one Fixed entry and four tests go. C: every Codex user of this fork who
+                  signs out; on this machine `~/.codex/config.toml:168`.
+Recommended:   A, before the next release. C changes a command's effect on a file init owns; B gives up the change the
+                  operator asked for. Nothing is pushed, so C ships nowhere until the operator decides.
+```
+
+- `trail status` "sign-in off" row: not added (more than one line); not planned.
 - Gate caveat: launch the gate from Git Bash, not cmd.exe, so `ls` is on PATH for `init-pair-stops`.
 
 ## Exact next action
 
-Write the failing tests in `test/cloud-login-fork.test.ts` for (1), (2) and (3); run that file alone; then implement
-in the order (3), (2), (1); build; gate; CHANGELOG; commit with `Co-Authored-By: Claude Sonnet 5.5
-<noreply@anthropic.com>`; set this file's `status: done` and fill Work completed with the gate counts and the D13
-comparison. Blocked: stop and report in five lines (what, where, what was tried, what is needed, what it costs).
+The operator answers D38. On A: Stage 44 on Sonnet 5.5 at high, as a subagent of the accepting session or a fresh
+session, with this prompt:
+
+```
+Read docs/operator-protocol.md, AGENTS.md and docs/handoffs/2026-10-29-stage-43-sign-in-fork-fixes.md (D38 A). Stage 44, test first: (1) `addAgentEntries` (src/cli.ts) writes the Codex `[mcp_servers.trail]` table with a marker comment line inside it, through a variant of `upsertCodexToml` (src/hosts/mcp-config.ts); `removeCodexToml`, as `trail logout` calls it, removes the table only when the marker is present; `trail init`'s own upsert rewrites the table without the marker. (2) While `signInEnabled()` is false, the workspace-only MCP server (`trail mcp --brains`, src/mcp/server.ts) answers with no `NOT_CONNECTED_LINE`; give the two `mcp-connector` cases at lines 175 and 206 `TRAIL_CLOUD: "1"` with the fork comment. Tests in test/cloud-login-fork.test.ts and test/hosts-trail.test.ts. CHANGELOG under Unreleased. Never run a graft or trail command in this checkout. Gate `npm run build && npm test` from Git Bash under a fresh scratch HOME, judged under D13. Commit with the Sonnet trailer, then write docs/handoffs/2026-10-29-stage-44-codex-table-owner.md. Do not push.
+```
+
+On B or C: the release stage follows the pattern of `docs/handoffs/2026-10-29-stage-41-release-0.28.0-nishadherath.md`
+(Sonnet 5.5 at high), with the version `0.28.1-nishadherath`; on B it first reverts (1) with its tests.
 
 ## Session dispatch decision
 

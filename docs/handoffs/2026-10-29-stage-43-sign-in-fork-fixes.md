@@ -2,7 +2,7 @@
 stage: "Stage 43: three fork changes to the Trail sign-in (logout removes the Codex entry, login warns without trail on PATH, sign-in off unless TRAIL_CLOUD=1)"
 model: claude-sonnet-5-5
 effort: high
-status: ready
+status: done
 created: 2026-10-29
 from: "the sign-in analysis session (Claude Fable 5.1), on the operator's /session-dispatch of 2026-10-29 19:36; D37 A with addition (3), per docs/assessment-2026-10-29-sign-in.md section 5"
 ---
@@ -71,11 +71,36 @@ that names the variable. Tests first, CHANGELOG under Unreleased, gate green und
 
 ## Work completed
 
-- None yet. The brief above is the whole specification.
+- Commit `88d59b3` (local, not pushed). Tests first: `test/cloud-login-fork.test.ts` (14 cases) failed on the old
+  code for the right reasons (13 failed, the "existing connection keeps working" guard passed), then passed.
+- (3) `signInEnabled(env)` in `src/cloud/workspace.ts`; `refuseSignIn()` in `src/cli.ts` runs first in `login`,
+  `runConnectInit` (after its dry-run branch) and the `init` action for `--pair` (unless `--list-agents`);
+  `teamSignInLine` and the MCP server's `teamLine` are silent while off.
+- (2) `loginWithCode` warns on stderr through `trailOnPath()` after the sign-in lines; the package name comes from
+  `readPackageName`.
+- (1) `removeCodexToml` beside `upsertCodexToml` in `src/hosts/mcp-config.ts`; `removeCodexEntry()` is called in both
+  logout branches (the last workspace, and plain logout, before the "not connected" check as the Cursor entries are).
+- Upstream tests given `TRAIL_CLOUD: "1"` with the fork comment: `trail-connect-cli` (envFor), `init-agents-auto`
+  (env), `init-pair-reviews` (two spawns), `init-pair-stops` (two spawns), `mcp-connector` (the team-line case, two
+  rpc calls). `hosts-trail` gained a round-trip test. CHANGELOG: one Changed and two Fixed entries.
+- Gate (fresh scratch HOME and USERPROFILE, `DO_NOT_TRACK=1`, `TRAIL_CLOUD` unset): 4470 tests, 4329 pass, 39 fail,
+  102 skipped (Stage 42: 4454 / 4305 / 47; the 16 new tests all pass).
+- D13: 39 failing names; 34 are in `docs/baselines/upstream-19865ff-failures.txt`. The other five were not:
+  the file-level marker of `skills-probes-init-paths-1b` (its six subtests are baseline names and fail alone too),
+  and four tests that passed on a rerun of their files alone from Git Bash under a fresh HOME
+  (`init-pair-stops` "a folder that isn't a git repo" failed in the gate only because the gate ran from cmd.exe
+  without `ls` on PATH, a test-side `spawnSync("ls")`; `trace-guard-fast`, `init-keep`, `claude-hook-timeouts` are
+  timing). No regression from this change.
 
 ## Unresolved questions
 
-- Whether `trail status` should show a "sign-in off" row. Out of scope unless it costs one line; say so in the report.
+- `NOT_CONNECTED_LINE` in `src/mcp/server.ts` (the workspace-only server, unpaired) still tells an agent to run
+  `trail login` while sign-in is off. The brief named only `teamLine`; left as is (a refusal with the agent line
+  follows). Silencing it needs `TRAIL_CLOUD=1` in `mcp-connector` lines 175 and 206.
+- `logout` removes the Codex `trail` table whoever wrote it: a plain `trail init` writes the same table, so a logout
+  also unwires Codex from init. As the brief decided; the remedy is `trail init` again.
+- `trail status` "sign-in off" row: not added (more than one line).
+- Gate caveat: launch the gate from Git Bash, not cmd.exe, so `ls` is on PATH for `init-pair-stops`.
 
 ## Exact next action
 

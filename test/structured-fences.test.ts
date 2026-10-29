@@ -230,3 +230,39 @@ test("fences: a build warms the languages a README's fences name when no source 
     await warmDepthGrammars(DEPTH_LANGS);
   }
 });
+
+const SHOUT = "class Greeter {\n    fun shout() {\n        greet()\n    }\n}\n";
+const FENCE_GREET = doc(["# Usage", "", "~~~kotlin", "fun greet() = 1", "~~~"]);
+
+async function builtGraph(tag: string, files: Record<string, string>) {
+  const dir = tmpRepo(tag);
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(join(dir, path, ".."), { recursive: true });
+    writeFileSync(join(dir, path), text);
+  }
+  patchBuildConfig(dir, { structured: true });
+  const outDir = join(dir, "graft");
+  await buildGraph(dir, { contextDir: outDir, reuse: false });
+  return readGraph(wiringPath(outDir));
+}
+
+test("fences: a code call with no code candidate never resolves into a README fence symbol", async () => {
+  const graph = await builtGraph("structured-fences-target", { "src/Main.kt": SHOUT, "README.md": FENCE_GREET });
+  assert.ok(graph.nodes.some((n) => n.id === "README.md#greet"), "the fence symbol is in the graph");
+  assert.ok(
+    !graph.edges.some((e) => e.relation === "calls" && e.source === "src/Main.kt#Greeter.shout" && e.target === "README.md#greet"),
+    "documentation is not a call target",
+  );
+});
+
+test("fences: a code call still resolves to a real function of the same name as a fence symbol", async () => {
+  const graph = await builtGraph("structured-fences-real", {
+    "src/Main.kt": SHOUT,
+    "src/Util.kt": "fun greet() = 2\n",
+    "README.md": FENCE_GREET,
+  });
+  const targets = graph.edges
+    .filter((e) => e.relation === "calls" && e.source === "src/Main.kt#Greeter.shout")
+    .map((e) => e.target);
+  assert.deepEqual(targets, ["src/Util.kt#greet"]);
+});

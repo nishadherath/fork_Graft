@@ -17,6 +17,7 @@ import { toPosixPath } from "../util/paths.js";
 import type { EdgeV1, Kind, NodeV1, Relation } from "./types.js";
 import { languageOf, type RawEdge } from "./extract.js";
 import { genericLangOf } from "./generic.js";
+import { structuredLangOf } from "./structured/index.js";
 import { indexStructured, resolveStructuredRef, type StructuredIndex } from "./resolve-structured.js";
 
 const IMPORT_EXTS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py"];
@@ -166,6 +167,10 @@ export function resolveEdges(
       }
       continue;
     }
+    // A symbol a document hosts (a README fence, a page script) is documentation, not a
+    // call target: no by-name edge from code may land on it. Structured-tier edges carry
+    // a `ref` and resolve against their own index.
+    if (structuredLangOf(n.path) !== null) continue;
     push(globalName, n.name, n);
     let fileMap = perFileName.get(n.path);
     if (!fileMap) perFileName.set(n.path, (fileMap = new Map()));

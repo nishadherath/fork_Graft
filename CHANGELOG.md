@@ -16,6 +16,11 @@
 
 ### Fixed
 
+- **A call in code no longer resolves into a README fence.** A symbol a document hosts (a
+  tagged Markdown fence, a page script) was an ordinary call target, so a Kotlin method
+  calling `greet()` with no code candidate got `calls -> README.md#greet`, and `callers`
+  then presented documentation as code. By-name resolution now skips every symbol whose
+  file the structured tier claims; a call to a real code symbol resolves as before.
 - **`sync-global` no longer asks for a Kotlin binary.** Its report said the global install's
   `tree-sitter-kotlin` binary was missing and told the operator to copy one from an earlier
   install. Since 0.28.0 the depth tier parses on WASM and a global install has no

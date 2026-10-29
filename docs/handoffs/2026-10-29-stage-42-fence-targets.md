@@ -2,7 +2,7 @@
 stage: "Stage 42: code calls must not resolve into README fence symbols"
 model: claude-sonnet-5-5
 effort: medium
-status: in-progress
+status: done
 created: 2026-10-29
 from: "Stage 40 smoke test, via session local_6c0345a1 (learning l-053d69dd)"
 ---
@@ -27,13 +27,15 @@ A symbol hosted by a structured-tier document (a Markdown fence symbol, a page s
 
 ## Work completed
 - Fix, two tests and CHANGELOG bullet committed as d2b51e8; `test/structured-fences.test.ts` passes 13/13 alone.
-- Gate: run once by Stage 41 on the release tree (counts and D13 judgement to be added after its report).
+- Gate on 8c58170 (`npm run build && npm test`, fresh scratch HOME, Node 26.7.0): 4454 tests, 4305 pass, 47 fail, 0 cancelled, 102 skipped. Run once for Stages 41 and 42; Stage 41 released on it as a498f6f, tag v0.28.0-nishadherath.
+- D13: 13 failing names are not in `docs/baselines/upstream-19865ff-failures.txt` (8 baseline names did not fail). The 12 files holding them, rerun alone under fresh HOMEs, pass except `a guard call takes under 2 ms` (trace-guard-fast), which also fails on plain upstream 19865ff. Verdict: no regression from d2b51e8.
+- Mistake recorded: a stray `run-tests.mjs --help` started a second full suite during the reruns; it ended on its own and did not touch the gated results.
 
 ## Unresolved questions
 - None.
 
 ## Exact next action
-Add the two tests to `test/structured-fences.test.ts` and run that file alone.
+None; the stage is done.
 
 ## Cost projection
 Sonnet 5.5, about 40 turns, the protocol's $2 to $4 band for a 60-turn stage scaled down: about $1.50 to $3 at API list price.

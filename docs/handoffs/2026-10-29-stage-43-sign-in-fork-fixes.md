@@ -143,7 +143,8 @@ Read docs/operator-protocol.md, AGENTS.md and docs/handoffs/2026-10-29-stage-43-
 ```
 
 On B or C: the release stage follows the pattern of `docs/handoffs/2026-10-29-stage-41-release-0.28.0-nishadherath.md`
-(Sonnet 5.5 at high), with the version `0.28.1-nishadherath`; on B it first reverts (1) with its tests.
+(Sonnet 5.5 at high), with the version `0.28.0-nishadherath.1` (the fork numbers its releases on one base as `.N`);
+on B it first reverts (1) with its tests.
 
 ## Session dispatch decision
 

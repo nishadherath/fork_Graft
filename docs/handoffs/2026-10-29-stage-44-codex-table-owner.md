@@ -87,6 +87,23 @@ Claude Sonnet 5.5 at high, as a subagent of the accepting session, 2026-10-29. C
   "a guard call takes under 2 ms" fails alone (the timing test Stage 43 named). No failure in a file this stage touched
   beyond `hosts-trail` "a session start that moves a graft repo to trail moves the other agents too" (baseline). D13 held.
 
+## Acceptance (Claude Fable 5.1, 2026-10-29 evening)
+
+- The diff of `7afdc64` read in full against the brief: the sign-in writes only where Codex has neither a `trail` nor
+  a `graft` table and marks what it writes; logout passes `markedOnly`; init's `upsertCodexToml` is untouched; the
+  workspace-only server is quiet while sign-in is off. `stripTomlSection`'s new `section` field is additive
+  (`retract.ts` reads `rest` only). CHANGELOG entries edited, none added. No em-dash, banned word or US spelling in
+  either commit.
+- Reruns alone from Git Bash, each under a fresh scratch `HOME`: `cloud-login-fork` 23 of 23; `mcp-connector` 13 of
+  13; `hosts-trail` 11 of 12, the failure being D13 baseline line 15.
+- Against a copy of the operator's real `~/.codex/config.toml` in the scratchpad, through `dist/hosts/mcp-config.js`:
+  logout with `markedOnly` answered `kept` and left the copy byte for byte; the sign-in write answered `unchanged` and
+  left it too. The real file was not touched.
+- `trace-guard-fast` "a guard call takes under 2 ms" is machine speed: Stage 42 saw it fail on plain upstream
+  `19865ff` as well. Not a regression. D13 held; Stage 44 accepted.
+- Next: Stage 45, release `0.28.0-nishadherath.1`, brief `docs/handoffs/2026-10-29-stage-45-release-0.28.0-nishadherath.1.md`,
+  Sonnet 5.5 at high in a fresh session, when the operator decides to release.
+
 ## Unresolved questions
 
 - None known. A sign-in on a Codex wired for `graft` leaves Codex on `graft mcp`; whether that server passes the
@@ -96,9 +113,8 @@ Claude Sonnet 5.5 at high, as a subagent of the accepting session, 2026-10-29. C
 
 ## Exact next action
 
-Write the failing tests first and run `test/cloud-login-fork.test.ts` alone; implement (1) then (2); build; gate;
-CHANGELOG; commit with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; set this file's `status: done`
-and fill Work completed with the commit, the gate counts and the D13 comparison. Blocked: stop and report in five lines.
+Done and accepted. The next stage is the release, Stage 45, when the operator decides: a fresh session on Sonnet 5.5
+at high reads `docs/handoffs/2026-10-29-stage-45-release-0.28.0-nishadherath.1.md` and does its first action.
 
 ## Session dispatch decision
 

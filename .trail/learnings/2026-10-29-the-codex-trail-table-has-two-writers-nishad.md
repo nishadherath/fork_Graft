@@ -33,6 +33,6 @@ Read the writer of an entry before deciding that a remover is missing.
 - `init-pair-stops` "a folder that isn't a git repo" fails from cmd.exe only: the test calls `ls`. Launch the gate
   from Git Bash. `hosts-trail` "a session start that moves a graft repo to trail" is D13 baseline line 15 here.
 
-In the code: `addAgentEntries` and `removeCodexEntry` (src/cli.ts), `upsertCodexToml` and `removeCodexToml`
-(src/hosts/mcp-config.ts), `runConnectInit`'s Codex path; D38 and the Stage 44 prompt in
-docs/handoffs/2026-10-29-stage-43-sign-in-fork-fixes.md.
+In the code: `addAgentEntries` (the only Codex writer at sign-in) and `removeCodexEntry` (src/cli.ts),
+`upsertCodexToml` and `removeCodexToml` (src/hosts/mcp-config.ts); D38 in
+docs/handoffs/2026-10-29-stage-43-sign-in-fork-fixes.md, answered A, done as Stage 44.

@@ -128,6 +128,8 @@ Recommended:   A, before the next release. C changes a command's effect on a fil
                   operator asked for. Nothing is pushed, so C ships nowhere until the operator decides.
 ```
 
+D38 answered 2026-10-29 20:43 (operator): A. Stage 44, `docs/handoffs/2026-10-29-stage-44-codex-table-owner.md`.
+
 - `trail status` "sign-in off" row: not added (more than one line); not planned.
 - Gate caveat: launch the gate from Git Bash, not cmd.exe, so `ls` is on PATH for `init-pair-stops`.
 

@@ -23,11 +23,15 @@
  */
 import { parseWasm, type TsNode } from "../generic.js";
 import { extractEmbedded } from "../container.js";
-import type { ExtractResult } from "../extract.js";
+import type { ExtractResult, Language } from "../extract.js";
 import type { NodeV1 } from "../types.js";
 import { cssUnitDrafts } from "./css.js";
 import { emitUnits, isExternalTarget, splitLines, structuredFileNode, type UnitDraft } from "./shared.js";
 import type { RawEdge } from "../extract.js";
+
+/** The depth-tier language a page's script blocks parse as. A build warms its
+ * grammar before the parse loop (`warmStructuredGrammars`). */
+export const PAGE_SCRIPT_LANGUAGE: Language = "typescript";
 
 /** Longest signature kept for an element's opening tag. */
 const MAX_SIGNATURE_CHARS = 120;
@@ -101,7 +105,7 @@ function attributeRefs(ctx: Context, tag: string, tagNode: TsNode, owner: number
 
 function embed(ctx: Context, body: TsNode, owner: number): void {
   const script = body.text;
-  const block = extractEmbedded(ctx.rel, script, "typescript", body.startPosition.row, ctx.minted);
+  const block = extractEmbedded(ctx.rel, script, PAGE_SCRIPT_LANGUAGE, body.startPosition.row, ctx.minted);
   if (!block) return;
   ctx.embedded.push(...block.nodes);
   // Only structure survives: a page's inline script calling a function is not a

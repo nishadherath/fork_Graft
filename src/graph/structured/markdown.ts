@@ -142,6 +142,30 @@ function fenceLanguage(tag: string): Language | null {
   return languageOf(`x.${FENCE_TAG_EXTENSIONS[t] ?? t}`);
 }
 
+/** A fence opener's tag: the first word of its info string, or "" when it has none. */
+function fenceTag(open: RegExpExecArray): string {
+  return (open[2] ?? "").trim().split(/\s+/)[0] ?? "";
+}
+
+/**
+ * The depth-tier languages `source`'s tagged fences name, each once. The build
+ * warms these before its synchronous parse loop, since a depth grammar loads
+ * asynchronously and {@link extractMarkdown} parses each fence with one. Every
+ * line that opens a fence is read, inside a code block or an HTML block too, so
+ * the set can hold a language no fence of {@link scanMarkdown} uses but never
+ * misses one it does; the cost is one regular expression per line.
+ */
+export function fenceLanguagesOf(source: string): Language[] {
+  if (!source.includes("```") && !source.includes("~~~")) return [];
+  const out = new Set<Language>();
+  for (const line of splitLines(source)) {
+    const open = BACKTICK_FENCE.exec(line) ?? TILDE_FENCE.exec(line);
+    const lang = open ? fenceLanguage(fenceTag(open)) : null;
+    if (lang) out.add(lang);
+  }
+  return [...out];
+}
+
 /** Heading text as a reader sees it: links, images, code spans, emphasis, HTML
  * tags and backslash escapes reduced to their words. */
 function plainText(raw: string): string {
@@ -225,8 +249,7 @@ export function scanMarkdown(source: string): MarkdownScan {
 
     const open = BACKTICK_FENCE.exec(line) ?? TILDE_FENCE.exec(line);
     if (open) {
-      const info = (open[2] ?? "").trim();
-      fence = { char: open[1]![0]!, length: open[1]!.length, lang: info.split(/\s+/)[0] ?? "", firstLine: i + 1 };
+      fence = { char: open[1]![0]!, length: open[1]!.length, lang: fenceTag(open), firstLine: i + 1 };
       para = null;
       continue;
     }

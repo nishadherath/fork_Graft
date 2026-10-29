@@ -221,7 +221,7 @@ test("connected with Claude Code wired, Claude Code gets one user-level trail en
   const env = envFor(trail.url);
   const r = await run(["init", repo, "--connect", GOOD_CODE, "--agents", "claude"], env);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stderr, /✓ Claude Code gets your workspace's brains in every project · restart it to pick them up$/m);
+  assert.match(r.stderr, /✓ Claude Code gets your team's learnings and skills in every project · restart it to pick them up$/m);
   const claudeJson = join(env.HOME!, ".claude.json");
   // This fork's entry is always the installed binary, never npx (serverEntry in mcp-config.ts).
   assert.deepEqual(JSON.parse(readFileSync(claudeJson, "utf8")).mcpServers.trail, { command: "trail", args: ["mcp", "--brains"] });

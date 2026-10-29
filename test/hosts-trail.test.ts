@@ -22,12 +22,12 @@ import { HOSTS, hostRelPath, hostWiringName } from '../src/hosts/registry.js';
 import { instructionBody, cursorRule } from '../src/hosts/instructions.js';
 import { trailSpelling } from '../src/claude/skill-template.js';
 import { GRAFT_MARKERS, TRAIL_MARKERS, fencedBlock, upsertSection } from '../src/hosts/sections.js';
-import { registerMcpConfigs } from '../src/hosts/mcp-config.js';
+import { registerMcpConfigs, serverEntry } from '../src/hosts/mcp-config.js';
 import { changed, runRetract } from '../src/hosts/retract.js';
 import { runInit } from '../src/claude/init.js';
 import { runUpkeep } from '../src/upkeep-run.js';
 import { readStamp, runningVersion, wiredHostIds } from '../src/upkeep.js';
-import { BRAND_ENV } from '../src/brand.js';
+import { BRAND_ENV, commandOnPath } from '../src/brand.js';
 import { tmpRepo } from './helpers.js';
 
 const ALL = HOSTS.map((h) => h.id);
@@ -267,4 +267,31 @@ test('CLI: trail init --dry-run names trail\'s files', () => {
   }
   assert.doesNotMatch(r.stderr, /graft\.mdc|steering[\\/]graft\.md|skills[\\/]graft/);
   assert.deepEqual(readdirSync(repo), [], 'a dry run writes nothing');
+});
+
+test("trail run through npx isn't installed: npx's own bin folder doesn't count, and agents still get the installed launcher", () => {
+  const root = mkdtempSync(join(tmpdir(), 'trail-npx-path-'));
+  const npxBin = join(root, '.npm', '_npx', 'a1b2c3', 'node_modules', '.bin');
+  const projectBin = join(root, 'repo', 'node_modules', '.bin');
+  const installed = join(root, 'global', 'bin');
+  for (const dir of [npxBin, projectBin, installed]) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'trail'), '#!/bin/sh\n');
+    chmodSync(join(dir, 'trail'), 0o755);
+  }
+  // `npx -y @trailhq/trail-code login`: npx puts its temporary copy first on PATH; the agents never see it.
+  assert.equal(commandOnPath('trail', { PATH: [npxBin, projectBin].join(delimiter) }), false);
+  assert.equal(commandOnPath('trail', { PATH: [npxBin, installed].join(delimiter) }), true);
+
+  // Upstream writes the npx launch here. This fork writes the installed launcher whatever PATH
+  // holds (see mcp-config.ts), and `trail init` warns through commandOnPath when it is missing.
+  const before = process.env.PATH;
+  try {
+    process.env.PATH = npxBin;
+    assert.equal(serverEntry({ brand: 'trail' }).command, 'trail');
+    process.env.PATH = installed;
+    assert.equal(serverEntry({ brand: 'trail' }).command, 'trail');
+  } finally {
+    process.env.PATH = before;
+  }
 });

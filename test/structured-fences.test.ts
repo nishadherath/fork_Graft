@@ -10,12 +10,19 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpRepo } from "./helpers.js";
 import { extractStructured, structuredLangOf } from "../src/graph/structured/index.js";
+import { fenceLanguagesOf } from "../src/graph/structured/markdown.js";
 import { buildGraph } from "../src/graph/build.js";
 import { checkGraph } from "../src/graph/check.js";
+import { DEPTH_WASM, setDepthParsersForTest, warmDepthGrammars } from "../src/graph/depth-parser.js";
+import type { Language } from "../src/graph/extract.js";
 import { readGraph, wiringPath } from "../src/graph/write.js";
 import { patchBuildConfig } from "../src/util/state.js";
 
 const MD = structuredLangOf("README.md")!;
+
+// Depth grammars are WASM and load asynchronously; extraction is synchronous.
+const DEPTH_LANGS = Object.keys(DEPTH_WASM) as Language[];
+await warmDepthGrammars(DEPTH_LANGS);
 
 function doc(lines: string[], eol = "\n"): string {
   return lines.join(eol) + eol;
@@ -170,4 +177,56 @@ test("fences: a README goes through a real build and checks as in sync", async (
 
   const check = await checkGraph(dir, { contextDir: outDir });
   assert.equal(check.ok, true, `check must be clean, got ${JSON.stringify(check)}`);
+});
+
+test("fences: the languages a README's fences name, each once, inside an HTML block too", () => {
+  const source = doc([
+    "```ts",            //  1
+    "```",              //  2
+    "~~~ Python title", //  3
+    "~~~",              //  4
+    "```text",          //  5
+    "```",              //  6
+    "<div>",            //  7
+    "```golang",        //  8
+    "</div>",           //  9
+    "```typescript",    // 10
+  ]);
+  assert.deepEqual(fenceLanguagesOf(source).sort(), ["go", "python", "typescript"]);
+  assert.deepEqual(fenceLanguagesOf(doc(["# No code", "", "Plain text."])), []);
+});
+
+test("fences: a build warms the languages a README's fences name when no source file is in them", async () => {
+  // Forget every grammar warmed above: the build alone has to load python's and kotlin's.
+  setDepthParsersForTest({});
+  try {
+    const dir = tmpRepo("structured-fences-warm");
+    writeFileSync(
+      join(dir, "README.md"),
+      doc([
+        "# Python",         //  1
+        "",                 //  2
+        "```python",        //  3
+        "def run():",       //  4
+        "    return 1",     //  5
+        "```",              //  6
+        "",                 //  7
+        "~~~kotlin",        //  8
+        "fun greet() = 1",  //  9
+        "~~~",              // 10
+      ]),
+    );
+    patchBuildConfig(dir, { structured: true });
+
+    const outDir = join(dir, "graft");
+    await buildGraph(dir, { contextDir: outDir, reuse: false });
+    const spans = Object.fromEntries(readGraph(wiringPath(outDir)).nodes.map((n) => [n.id, n.span]));
+    assert.equal(spans["README.md#run"], "L4-L5");
+    assert.equal(spans["README.md#greet"], "L9-L9");
+
+    const check = await checkGraph(dir, { contextDir: outDir });
+    assert.equal(check.ok, true, `check must be clean, got ${JSON.stringify(check)}`);
+  } finally {
+    await warmDepthGrammars(DEPTH_LANGS);
+  }
 });

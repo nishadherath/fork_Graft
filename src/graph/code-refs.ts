@@ -18,7 +18,7 @@
  * and are never scanned. Only TypeScript, JavaScript and Python are wired today;
  * another language joins by adding its node types to the two tables below.
  */
-import type Parser from "tree-sitter";
+import type { SyntaxNode } from "./depth-parser.js";
 import type { Language } from "./extract.js";
 
 /** Fewest dotted segments a name needs to be looked up as a key path. One segment
@@ -63,23 +63,23 @@ const DOC_ANCHOR = /^(?:\.{1,2}\/)?(?:[\w.-]+\/)*[\w.-]+\.(?:md|mdx|markdown)#[\
  * `<path>.md#<anchor>`, or null. A path inside a longer sentence is not taken: the
  * whole literal is the evidence that the code names the section.
  */
-export function docAnchorOf(node: Parser.SyntaxNode, lang: Language): string | null {
+export function docAnchorOf(node: SyntaxNode, lang: Language): string | null {
   if (!STRING_CONTENT[lang]?.has(node.type)) return null;
   const text = node.text.trim();
   return DOC_ANCHOR.test(text) ? text : null;
 }
 
-function same(a: Parser.SyntaxNode | null | undefined, b: Parser.SyntaxNode | null | undefined): boolean {
+function same(a: SyntaxNode | null | undefined, b: SyntaxNode | null | undefined): boolean {
   return !!a && !!b && a.tree === b.tree && a.id === b.id;
 }
 
 /** The segments of a pure member chain, root first, or null when the chain passes
  * through anything but member access (a call, an index, a computed member). */
-function chainSegments(node: Parser.SyntaxNode, lang: Language): string[] | null {
+function chainSegments(node: SyntaxNode, lang: Language): string[] | null {
   const shape = MEMBER_ACCESS[lang];
   if (!shape) return null;
   const out: string[] = [];
-  let cur: Parser.SyntaxNode | null = node;
+  let cur: SyntaxNode | null = node;
   while (cur) {
     if (TRANSPARENT_TYPES.has(cur.type)) {
       cur = cur.namedChildren[0] ?? null;
@@ -106,13 +106,13 @@ function chainSegments(node: Parser.SyntaxNode, lang: Language): string[] | null
  * segments, for a language this module wires; empty for every other node. Never
  * descends: the extractor's walk visits each node once and calls this on it.
  */
-export function keyRefsOf(node: Parser.SyntaxNode, lang: Language): string[] {
+export function keyRefsOf(node: SyntaxNode, lang: Language): string[] {
   if (STRING_CONTENT[lang]?.has(node.type)) {
     return [...node.text.matchAll(DOTTED_TOKEN)].map((m) => m[0]);
   }
   const shape = MEMBER_ACCESS[lang];
   if (!shape || node.type !== shape.type) return [];
-  const isCallee = (n: Parser.SyntaxNode): boolean =>
+  const isCallee = (n: SyntaxNode): boolean =>
     n.parent?.type === shape.call && same(n.parent.childForFieldName("function"), n);
   const parent = node.parent;
   const innerOfParent = parent?.type === shape.type && same(parent.childForFieldName(shape.object), node);

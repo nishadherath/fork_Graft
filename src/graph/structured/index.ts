@@ -21,15 +21,17 @@
  * machine-written and carry no unit worth locating.
  */
 import { basename } from "node:path";
+import { warmDepthGrammars } from "../depth-parser.js";
 import { loadWasmLanguage } from "../generic.js";
-import type { ExtractResult } from "../extract.js";
+import type { ExtractResult, Language } from "../extract.js";
+import { readSourceFile } from "../../util/source.js";
 import { extractCss } from "./css.js";
 import { extractGradle } from "./gradle.js";
-import { extractHtml } from "./html.js";
+import { PAGE_SCRIPT_LANGUAGE, extractHtml } from "./html.js";
 import { extractIni } from "./ini.js";
 import { extractJson } from "./json.js";
 import { extractMake } from "./make.js";
-import { extractMarkdown } from "./markdown.js";
+import { extractMarkdown, fenceLanguagesOf } from "./markdown.js";
 import { extractToml } from "./toml.js";
 import { extractShell } from "./shell.js";
 import { extractCmake, extractDockerfile } from "./targets.js";
@@ -115,15 +117,18 @@ const ALSO_NEEDS: Readonly<Record<string, readonly string[]>> = {
   astro: ["css"],
 };
 
-/** Warm the wasm grammars the given structured languages need. Same contract as
- * `warmGenericGrammars`: await once before the synchronous parse loop. An
- * unavailable grammar is skipped, and its files then extract to a file node only. */
+/** Warm the wasm grammars the given structured languages need, the depth grammar a
+ * page's scripts parse with included. Same contract as `warmGenericGrammars`: await
+ * once before the synchronous parse loop. An unavailable grammar is skipped, and its
+ * files then extract to a file node only. A Markdown file's fences name their own
+ * languages, so the build warms those per file ({@link embeddedDepthLanguages}). */
 export async function warmStructuredGrammars(langNames: Iterable<string>): Promise<void> {
   const wanted = new Set<string>();
   for (const name of langNames) {
     wanted.add(name);
     for (const extra of ALSO_NEEDS[name] ?? []) wanted.add(extra);
   }
+  if (STRUCTURED_LANGS.some((l) => l.family === "html" && wanted.has(l.name))) await warmDepthGrammars([PAGE_SCRIPT_LANGUAGE]);
   for (const name of wanted) {
     if (loaded.has(name)) continue;
     const row = STRUCTURED_LANGS.find((l) => l.name === name);
@@ -131,6 +136,24 @@ export async function warmStructuredGrammars(langNames: Iterable<string>): Promi
     const language = await loadWasmLanguage(row.wasm);
     if (language) loaded.set(name, language);
   }
+}
+
+/**
+ * The depth-tier languages the Markdown file at `path` embeds in tagged fences,
+ * read from the file so a build loads only the grammars its documents use. Empty
+ * for every other family (a page's script language is warmed with its own grammar
+ * by {@link warmStructuredGrammars}) and for a file that cannot be read, whose
+ * extraction then fails on its own.
+ */
+export function embeddedDepthLanguages(path: string, lang: StructuredLang): Language[] {
+  if (lang.family !== "markdown") return [];
+  let source: string | null;
+  try {
+    source = readSourceFile(path);
+  } catch {
+    return [];
+  }
+  return source === null ? [] : fenceLanguagesOf(source);
 }
 
 /** Extract one structured file. Synchronous; wasm-backed families need their

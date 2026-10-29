@@ -262,6 +262,14 @@ about the operator's machine and this repository, not preferences.
   and fewer edges (measured 2026-10-21: a method reported as a function,
   1 edge instead of 4), and the build prints one line naming the fix. The
   copy is still worth making for full fidelity.
+- **Since the 0.28.0 merge the Kotlin copy is not needed** (Stage 39, 2026-10-29).
+  Upstream #707 parses the depth tier on WASM: `tree-sitter-kotlin.wasm` is committed
+  in `src/graph/grammars/` and the build copies every depth grammar into
+  `dist/vendor/grammars/`. The native grammars are dev dependencies, loaded only by
+  `test/depth-parity.ts` and for a language in `NATIVE_ONLY` (none), so
+  `npm ci --ignore-scripts` alone gives full Kotlin fidelity. The merge was gated
+  without the copy, as was the plain upstream baseline. A fresh global install has no
+  `tree-sitter-kotlin` at all, so `sync-global`'s Kotlin line no longer applies.
 - **Never run a graft or trail command in a wired checkout as a smoke test.** Any
   command, `graft mcp` and `trail mcp` included, compares the repository's wiring
   stamp with the running version and rewrites the agent files on a mismatch.

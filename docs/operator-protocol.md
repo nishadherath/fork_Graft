@@ -318,7 +318,11 @@ about the operator's machine and this repository, not preferences.
   machine. Compare by test name, and rerun a test that fails on one side only,
   alone, before calling it a fault. Each merge therefore needs a baseline run of
   plain upstream (another 27 minutes). The fork does not fix or skip upstream's
-  machine-speed tests; that is for an upstream issue.
+  machine-speed tests; that is for an upstream issue. The scratch `HOME` a gate
+  runs under is fresh for that gate, never reused: the commit check writes
+  `~/.trail/sessions/<id>.ship-checks.json` under fixed test session ids, so a
+  second gate against the same `HOME` fails three `trail-scenario-hooks` tests
+  deterministically and alone (Stage 40, 2026-10-29).
 - **`npm test` is near the Windows command-line limit.** `scripts/run-tests.mjs`
   passes every test file as an absolute path on one command line: 28,371 of
   32,767 characters here on 2026-10-25 (486 files). A longer checkout path

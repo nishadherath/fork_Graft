@@ -2,7 +2,7 @@
 stage: "Stage 41: release 0.28.0-nishadherath, push, pack, reinstall and sync the global install, close out"
 model: claude-sonnet-5-5
 effort: high
-status: ready
+status: done
 created: 2026-10-29
 from: "Stage 40, docs/handoffs/2026-10-29-stage-40-acceptance.md (claude-fable-5-1, xhigh, local_6c0345a1), on its accept of merge 3337689"
 ---
@@ -72,7 +72,46 @@ worktree is gone and the remotes pruned. Gate green under D13, every step quoted
 
 ## Work completed
 
-- None yet.
+Run by local_884c65f6 (claude-sonnet-5-5, high; checked with `self` first). 2026-10-29.
+
+- **Launcher bullet** added to CHANGELOG Unreleased, commit `707f4ad`.
+- **Stage 42 folded into this release at the operator's instruction** (one gate, not two). Stage 42
+  committed its fix as `d2b51e8` (`src/graph/resolve.ts`, two tests, a CHANGELOG bullet) and its
+  handoff as `8c58170`; the release is cut on top, so 0.28.0-nishadherath carries that fix.
+- **The one gate** ran in Stage 42's session on `8c58170` (`npm run build && npm test`, fresh scratch
+  HOME, Node 26.7.0): 4,454 tests, 4,305 pass, 47 fail, 0 cancelled, 102 skipped; build clean.
+- **D13 judgement, made here** (diff of the 47 failing names against the 42-name baseline with
+  `comm`): 13 names not in the baseline, 8 baseline names not failing. Reruns alone, fresh HOME each:
+  the 12 files holding the 13 names (11 files in one run, `trace-guard-fast` with the skills files):
+  every non-baseline name passes alone except `a guard call takes under 2 ms` (`trace-guard-fast`),
+  which fails identically on plain upstream `19865ff` in `D:\Code\Claude\ub` (4 files, 43 tests, 36
+  pass, 6 fail, 1 skipped on both trees, the same 6 names). The other 5 alone-failures
+  (`cached 10 minutes`, `credit in the prompt hook (D57)`, `git probes`, `probes ... off the
+  allowlist`, `ready probes`) are baseline names. Verdict: no regression, D13 passes.
+- `hosts-trail` + `graft-to-trail`, nvm and nodejs off PATH, `node.exe` copy first,
+  `--test-concurrency=1`: 14 tests, 13 pass, 0 fail, 1 skipped, 16.9 s.
+- `node scripts/release.mjs 0.28.0-nishadherath` edited `package.json`, `package-lock.json`,
+  `CHANGELOG.md`, `README.md`; `GRAFT_init.md` lines 13 and 36 edited by hand. The gate ran before the
+  version bump, so I reran the files that read the version, CHANGELOG or README (16 files): 141 tests,
+  137 pass, 0 fail, 4 skipped.
+- Release commit `a498f6f` (five paths), annotated tag `v0.28.0-nishadherath`; `git push origin main`
+  (`77f9dd2..a498f6f`) and the tag are on `origin` (`git ls-remote --tags`: tag object `8727c5b`).
+- `npm pack --ignore-scripts`: `nanonets-graft-0.28.0-nishadherath.tgz`, 3,584,371 bytes, 1,706 files,
+  21.8 MB unpacked, in `D:\Code\Claude\fork_graft_releases` with
+  `nanonets-graft-0.28.0-nishadherath-CHANGELOG.md` (82,144 bytes).
+- **Global install**: backed up first to
+  `D:\Code\Claude\fork_graft_releases\global-backup-0.25.0-nishadherath.6-2026-10-29` (the package
+  folder and the six shims, 418 MB). `npm install -g <tgz> --ignore-scripts`: "added 1 package, removed
+  13 packages, and changed 32 packages in 6m" (5 min 56 s). Cleanup warned EPERM on a leftover
+  `.graft-6GToJLQh` folder (an MCP server held an old `.node` file); I removed the folder afterwards.
+- `node scripts/sync-global.mjs`: 0 changed, 0 stale removed, 1,687 unchanged; global answers
+  `--version 0.28.0-nishadherath`; both converters present; trail command present; no Kotlin line.
+- From an empty folder under `%TEMP%` (not a git repository, removed afterwards): `trail --version` and
+  `graft --version` both print `0.28.0-nishadherath`.
+- `git worktree remove D:/Code/Claude/ub` (the `--force` form was refused by the auto-mode classifier;
+  the plain form worked, the tree was clean), `git worktree prune`, `git remote prune origin` (nothing),
+  `git remote prune upstream` (stale remote branches removed). `git worktree list` shows only the fork.
+- Stage 42 then committed its handoff as `29d1bb8` (docs only) on top of the tag.
 
 ## Unresolved questions
 

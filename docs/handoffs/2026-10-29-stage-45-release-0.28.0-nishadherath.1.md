@@ -51,7 +51,9 @@ the global install synced, and `trail --version` from an empty folder outside an
 
 ## Verified facts (2026-10-29)
 
-- `main` is at `7afdc64` plus documentation commits; nothing is pushed since `7f2130c` (Stage 41's close-out).
+- `origin/main` is at `9c7eea6` (the Stage 44 brief), moved there by a push from this checkout at 21:07:53 on
+  2026-10-29 while Stage 44's author ran; so the Stage 43 feature `88d59b3` and the documents up to the Stage 44 brief
+  are on `origin` already. Not pushed: `7afdc64` (Stage 44), `6f6ff9b`, `3eba296` and later documentation commits.
   `git log origin/main..main --oneline` lists them.
 - The global install is `0.28.0-nishadherath` with the `trail` command linked (Stage 41's sync report), so the base
   release is unchanged.
